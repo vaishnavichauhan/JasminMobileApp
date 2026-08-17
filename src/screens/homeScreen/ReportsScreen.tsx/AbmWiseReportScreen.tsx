@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   RefreshControl,
   TextInput,
   Image,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
 import { AbmWiseTvaItem } from '../../../api/targetVsAchievementApi';
@@ -30,7 +32,7 @@ const fmtPct = (v: any): string => {
   if (v === null || v === undefined || v === '') return '—';
   const n = Number(v);
   if (isNaN(n)) return String(v);
-  return `${String(n)}%`;
+  return `${n.toFixed(2)}%`;
 };
 
 const getAbmName = (item: AbmWiseTvaItem): string =>
@@ -41,8 +43,8 @@ const AbmCard: React.FC<{ item: AbmWiseTvaItem; index: number }> = ({ item, inde
   const mtdQtyPct   = item.mtd_qty_percentage_ach ?? item.mtd_qty_pct_ach ?? item.mtd_qty_ach_pct ?? item.mtd_qty_percentage ?? item.mtd_qty_pct ?? null;
   const mtdValPct   = item.mtd_value_percentage_ach ?? item.mtd_value_pct_ach ?? item.mtd_value_ach_pct ?? item.mtd_value_percentage ?? item.mtd_value_pct ?? null;
   
-  const gQty   = item.growth_qty_percentage   ?? item.growth_qty   ?? null;
-  const gValue = item.growth_value_percentage ?? item.growth_value ?? null;
+  const gQty   = item.growth_qty_percentage?? null;
+  const gValue = item.growth_value_percentage??null;
   const gQtyN   = Number(gQty);
   const gValueN = Number(gValue);
 
@@ -55,6 +57,9 @@ const AbmCard: React.FC<{ item: AbmWiseTvaItem; index: number }> = ({ item, inde
         </View>
         <View style={styles.headerInfo}>
           <Text style={styles.abmNameText} numberOfLines={1}>{getAbmName(item)}</Text>
+          {!!item.state_name && (
+            <Text style={styles.abmSubtext} numberOfLines={1}>State: {item.state_name}</Text>
+          )}
         </View>
       </View>
 
@@ -233,25 +238,65 @@ const AbmWiseReportScreen: React.FC<{ navigation?: any }> = ({ navigation }) => 
     refreshing,
     error,
     searchQuery,
+    selectedState,
+    apiStatesList,
     setSearchQuery,
+    setSelectedState,
+    loadStatesDropdown,
     loadData,
     onRefresh,
   } = useAbmWiseStore();
 
+  console.log("dataABM...",data);
+  
+  
+  const [isStateModalOpen, setIsStateModalOpen] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
+    loadStatesDropdown(token);
     loadData(token);
-  }, [token, loadData]);
+  }, [token, loadStatesDropdown, loadData]);
+
+  // Extract unique state names dynamically from API states and items data
+  const availableStates = useMemo(() => {
+    const set = new Set<string>();
+    set.add('All States');
+    if (Array.isArray(apiStatesList)) {
+      apiStatesList.forEach((st) => set.add(st));
+    }
+    if (Array.isArray(data)) {
+      data.forEach((item) => {
+        const st = item.state_name || item.stateName || item.state;
+        if (st && typeof st === 'string' && st.trim().length > 0) {
+          set.add(st.trim());
+        }
+      });
+    }
+    if (set.size === 1) {
+      ['Gujarat', 'Maharashtra', 'Rajasthan', 'Madhya Pradesh', 'Delhi'].forEach((s) => set.add(s));
+    }
+    return Array.from(set);
+  }, [apiStatesList, data]);
 
   const filteredData = useMemo(() => {
-    if (!searchQuery.trim()) return data;
-    const q = searchQuery.toLowerCase().trim();
     return data.filter((item) => {
-      const name = getAbmName(item).toLowerCase();
-      return name.includes(q);
+      // 1. Search Query Filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const name = getAbmName(item).toLowerCase();
+        if (!name.includes(q)) return false;
+      }
+      // 2. State Filter (client-side fallback filter)
+      if (selectedState !== 'All States') {
+        const itemState = (item.state_name || item.stateName || item.state || '').toString().toLowerCase().trim();
+        if (itemState && itemState !== selectedState.toLowerCase().trim()) {
+          return false;
+        }
+      }
+      return true;
     });
-  }, [data, searchQuery]);
+  }, [data, searchQuery, selectedState]);
 
   if (loading) {
     return (
@@ -291,8 +336,8 @@ const AbmWiseReportScreen: React.FC<{ navigation?: any }> = ({ navigation }) => 
 
       {/* Main Content */}
       <View style={styles.mainContainer}>
-        {/* Search Bar */}
-        <View style={styles.searchRow}>
+        {/* Search & State Filter Row */}
+        <View style={styles.filterRow}>
           <TouchableOpacity
             activeOpacity={1}
             onPress={() => searchInputRef.current?.focus()}
@@ -324,6 +369,34 @@ const AbmWiseReportScreen: React.FC<{ navigation?: any }> = ({ navigation }) => 
               </TouchableOpacity>
             )}
           </TouchableOpacity>
+
+          {/* State Wise Filter Dropdown Button */}
+          <TouchableOpacity
+            style={[
+              styles.stateDropdownBtn,
+              selectedState !== 'All States' && styles.stateDropdownBtnActive,
+            ]}
+            activeOpacity={0.8}
+            onPress={() => setIsStateModalOpen(true)}
+          >
+            <Text
+              style={[
+                styles.stateDropdownText,
+                selectedState !== 'All States' && styles.stateDropdownTextActive,
+              ]}
+              numberOfLines={1}
+            >
+              {selectedState}
+            </Text>
+            <Image
+              source={Images.down}
+              style={[
+                styles.stateDropdownIcon,
+                selectedState !== 'All States' && styles.stateDropdownIconActive,
+              ]}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Card List */}
@@ -349,6 +422,70 @@ const AbmWiseReportScreen: React.FC<{ navigation?: any }> = ({ navigation }) => 
           }
         />
       </View>
+
+      {/* ── State Selection Modal Dropdown ── */}
+      <Modal
+        visible={isStateModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsStateModalOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsStateModalOpen(false)}
+        >
+          <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Select State</Text>
+              <TouchableOpacity
+                onPress={() => setIsStateModalOpen(false)}
+                style={styles.modalCloseBtn}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 350 }}>
+              {availableStates.map((st) => {
+                const isSelected =
+                  selectedState.toLowerCase().trim() === st.toLowerCase().trim();
+
+                return (
+                  <TouchableOpacity
+                    key={st}
+                    style={[
+                      styles.stateOptionItem,
+                      isSelected && styles.stateOptionItemActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedState(st);
+                      setIsStateModalOpen(false);
+                      loadData(token, false, st);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.stateOptionText,
+                        isSelected && styles.stateOptionTextActive,
+                      ]}
+                    >
+                      {st}
+                    </Text>
+                    {isSelected && (
+                      <View style={styles.checkmarkBadge}>
+                        <Text style={styles.checkmarkText}>✓</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -377,12 +514,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  /* Search Row */
-  searchRow: {
+  /* Filter Row (Search + State Dropdown) */
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 14,
     marginBottom: 10,
   },
   searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.white,
@@ -391,6 +531,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     paddingHorizontal: 12,
     height: 44,
+    marginRight: 8,
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -417,6 +558,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94A3B8',
     fontFamily: fontFamily.bold,
+  },
+
+  /* State Dropdown Button */
+  stateDropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FAF5FF',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#DDD6FE',
+    paddingHorizontal: 12,
+    height: 44,
+    minWidth: 110,
+    maxWidth: 150,
+  },
+  stateDropdownBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  stateDropdownText: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+    flex: 1,
+    marginRight: 6,
+  },
+  stateDropdownTextActive: {
+    color: colors.white,
+  },
+  stateDropdownIcon: {
+    width: 12,
+    height: 12,
+    tintColor: colors.primary,
+  },
+  stateDropdownIconActive: {
+    tintColor: colors.white,
   },
 
   /* List */
@@ -474,6 +656,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontFamily.bold,
     color: '#fff',
+  },
+  abmSubtext: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 2,
   },
 
   /* Grid container for 2-column small boxes */
@@ -581,6 +769,86 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.bold,
     color: '#fff',
+  },
+
+  /* Modal Overlay & Card */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontFamily: fontFamily.bold,
+    color: '#0F172A',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalCloseText: {
+    fontSize: 16,
+    color: '#94A3B8',
+    fontFamily: fontFamily.bold,
+  },
+  stateOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 6,
+    backgroundColor: '#F8FAFC',
+  },
+  stateOptionItemActive: {
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  stateOptionText: {
+    fontSize: 13,
+    fontFamily: fontFamily.medium,
+    color: '#334155',
+  },
+  stateOptionTextActive: {
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+  },
+  checkmarkBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkmarkText: {
+    color: colors.white,
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
   },
 });
 

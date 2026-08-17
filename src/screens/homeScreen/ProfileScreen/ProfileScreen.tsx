@@ -22,16 +22,16 @@ interface ProfileScreenProps {
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const [loggingOut, setLoggingOut] = useState(false);
   const { user, logout } = useAuth();
+  console.log("user...",user);
+  
 
   // User values
-  const username = user?.name || user?.username || 'Administrator';
+  const username = user?.username || '-';
   const firstLetter = (username.charAt(0) || 'A').toUpperCase();
-  const email = user?.email || user?.emailId || 'admin@jasminerp.com';
-  const mobile =
-    user?.mobile || user?.mobileNumber || user?.phone || user?.contact || '+91 98765 43210';
-  const role = user?.role || user?.userRole || 'Super Admin';
-  const department = user?.department || 'Jasmin ERP • Operations';
-  const userId = user?.id || user?.userId || user?._id || 'ERP-2026';
+  const email = user?.email || "-";
+  const mobile =user?.mob_no|| "-";
+  const role = user?.role || '-';
+  const userId = user?.id  || '-';
 
   const handleBack = () => {
     if (navigation && navigation.canGoBack && navigation.canGoBack()) {
@@ -124,13 +124,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               </Text>
             </View>
 
-            {/* Department */}
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Department</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>
-                {department}
-              </Text>
-            </View>
+            
           </View>
 
           {/* 4. Logout Row (Left side "Logout", Right side arrow) */}

@@ -67,16 +67,31 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       };
 
       const response = await loginApi(obj);
-      console.log('Login success response:', response);
+      console.log('Login response:', response);
 
       const userData = response.user || response.data || { username: username.trim() };
       const authToken = response.token || response.accessToken;
+      const successMsg =
+        response.message || response.msg || response.detail || 'Logged in successfully!';
 
-      await login(userData, authToken);
       setLoading(false);
+
+      Alert.alert(
+        'Login Successful',
+        successMsg,
+        [
+          {
+            text: 'OK',
+            onPress: async () => {
+              await login(userData, authToken);
+            },
+          },
+        ],
+        { cancelable: false }
+      );
     } catch (err: any) {
       setLoading(false);
-      Alert.alert('Login Error', err.message || 'An error occurred during login');
+      Alert.alert('Login Error...', err.message || 'An error occurred during login');
     }
   };
 

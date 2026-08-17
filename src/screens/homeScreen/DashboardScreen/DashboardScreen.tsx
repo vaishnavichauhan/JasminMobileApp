@@ -17,7 +17,7 @@ import { styles } from './DashboardScreenStyles';
 import Images from '../../../assets/images';
 import { useAuth } from '../../../context/AuthContext';
 import { colors } from '../../../styles/variables';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   CashDepositAbmItem,
   BrandWiseSaleItem,
@@ -32,6 +32,7 @@ import {
 } from '../../../store';
 import { fetchAlertsApi } from '../../../api/alertsApi';
 import type { AlertItem } from '../../../api/alertsApi';
+import { fetchOffersApi, OfferItem } from '../../../api/offersApi';
 
 const MONTH_NAMES = [
   'January',
@@ -60,7 +61,136 @@ const formatToDisplayDate = (dateStr: string): string => {
   return dateStr;
 };
 
-const DashboardScreen: React.FC = () => {
+const formatToDDMMYYYY = (dateStr: any): string => {
+  if (!dateStr) return '';
+  const str = String(dateStr).trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str;
+  if (str.includes('-')) {
+    const parts = str.split('T')[0].split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      if (year.length === 4) {
+        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+      }
+    }
+  }
+  return str;
+};
+
+const formatOfferTickerText = (item: OfferItem, index: number): string => {
+  const brand = (
+    item.brandName ||
+    item.brand_name ||
+    item.brand ||
+    item.title ||
+    'SPECIAL OFFER'
+  ).toUpperCase();
+  const fromDate = item.fromDate || item.from_date;
+  const toDate = item.toDate || item.to_date;
+
+  let dateText = '';
+  if (fromDate && toDate) {
+    dateText = `${formatToDDMMYYYY(fromDate)} to ${formatToDDMMYYYY(toDate)}`;
+  } else if (toDate) {
+    dateText = `${formatToDDMMYYYY(toDate)}`;
+  } else if (fromDate) {
+    dateText = `${formatToDDMMYYYY(fromDate)}`;
+  }
+
+  if (dateText) {
+    return `Offer ${index + 1} - ${brand} - ${dateText}`;
+  }
+  return `Offer ${index + 1} - ${brand}`;
+};
+
+/* ── 1-Line Horizontal Auto-Scrolling Active Offers Ticker ── */
+const ActiveOffersTicker: React.FC<{ token: string | null }> = ({ token }) => {
+  const [activeOffers, setActiveOffers] = React.useState<OfferItem[]>([]);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollPos = useRef(0);
+  const contentWidth = useRef(0);
+  const containerWidth = useRef(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadOffers = async () => {
+      try {
+        const list = await fetchOffersApi(token);
+        const active = list.filter(
+          (o) => o.status !== 'expired' && String(o.status).toLowerCase() !== 'expired'
+        );
+        if (isMounted) {
+          if (active.length > 0) {
+            setActiveOffers(active);
+          } else {
+            setActiveOffers([]);
+          }
+        }
+      } catch (e) {
+        if (isMounted) {
+          setActiveOffers([]);
+        }
+      }
+    };
+    loadOffers();
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
+
+  // Smooth continuous horizontal auto-scrolling
+  useEffect(() => {
+    if (activeOffers.length === 0) return;
+
+    const interval = setInterval(() => {
+      if (!scrollViewRef.current || contentWidth.current <= containerWidth.current) return;
+      scrollPos.current += 1.2;
+      if (scrollPos.current >= contentWidth.current - containerWidth.current + 20) {
+        scrollPos.current = 0;
+      }
+      scrollViewRef.current.scrollTo({ x: scrollPos.current, animated: false });
+    }, 25);
+
+    return () => clearInterval(interval);
+  }, [activeOffers]);
+
+  if (activeOffers.length === 0) return null;
+
+  return (
+    <View style={styles.tickerContainer}>
+      <View style={styles.tickerBadge}>
+        <Text style={styles.tickerBadgeText}>🔥 OFFERS</Text>
+      </View>
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onContentSizeChange={(w) => {
+          contentWidth.current = w;
+        }}
+        onLayout={(e) => {
+          containerWidth.current = e.nativeEvent.layout.width;
+        }}
+        style={styles.tickerScroll}
+        contentContainerStyle={styles.tickerContent}
+      >
+        {activeOffers.map((item, idx) => {
+          const offerText = formatOfferTickerText(item, idx);
+          return (
+            <Text key={item.id || idx} style={styles.tickerText} numberOfLines={1}>
+              {offerText}   •   
+            </Text>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+};
+
+const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavigation }) => {
+  const nav = useNavigation<any>();
+  const navigation = propNavigation || nav;
   const { user, token, logout, justLoggedIn, clearJustLoggedIn } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
 
@@ -102,25 +232,26 @@ const DashboardScreen: React.FC = () => {
     };
   }, [justLoggedIn, token, clearJustLoggedIn]);
 
-  // Zustand Store
+  // Dashboard store & state hooks
   const {
     activeTab,
-    cashDepositList,
-    brandSalesList,
-    apiStatesList,
     loading,
     refreshing,
-    abmSearchQuery,
+    cashDepositList,
+    brandSalesList,
     selectedState,
     isStateModalOpen,
+    abmSearchQuery,
     brandSearchQuery,
     selectedDate,
     isDateModalOpen,
     calendarYear,
     calendarMonth,
-    setAbmSearchQuery,
+    apiStatesList,
+    setActiveTab,
     setSelectedState,
     setIsStateModalOpen,
+    setAbmSearchQuery,
     setBrandSearchQuery,
     setSelectedDate,
     setIsDateModalOpen,
@@ -134,19 +265,14 @@ const DashboardScreen: React.FC = () => {
     onRefresh,
   } = useDashboardStore();
 
-  // Refs for Search Inputs
+  // TextInput refs
   const abmInputRef = useRef<TextInput>(null);
   const brandInputRef = useRef<TextInput>(null);
 
-  // Load states dropdown
-  useEffect(() => {
-    loadStatesDropdown(token);
-  }, [token, loadStatesDropdown]);
-
-  // Reset State filter and search queries whenever Dashboard Screen comes into focus
+  // Initial load: Fetch states list and data on screen focus
   useFocusEffect(
     React.useCallback(() => {
-      resetFilters();
+      loadStatesDropdown(token);
       loadCashDepositData(token, false, 'All States');
     }, [token, resetFilters, loadCashDepositData])
   );
@@ -173,8 +299,7 @@ const DashboardScreen: React.FC = () => {
     return cashDepositList.filter((item) => {
       const nameMatch =
         !abmSearchQuery.trim() ||
-        (item.abmName && item.abmName.toLowerCase().includes(abmSearchQuery.toLowerCase().trim()));
-
+        item.abmName.toLowerCase().includes(abmSearchQuery.toLowerCase().trim());
       const itemState = item.stateName || item.state_name || item.state || '';
       const stateMatch =
         selectedState === 'All States' ||
@@ -187,16 +312,17 @@ const DashboardScreen: React.FC = () => {
 
   // Filtered Brand Sales List based on search query for brand_name
   const filteredBrandSalesList = React.useMemo(() => {
-    if (!brandSearchQuery.trim()) return brandSalesList;
     const query = brandSearchQuery.toLowerCase().trim();
     return brandSalesList.filter((item) => {
-      const name =
-        item.brandName || item.brand_name || item.brand || item.name || '';
-      return name.toLowerCase().includes(query);
+      const brand = item.brandName || item.brand_name || '';
+      return (
+        !brandSearchQuery.trim() ||
+        brand.toLowerCase().includes(query)
+      );
     });
   }, [brandSalesList, brandSearchQuery]);
 
-  // User Header info
+  // User details
   const userName =
     user?.name ||
     user?.username ||
@@ -219,14 +345,17 @@ const DashboardScreen: React.FC = () => {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>
+        {/* Left Side: Logo + User Name & Role */}
         <View style={styles.headerLeft}>
-          <View style={styles.avatarWrapper}>
-            <Text style={styles.avatarLetter}>{avatarLetter}</Text>
-          </View>
+          <Image
+            source={Images.logo}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>
               {userName}
@@ -237,32 +366,24 @@ const DashboardScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Right Side Buttons */}
+        {/* Right Side Buttons: Notification + User Avatar Logo (Navigates to Profile) */}
         <View style={styles.headerRight}>
           {/* Notification Button */}
-          <TouchableOpacity
-            style={styles.notificationBtn}
-            activeOpacity={0.7}
-            onPress={() => {}}
-          >
-            <Image
-              source={Images.notification}
-              style={styles.notificationIcon}
-              resizeMode="contain"
-            />
-            <View style={styles.notificationDot} />
-          </TouchableOpacity>
+        
 
-          {/* Logout Button */}
+          {/* User Avatar Logo -> Navigates to Profile Screen when clicked */}
           <TouchableOpacity
-            style={styles.logoutBtn}
-            activeOpacity={0.7}
-            onPress={() => setShowLogoutConfirm(true)}
+            style={styles.avatarWrapper}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('Profile')}
           >
-            <Text style={styles.logoutIcon}>⏻</Text>
+            <Text style={styles.avatarLetter}>{avatarLetter}</Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* ── 1-Line Active Offers Auto-Scrolling Bar (Top, Right After Header) ── */}
+      <ActiveOffersTicker token={token} />
 
       {/* ── Logout Confirmation Modal ── */}
       <Modal

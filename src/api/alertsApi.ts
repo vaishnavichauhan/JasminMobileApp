@@ -13,8 +13,7 @@ export interface AlertItem {
 }
 
 export const getHostUrl = (): string => {
-  const isAndroid = Platform.OS === 'android';
-  return isAndroid ? 'http://10.0.2.2:5005' : 'http://localhost:5005';
+  return 'https://interlink.jasminmobile.com';
 };
 
 export const normalizeImageUrl = (url: any): string => {

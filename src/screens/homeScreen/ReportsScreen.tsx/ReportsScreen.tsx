@@ -17,12 +17,11 @@ interface ReportItem {
 }
 
 const reportData: ReportItem[] = [
-  { id: 1, title: 'Activity Report' },
-  { id: 2, title: 'Target vs Achievement' },
-  { id: 3, title: 'ABM Wise TvA Report' },
-  { id: 4, title: 'Stock vs Cash Deposit' },
-  { id: 5, title: 'Finance Brand Mapping' },
-  { id: 6, title: 'Finance & Brand Report' },
+  { id: 1, title: 'Target vs Achievement' },
+  { id: 2, title: 'ABM Wise TvA Report' },
+  { id: 3, title: 'Stock vs Cash Deposit' },
+  { id: 4, title: 'Finance & Brand Report' },
+  { id: 5, title: 'PriceList Report' },
 ];
 
 interface ReportsScreenProps {
@@ -35,14 +34,17 @@ const ReportsScreen: React.FC<ReportsScreenProps> = () => {
   const handleReportPress = (item: ReportItem) => {
     switch (item.id) {
       case 1:
-        navigation?.navigate('ActivityReportScreen');
-        break;
-      case 2:
         navigation?.navigate('TargetAchivement');
         break;
-        case 3:
+        case 2:
           navigation?.navigate('AbmWiseReportScreen');
           break;
+          case 3:
+            navigation?.navigate('StockVsCashReportScreen');
+            break;
+            case 5:
+            navigation?.navigate('PriceListReport');
+            break;
       default:
         console.log('Report selected:', item.title);
         break;

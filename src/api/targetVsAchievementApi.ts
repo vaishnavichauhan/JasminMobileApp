@@ -45,6 +45,9 @@ export interface AbmWiseTvaItem {
   abmName?: string;
   abm?: string;
   name?: string;
+  state_name?: string;
+  stateName?: string;
+  branch_name?: string;
 
   qty_tgt?: number | string;
   value_tgt?: number | string;
@@ -88,9 +91,7 @@ export interface AbmWiseTvaItem {
 }
 
 const getTvaBaseUrl = (): string => {
-  return Platform.OS === 'android'
-    ? 'http://10.0.2.2:5005/api'
-    : 'http://localhost:5005/api';
+  return BASE_URL;
 };
 
 export const fetchTvaData = async (token?: string | null): Promise<TvaItem[]> => {
@@ -126,7 +127,10 @@ export const fetchTvaData = async (token?: string | null): Promise<TvaItem[]> =>
   }
 };
 
-export const fetchAbmWiseTvaData = async (token?: string | null): Promise<AbmWiseTvaItem[]> => {
+export const fetchAbmWiseTvaData = async (
+  token?: string | null,
+  stateName?: string
+): Promise<AbmWiseTvaItem[]> => {
   try {
     const baseUrl = getTvaBaseUrl();
     const headers: Record<string, string> = {
@@ -136,7 +140,12 @@ export const fetchAbmWiseTvaData = async (token?: string | null): Promise<AbmWis
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${baseUrl}/target-vs-achievement/abm-wise`, {
+    let query = '';
+    if (stateName && stateName !== 'All States') {
+      query = `?state_name=${encodeURIComponent(stateName)}`;
+    }
+
+    const response = await fetch(`${baseUrl}/target-vs-achievement/abm-wise-summary${query}`, {
       method: 'GET',
       headers,
     });

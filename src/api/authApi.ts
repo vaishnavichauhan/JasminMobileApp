@@ -37,8 +37,10 @@ export const loginApi = async (payload: LoginPayload): Promise<LoginResponse> =>
       body: JSON.stringify(requestBody),
     });
 
+
     const text = await response.text();
     let data: any = {};
+
 
     if (text && text.trim().length > 0) {
       try {
@@ -48,7 +50,16 @@ export const loginApi = async (payload: LoginPayload): Promise<LoginResponse> =>
       }
     }
 
-    if (!response.ok) {
+    const isExplicitFailure =
+      data.success === false ||
+      data.success === 'false' ||
+      data.success === 'False' ||
+      data.success === 0 ||
+      data.status === 'error' ||
+      data.status === false ||
+      data.status === 'false';
+
+    if (!response.ok || isExplicitFailure) {
       const serverMessage =
         data.message ||
         data.error ||
@@ -61,7 +72,7 @@ export const loginApi = async (payload: LoginPayload): Promise<LoginResponse> =>
         serverMessage ||
         (response.status === 403
           ? '403 Forbidden: Invalid username/password or unauthorized access.'
-          : `Server returned status ${response.status}`);
+          : `Invalid username or password`);
 
       throw new Error(errorMessage);
     }

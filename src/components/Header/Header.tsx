@@ -78,7 +78,11 @@ export const Header: React.FC<HeaderProps> = ({
       ) : null}
 
       {title ? (
-        <Text style={[styles.headerTitle, titleStyle]} numberOfLines={1}>
+        <Text
+          style={[styles.headerTitle, titleStyle]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {title}
         </Text>
       ) : null}
@@ -114,6 +118,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '180deg' }],
   },
   headerTitle: {
+    flex: 1,
     fontSize: fontSize.semiLarge,
     color: colors.black,
     fontFamily: fontFamily.bold,

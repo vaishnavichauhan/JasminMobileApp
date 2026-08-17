@@ -17,24 +17,26 @@ const styles = StyleSheet.create({
   /* ── Safe Area ── */
   safeArea: {
     flex: 1,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.white,
   },
 
   /* ── Header ── */
   header: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.white,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: marginHorizontal.small,
     paddingVertical: HEADER_VERTICAL_PADDING,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
     ...Platform.select({
-      android: { elevation: 6 },
+      android: { elevation: 3 },
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.18,
-        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
       },
     }),
   },
@@ -43,26 +45,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    marginRight: 8,
+  },
+
+  headerLogo: {
+    width: responsiveWidth(32),
+    height: responsiveWidth(11),
+    borderRadius: 8,
+    marginRight: 10,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
   },
 
   avatarWrapper: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    width: responsiveWidth(10),
+    height: responsiveWidth(10),
+    borderRadius: responsiveWidth(10) / 2,
+    backgroundColor: colors.primary,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.55)',
+    borderWidth: 1.5,
+    borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: marginHorizontal.extraSmall,
   },
   avatarLetter: {
-    fontSize: fontSize.medium,
+    fontSize: 15,
     fontFamily: fontFamily.bold,
     color: colors.white,
     textAlign: 'center',
-    lineHeight: AVATAR_SIZE,
+    textAlignVertical: 'center',
     includeFontPadding: false,
   },
 
@@ -74,47 +85,47 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: fontSize.small,
     fontFamily: fontFamily.bold,
-    color: colors.white,
+    color: '#0F172A',
     letterSpacing: 0.2,
   },
   userRole: {
     fontSize: fontSize.extraSmall,
     fontFamily: fontFamily.regular,
-    color: 'rgba(255,255,255,0.75)',
-    marginTop: 2,
+    color: '#64748B',
+    marginTop: 1,
     textTransform: 'capitalize',
   },
 
   notificationBtn: {
-    width: responsiveWidth(9),
-    height: responsiveWidth(9),
-    borderRadius: responsiveWidth(9) / 2,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: responsiveWidth(10),
+    height: responsiveWidth(10),
+    borderRadius: responsiveWidth(10) / 2,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: marginHorizontal.extraSmall,
   },
   notificationIcon: {
     width: responsiveWidth(4.5),
     height: responsiveWidth(4.5),
-    tintColor: colors.white,
+    tintColor: '#0F172A',
   },
   notificationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FCD34D',
+    backgroundColor: '#EF4444',
     position: 'absolute',
     top: 6,
     right: 6,
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: colors.white,
   },
 
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'flex-end',
+    gap: 10,
   },
 
   logoutBtn: {
@@ -352,24 +363,66 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
 
+  /* ── Active Offers Auto-Scrolling Ticker Bar ── */
+  tickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#7C3AED',
+    height: 38,
+    paddingHorizontal: 12,
+    overflow: 'hidden',
+  },
+  tickerBadge: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginRight: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tickerBadgeText: {
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    color: '#0F172A',
+    letterSpacing: 0.4,
+  },
+  tickerScroll: {
+    flex: 1,
+    height: '100%',
+  },
+  tickerContent: {
+    alignItems: 'center',
+    paddingRight: 40,
+  },
+  tickerText: {
+    fontSize: 12.5,
+    fontFamily: fontFamily.bold,
+    color: '#FFFFFF',
+    marginRight: 16,
+  },
+
   /* ── Body ── */
   body: {
     flex: 1,
-    backgroundColor: '#F4F6FB',
-    borderTopLeftRadius: borderRadius.cardRadius || 24,
-    borderTopRightRadius: borderRadius.cardRadius || 24,
-    paddingTop: spaceVertical.small,
+    backgroundColor: colors.primary,
+    // borderTopLeftRadius: borderRadius.cardRadius || 24,
+    // borderTopRightRadius: borderRadius.cardRadius || 24,
+    paddingTop: spaceVertical.extraSmall,
     overflow: 'hidden',
   },
 
   /* ── Toggle Switch Container ── */
   toggleContainer: {
     flexDirection: 'row',
-    backgroundColor: '#EDE9FE',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     borderRadius: 14,
-    padding: 3,
+    padding: 4,
     marginHorizontal: marginHorizontal.small,
-    marginBottom: spaceVertical.small,
+    marginBottom: spaceVertical.extraSmall,
   },
   toggleBtn: {
     flex: 1,
@@ -379,21 +432,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   toggleBtnActive: {
-    backgroundColor: colors.primary,
-    shadowColor: colors.primary,
+    backgroundColor: colors.white,
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
   },
   toggleBtnText: {
     fontSize: fontSize.extraSmall || 12,
     fontFamily: fontFamily.medium,
-    color: colors.primary,
+    color: colors.white,
     textAlign: 'center',
   },
   toggleBtnTextActive: {
-    color: colors.white,
+    color: colors.primary,
     fontFamily: fontFamily.bold,
   },
 

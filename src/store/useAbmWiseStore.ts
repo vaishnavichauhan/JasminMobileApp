@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { fetchAbmWiseTvaData, AbmWiseTvaItem } from '../api/targetVsAchievementApi';
+import { fetchAllStatesApi } from '../api/dashboardApi';
 
 export interface AbmWiseState {
   data: AbmWiseTvaItem[];
@@ -7,10 +8,14 @@ export interface AbmWiseState {
   refreshing: boolean;
   error: string | null;
   searchQuery: string;
+  selectedState: string;
+  apiStatesList: string[];
 
   setSearchQuery: (query: string) => void;
+  setSelectedState: (state: string) => void;
   clearSearchQuery: () => void;
-  loadData: (token: string | null, isRefresh?: boolean) => Promise<void>;
+  loadStatesDropdown: (token: string | null) => Promise<void>;
+  loadData: (token: string | null, isRefresh?: boolean, stateToFetch?: string) => Promise<void>;
   onRefresh: (token: string | null) => Promise<void>;
 }
 
@@ -20,11 +25,25 @@ export const useAbmWiseStore = create<AbmWiseState>((set, get) => ({
   refreshing: false,
   error: null,
   searchQuery: '',
+  selectedState: 'All States',
+  apiStatesList: [],
 
   setSearchQuery: (query) => set({ searchQuery: query }),
+  setSelectedState: (state) => set({ selectedState: state }),
   clearSearchQuery: () => set({ searchQuery: '' }),
 
-  loadData: async (token, isRefresh = false) => {
+  loadStatesDropdown: async (token) => {
+    try {
+      const states = await fetchAllStatesApi(token);
+      if (Array.isArray(states) && states.length > 0) {
+        set({ apiStatesList: states });
+      }
+    } catch (err: any) {
+      console.warn('[ABM TvA Store] loadStatesDropdown error:', err?.message || err);
+    }
+  },
+
+  loadData: async (token, isRefresh = false, stateToFetch) => {
     try {
       if (isRefresh) {
         set({ refreshing: true });
@@ -33,7 +52,8 @@ export const useAbmWiseStore = create<AbmWiseState>((set, get) => ({
       }
       set({ error: null });
 
-      const list = await fetchAbmWiseTvaData(token);
+      const targetState = stateToFetch !== undefined ? stateToFetch : get().selectedState;
+      const list = await fetchAbmWiseTvaData(token, targetState);
       set({ data: Array.isArray(list) ? list : [] });
     } catch (err: any) {
       set({ error: 'Failed to load ABM wise report data' });

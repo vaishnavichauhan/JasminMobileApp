@@ -1,14 +1,14 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
-const ActivityReportScreen = () => {
+const FinanceBrandReport = () => {
     return (
         <View>
-            activity report
+            bjhrb
         </View>
     );
 }
 
 const styles = StyleSheet.create({})
 
-export default ActivityReportScreen;
+export default FinanceBrandReport;

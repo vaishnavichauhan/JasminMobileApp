@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import {
+  StyleSheet,
   View,
   Text,
   FlatList,
@@ -12,12 +13,11 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import { VariationItem } from '../../../api/priceListApi';
 import { usePriceListStore } from '../../../store';
-import { colors } from '../../../styles/variables';
+import { colors, fontFamily, borderRadius } from '../../../styles/variables';
 import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
-import styles from './PriceListStyles';
 
-const PriceListScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
+const PriceListReport: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { token } = useAuth();
   const { data, loading, refreshing, error, loadData } = usePriceListStore();
 
@@ -34,7 +34,7 @@ const PriceListScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
         style={styles.card}
         activeOpacity={0.7}
         onPress={() => {
-          navigation?.navigate('PriceListDetailScreen', {
+          navigation?.navigate('PriceListReportDetailScreen', {
             variationId: item.id,
             formatName: formatName,
           });
@@ -46,11 +46,11 @@ const PriceListScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
             <Text style={styles.numberText}>{indexStr}</Text>
           </View>
           
-          {/* Format name + View */}
+          {/* Format name + Report */}
           <View style={styles.infoContainer}>
             <Text style={styles.formatNameText}>{formatName}</Text>
-            <View style={styles.viewBadge}>
-              <Text style={styles.viewText}>View</Text>
+            <View style={styles.reportBadge}>
+              <Text style={styles.reportText}>Report</Text>
             </View>
           </View>
         </View>
@@ -91,9 +91,9 @@ const PriceListScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* Header component using the title "PriceLists" */}
+      {/* Header component using the title "PriceLists Report" */}
       <Header
-        title="PriceLists"
+        title="PriceLists Report"
         showBack={true}
         onBackPress={() => navigation?.goBack()}
         style={styles.headerStyle}
@@ -101,7 +101,7 @@ const PriceListScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
         iconColor={colors.white}
       />
 
-      {/* Main content layout matching reports style */}
+      {/* Main content layout */}
       <View style={styles.mainContainer}>
         <FlatList
           data={data}
@@ -112,7 +112,7 @@ const PriceListScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.stateIcon}>📋</Text>
-              <Text style={styles.stateText}>No price lists found</Text>
+              <Text style={styles.stateText}>No reports found</Text>
             </View>
           }
           refreshControl={
@@ -129,4 +129,133 @@ const PriceListScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   );
 };
 
-export default PriceListScreen;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.primary,
+  },
+  headerStyle: {
+    backgroundColor: colors.primary,
+    borderBottomWidth: 0,
+  },
+  headerTitleStyle: {
+    color: colors.white,
+    fontSize: 18,
+    fontFamily: fontFamily.bold,
+  },
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: borderRadius.cardRadius || 24,
+    borderTopRightRadius: borderRadius.cardRadius || 24,
+    overflow: 'hidden',
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#EDE9FE',
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  numberBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  numberText: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+  },
+  infoContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  formatNameText: {
+    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    color: '#1E293B',
+  },
+  reportBadge: {
+    backgroundColor: '#FAF5FF',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  reportText: {
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+  },
+  arrowIcon: {
+    width: 14,
+    height: 14,
+    tintColor: '#94A3B8',
+  },
+  center: {
+    flex: 1,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  stateIcon: {
+    fontSize: 44,
+    marginBottom: 12,
+  },
+  stateText: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  retryBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 32,
+  },
+  retryText: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: '#fff',
+  },
+  emptyContainer: {
+    paddingTop: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
+export default PriceListReport;

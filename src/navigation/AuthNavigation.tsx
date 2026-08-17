@@ -13,8 +13,12 @@ import AlertMasterScreen from '../screens/homeScreen/AlertMasterScreen/AlertMast
 import ProfileScreen from '../screens/homeScreen/ProfileScreen/ProfileScreen';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../styles/variables';
-import ActivityReportScreen from '../screens/homeScreen/ReportsScreen.tsx/ActivityReportScreen';
 import AbmWiseReportScreen from '../screens/homeScreen/ReportsScreen.tsx/AbmWiseReportScreen';
+import StockVsCashReportScreen from '../screens/homeScreen/ReportsScreen.tsx/StockVsCashReportScreen';
+import PriceListReport from '../screens/homeScreen/ReportsScreen.tsx/PriceListReport';
+import PriceListDetailScreen from '../screens/homeScreen/PriceListScreen/PriceListDetailScreen';
+import PriceListReportDetailScreen from '../screens/homeScreen/ReportsScreen.tsx/PriceListReportDetailScreen';
+import Watermark from '../components/Watermark/Watermark';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -25,8 +29,11 @@ export type RootStackParamList = {
   PriceList: undefined;
   Reports: undefined;
   TargetAchivement: undefined;
-  ActivityReportScreen:undefined;
   AbmWiseReportScreen:undefined;
+  StockVsCashReportScreen:undefined;
+  PriceListReport:undefined;
+  PriceListDetailScreen: { variationId: number | string; formatName: string };
+  PriceListReportDetailScreen: { variationId: number | string; formatName: string };
   AlertMaster: undefined;
   Profile: undefined;
 };
@@ -59,31 +66,38 @@ export const AuthNavigation = () => {
   }
 
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: colors.white },
-        animation: 'slide_from_right',
-      }}
-    >
-      {isLoggedIn ? (
-        <>
-          <Stack.Screen name="Home" component={TabNavigation} />
-          <Stack.Screen name="HomeScreen" component={HomeScreen} />
-          <Stack.Screen name="Offers" component={OffersScreen} />
-          <Stack.Screen name="OffersScreen" component={OffersScreen} />
-          <Stack.Screen name="PriceList" component={PriceListScreen} />
-          <Stack.Screen name="Reports" component={ReportsScreen} />
-          <Stack.Screen name="ActivityReportScreen" component={ActivityReportScreen} />
-          <Stack.Screen name="TargetAchivement" component={TargetAchivement} />
-          <Stack.Screen name="AbmWiseReportScreen" component={AbmWiseReportScreen} />
-          <Stack.Screen name="AlertMaster" component={AlertMasterScreen} />
-          <Stack.Screen name="Profile" component={ProfileScreen} />
-        </>
-      ) : (
-        <Stack.Screen name="Login" component={LoginScreen} />
-      )}
-    </Stack.Navigator>
+    <View style={{ flex: 1 }}>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.white },
+          animation: 'slide_from_right',
+        }}
+      >
+        {isLoggedIn ? (
+          <>
+            <Stack.Screen name="Home" component={TabNavigation} />
+            <Stack.Screen name="HomeScreen" component={HomeScreen} />
+            <Stack.Screen name="Offers" component={OffersScreen} />
+            <Stack.Screen name="OffersScreen" component={OffersScreen} />
+            <Stack.Screen name="PriceList" component={PriceListScreen} />
+            <Stack.Screen name="Reports" component={ReportsScreen} />
+            <Stack.Screen name="TargetAchivement" component={TargetAchivement} />
+            <Stack.Screen name="AbmWiseReportScreen" component={AbmWiseReportScreen} />
+            <Stack.Screen name="StockVsCashReportScreen" component={StockVsCashReportScreen} />
+            <Stack.Screen name="PriceListReport" component={PriceListReport} />
+            <Stack.Screen name="PriceListDetailScreen" component={PriceListDetailScreen} />
+            <Stack.Screen name="PriceListReportDetailScreen" component={PriceListReportDetailScreen} />
+            <Stack.Screen name="AlertMaster" component={AlertMasterScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+          </>
+        ) : (
+          <Stack.Screen name="Login" component={LoginScreen} />
+        )}
+      </Stack.Navigator>
+      {isLoggedIn }
+      {/* {isLoggedIn && <Watermark />} */}
+    </View>
   );
 };
 

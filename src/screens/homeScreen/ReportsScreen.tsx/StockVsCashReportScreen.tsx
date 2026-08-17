@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,15 @@ import {
   TouchableOpacity,
   StatusBar,
   RefreshControl,
-  Platform,
   TextInput,
   Image,
   Modal,
   ScrollView,
 } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
-import { fetchTvaData, TvaItem } from '../../../api/targetVsAchievementApi';
-import { colors, fontFamily, fontSize, borderRadius } from '../../../styles/variables';
+import { StockCashDepositItem } from '../../../api/stockCashDepositApi';
+import { useStockCashDepositStore } from '../../../store';
+import { colors, fontFamily, borderRadius } from '../../../styles/variables';
 import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
 
@@ -25,235 +25,265 @@ const fmtNum = (v: any): string => {
   if (v === null || v === undefined || v === '') return '—';
   const n = Number(v);
   if (isNaN(n)) return String(v);
-  return String(n);
+  return n.toLocaleString('en-IN');
 };
 
-const fmtPct = (v: any): string => {
+const fmtCurr = (v: any): string => {
   if (v === null || v === undefined || v === '') return '—';
   const n = Number(v);
   if (isNaN(n)) return String(v);
-  return `${n.toFixed(2)}%`;
+  return `₹${n.toLocaleString('en-IN')}`;
 };
 
-const getBranchName = (item: TvaItem): string =>
-  item.branch_name || item.branchName || item.name || item.branch || '—';
+const getTodayFormattedDate = (): string => {
+  const d = new Date();
+  const day = String(d.getDate()).padStart(2, '0');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+};
 
-const getAbmName = (item: TvaItem): string =>
-  item.abm_name || '—';
+const getBranchName = (item: StockCashDepositItem): string =>
+  item.branch_name || item.branchName || item.branch || 'Unknown Branch';
 
-/* ── Row helper ── */
-interface RowProps { label: string; value: string; sub?: string }
-const InfoRow: React.FC<RowProps> = ({ label, value, sub }) => (
-  <View style={styles.infoRow}>
-    <Text style={styles.infoLabel}>{label}</Text>
-    <View style={styles.infoValueWrap}>
-      <Text style={styles.infoValue}>{value}</Text>
-      {sub ? <Text style={styles.infoSub}>{sub}</Text> : null}
-    </View>
-  </View>
-);
+const getStateName = (item: StockCashDepositItem): string =>
+  item.state_name || item.stateName || item.state || '';
 
-/* ── Card component ── */
-const TvaCard: React.FC<{ item: TvaItem; index: number }> = ({ item, index }) => {
-  const gQty   = item.growth_qty_percentage   ?? item.growth_qty   ?? null;
-  const gValue = item.growth_value_percentage ?? item.growth_value ?? null;
-  const gQtyN   = Number(gQty);
-  const gValueN = Number(gValue);
+const getCityName = (item: StockCashDepositItem): string =>
+  item.city_name || item.cityName || item.city || '';
+
+const getAbmName = (item: StockCashDepositItem): string =>
+  item.abm_name || item.abmName || item.abm || '—';
+
+const getStoreType = (item: StockCashDepositItem): string =>
+  item.store_type || item.storeType || '—';
+
+const getStatusDetails = (item: StockCashDepositItem) => {
+  const raw = (item.status ?? item.store_status ?? 'Active').toString().trim().toLowerCase();
+  if (raw === '1' || raw === 'active' || raw === 'true') {
+    return { text: 'Active', isActive: true };
+  }
+  if (raw === '0' || raw === 'inactive' || raw === 'false') {
+    return { text: 'Inactive', isActive: false };
+  }
+  const str = (item.status ?? item.store_status ?? 'Active').toString().trim();
+  const isActive = !raw.includes('inact') && !raw.includes('disable') && raw !== '0';
+  return { text: str.charAt(0).toUpperCase() + str.slice(1), isActive };
+};
+
+/* ── Card Component ── */
+const StockVsCashCard: React.FC<{ item: StockCashDepositItem; index: number }> = ({
+  item,
+  index,
+}) => {
+  const todayDateStr = getTodayFormattedDate();
+  const statusInfo = getStatusDetails(item);
+
+  const openingCashPending =
+    item.opening_cash_deposit_pending ??
+    item.opening_cash_pending ??
+    item.openingCashDepositPending ??
+    item.opening_cash ??
+    null;
+
+  const cashDep = item.cash_deposit ?? item.cashDeposit ?? null;
+
+  const pendingCashDep =
+    item.pending_cash_deposit ?? item.pendingCashDeposit ?? null;
+
+  const support20 =
+    item.support_20 ??
+    item.support_20_percent ??
+    item.support_twenty ??
+    item.support ??
+    null;
+
+  const totalStockInvest =
+    item.total_stock_invest ?? item.totalStockInvest ?? item.stock_invest ?? null;
+
+  const currentStock = item.current_stock ?? item.currentStock ?? null;
+
+  const creditDebit = item.credit_debit ?? item.creditDebit ?? null;
+  const creditDebitN = Number(creditDebit);
+
+  const availableLimit =
+    item.available_limit_with_cash_deposit ??
+    item.availableLimitWithCashDeposit ??
+    item.available_limit ??
+    null;
+
+  const stName = getStateName(item);
+  const ctName = getCityName(item);
+  const locationStr = [ctName, stName].filter(Boolean).join(', ');
 
   return (
-    <View style={styles.cardSmall}>
+    <View style={styles.card}>
       {/* Card Header */}
       <View style={styles.cardHeader}>
         <View style={styles.indexBadge}>
           <Text style={styles.indexText}>{String(index + 1).padStart(2, '0')}</Text>
         </View>
         <View style={styles.headerInfo}>
-          <Text style={styles.branchName} numberOfLines={1}>{getBranchName(item)}</Text>
-          {getAbmName(item) !== '—' && (
-            <Text style={styles.abmName} numberOfLines={1}>ABM: {getAbmName(item)}</Text>
-          )}
+          <View style={styles.headerTopRow}>
+            <Text style={styles.branchNameText} numberOfLines={1}>
+              {getBranchName(item)}
+            </Text>
+            <View
+              style={[
+                styles.statusBadge,
+                statusInfo.isActive
+                  ? styles.statusBadgeActive
+                  : styles.statusBadgeInactive,
+              ]}
+            >
+              <View
+                style={[
+                  styles.statusDot,
+                  statusInfo.isActive
+                    ? styles.statusDotActive
+                    : styles.statusDotInactive,
+                ]}
+              />
+              <Text
+                style={[
+                  styles.statusText,
+                  statusInfo.isActive
+                    ? styles.statusTextActive
+                    : styles.statusTextInactive,
+                ]}
+              >
+                {statusInfo.text}
+              </Text>
+            </View>
+          </View>
+          {locationStr ? (
+            <Text style={styles.locationText} numberOfLines={1}>
+              📍 {locationStr}
+            </Text>
+          ) : null}
         </View>
       </View>
 
+      {/* Meta Bar: ABM Name & Store Type */}
+      <View style={styles.metaBar}>
+        <View style={styles.metaCol}>
+          <Text style={styles.metaLabel}>ABM Name</Text>
+          <Text style={styles.metaVal} numberOfLines={1}>
+            {getAbmName(item)}
+          </Text>
+        </View>
+        <View style={styles.metaDivider} />
+        <View style={styles.metaCol}>
+          <Text style={styles.metaLabel}>Store Type</Text>
+          <Text style={[styles.metaVal,{textTransform: 'uppercase'}]} numberOfLines={1}>
+            {getStoreType(item)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Primary Metrics Grid */}
       <View style={styles.gridContainer}>
-        {/* TGT */}
-        <View style={styles.metricBoxCompact}>
-          <Text style={styles.boxTitle}>TGT</Text>
-          <View style={styles.boxRow}>
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>QTY</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.qty_tgt)}</Text>
-            </View>
-            <View style={styles.boxColDivider} />
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>VAL</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.value_tgt)}</Text>
-            </View>
-          </View>
+        {/* Stock Deposit */}
+        <View style={styles.metricBox}>
+          <Text style={styles.boxLabel}>Stock Deposit</Text>
+          <Text style={styles.boxValue}>{fmtCurr(item.stock_deposit ?? item.stockDeposit)}</Text>
         </View>
 
-        {/* FTD */}
-        <View style={styles.metricBoxCompact}>
-          <Text style={styles.boxTitle}>FTD ACH</Text>
-          <View style={styles.boxRow}>
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>QTY</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.ftd_qty_ach)}</Text>
-            </View>
-            <View style={styles.boxColDivider} />
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>VAL</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.ftd_value_ach)}</Text>
-            </View>
-          </View>
+        {/* Support (20%) */}
+        <View style={styles.metricBox}>
+          <Text style={styles.boxLabel}>Support (20%)</Text>
+          <Text style={styles.boxValue}>{fmtCurr(support20)}</Text>
         </View>
 
-        {/* LMFTD */}
-        <View style={styles.metricBoxCompact}>
-          <Text style={styles.boxTitle}>LMFTD ACH</Text>
-          <View style={styles.boxRow}>
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>QTY</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.lmftd_qty_ach)}</Text>
-            </View>
-            <View style={styles.boxColDivider} />
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>VAL</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.lmftd_value_ach)}</Text>
-            </View>
-          </View>
+        {/* Paid Support */}
+        <View style={styles.metricBox}>
+          <Text style={styles.boxLabel}>Paid Support</Text>
+          <Text style={styles.boxValue}>{fmtCurr(item.paid_support ?? item.paidSupport)}</Text>
         </View>
 
-        {/* MTD */}
-        <View style={styles.metricBoxCompact}>
-          <Text style={styles.boxTitle}>MTD ACH</Text>
-          <View style={styles.boxRow}>
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>QTY</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.mtd_qty_ach)}</Text>
-            </View>
-            <View style={styles.boxColDivider} />
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>VAL</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.mtd_value_ach)}</Text>
-            </View>
-          </View>
-        </View>
-        {/* MTD */}
-        <View style={styles.metricBoxCompact}>
-          <Text style={styles.boxTitle}>MTD ACH</Text>
-          <View style={styles.boxRow}>
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>QTY</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.mtd_qty_ach)}</Text>
-            </View>
-            <View style={styles.boxColDivider} />
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>VAL</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.mtd_value_ach)}</Text>
-            </View>
-          </View>
+        {/* Total Stock Invest */}
+        <View style={styles.metricBox}>
+          <Text style={styles.boxLabel}>Total Stock Invest</Text>
+          <Text style={styles.boxValue}>{fmtCurr(totalStockInvest)}</Text>
         </View>
 
-        {/* MTD Arch per */}
-        <View style={styles.metricBoxCompact}>
-          <Text style={styles.boxTitle}>MTD % ACH</Text>
-          <View style={styles.boxRow}>
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>QTY</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.mtd_qty_percentage_ach)}</Text>
-            </View>
-            <View style={styles.boxColDivider} />
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>VAL</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.mtd_value_percentage_ach)}</Text>
-            </View>
-          </View>
+        {/* Current Stock */}
+        <View style={[styles.metricBox, styles.fullWidthBox]}>
+          <Text style={styles.boxLabel}>Current Stock</Text>
+          <Text style={[styles.boxValue, { color: '#0F172A' }]}>{fmtCurr(currentStock)}</Text>
         </View>
-
-        {/* BTD */}
-        <View style={styles.metricBoxCompact}>
-          <Text style={styles.boxTitle}>BTD</Text>
-          <View style={styles.boxRow}>
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>QTY</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.btd_qty)}</Text>
-            </View>
-            <View style={styles.boxColDivider} />
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>VAL</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.btd_value)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* DDR */}
-        <View style={styles.metricBoxCompact}>
-          <Text style={styles.boxTitle}>DDR</Text>
-          <View style={styles.boxRow}>
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>QTY</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.ddr_qty)}</Text>
-            </View>
-            <View style={styles.boxColDivider} />
-            <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>VAL</Text>
-              <Text style={styles.boxSubValue}>{fmtNum(item.ddr_value)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Growth */}
-        <View style={[styles.metricBoxCompact, styles.growthBoxGrid]}>
-          <Text style={[styles.boxTitle, styles.growthTitleGrid]}>GROWTH</Text>
-          <View style={styles.boxRow}>
-            <View style={styles.boxCol}>
-              <Text style={[styles.boxSubLabel, styles.growthSubLabelGrid]}>QTY</Text>
-              <Text
-                style={[
-                  styles.boxSubValue,
-                  styles.growthSubValueGrid,
-                  !isNaN(gQtyN) && gQtyN < 0 ? styles.growthNeg : null,
-                ]}
-              >
-                {fmtPct(gQty)}
-              </Text>
-            </View>
-            
-          </View>
-        </View>
-        {/*  */}
-         <View style={[styles.metricBoxCompact, styles.growthBoxGrid]}>
-          <Text style={[styles.boxTitle, styles.growthTitleGrid]}>GROWTH</Text>
-          <View style={styles.boxRow}>
-        <View style={[styles.boxColDivider, styles.growthDividerGrid]} />
-            <View style={styles.boxCol}>
-              <Text style={[styles.boxSubLabel, styles.growthSubLabelGrid]}>VAL</Text>
-              <Text
-                style={[
-                  styles.boxSubValue,
-                  styles.growthSubValueGrid,
-                  !isNaN(gValueN) && gValueN < 0 ? styles.growthNeg : null,
-                ]}
-              >
-                {fmtPct(gValue)}
-              </Text>
-            </View>
       </View>
+
+      {/* Today's Date Banner Section */}
+      <View style={styles.todaySection}>
+        <View style={styles.todaySectionHeader}>
+          <Text style={styles.todaySectionTitle}>
+            📅 Cash Deposit Status ({todayDateStr})
+          </Text>
+        </View>
+        <View style={styles.todayGrid}>
+          <View style={styles.todayCol}>
+            <Text style={styles.todayLabel}>Opening Deposit Pending</Text>
+            <Text style={styles.todayValue}>{fmtCurr(openingCashPending)}</Text>
+          </View>
+          <View style={styles.todayDivider} />
+          <View style={styles.todayCol}>
+            <Text style={styles.todayLabel}>Cash Deposit</Text>
+            <Text style={[styles.todayValue, { color: '#16A34A' }]}>
+              {fmtCurr(cashDep)}
+            </Text>
+          </View>
+          <View style={styles.todayDivider} />
+          <View style={styles.todayCol}>
+            <Text style={styles.todayLabel}>Pending Cash Deposit</Text>
+            <Text style={[styles.todayValue, { color: '#DC2626' }]}>
+              {fmtCurr(pendingCashDep)}
+            </Text>
+          </View>
+        </View>
       </View>
+
+      {/* Footer Bar: Credit/Debit & Available Limit */}
+      <View style={styles.footerBar}>
+        <View style={styles.footerCol}>
+          <Text style={styles.footerLabel}>Credit / Debit</Text>
+          <Text
+            style={[
+              styles.footerVal,
+              !isNaN(creditDebitN) && creditDebitN < 0 ? styles.textNeg : null,
+            ]}
+          >
+            {fmtCurr(creditDebit)}
+          </Text>
+        </View>
+        <View style={styles.footerDivider} />
+        <View style={styles.footerCol}>
+          <Text style={styles.footerLabel}>Available Limit w/ Cash Deposit</Text>
+          <Text style={[styles.footerVal, styles.limitHighlight]}>
+            {fmtCurr(availableLimit)}
+          </Text>
+        </View>
       </View>
     </View>
   );
 };
 
-/* ── Main Screen ── */
-const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
+/* ── Main Screen Component ── */
+const StockVsCashReportScreen: React.FC<{ navigation?: any }> = ({
+  navigation,
+}) => {
   const { token } = useAuth();
-  const [data, setData]             = useState<TvaItem[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const {
+    data,
+    loading,
+    refreshing,
+    error,
+    searchQuery,
+    setSearchQuery,
+    loadData,
+    onRefresh,
+  } = useStockCashDepositStore();
 
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
@@ -265,21 +295,9 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
   const searchInputRef = useRef<TextInput>(null);
 
-  const load = useCallback(async (isRefresh = false) => {
-    try {
-      isRefresh ? setRefreshing(true) : setLoading(true);
-      setError(null);
-      const result = await fetchTvaData(token);
-      setData(result);
-    } catch {
-      setError('Failed to load data. Please try again.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [token]);
-
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    loadData(token);
+  }, [token, loadData]);
 
   // Extract unique branch names dynamically from API data
   const availableBranches = useMemo(() => {
@@ -287,7 +305,7 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
     if (Array.isArray(data)) {
       data.forEach((item) => {
         const name = getBranchName(item);
-        if (name && name !== '—' && name.trim().length > 0) {
+        if (name && name !== 'Unknown Branch' && name.trim().length > 0) {
           set.add(name.trim());
         }
       });
@@ -325,7 +343,7 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
   // Filter main list by branch multi-select, ABM multi-select & search query
   const filteredData = useMemo(() => {
-    return data.filter(item => {
+    return data.filter((item) => {
       // 1. Branch Multi-select Filter
       if (selectedBranches.length > 0) {
         const itemBranch = getBranchName(item).trim();
@@ -347,7 +365,8 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
         const q = searchQuery.toLowerCase().trim();
         const branch = getBranchName(item).toLowerCase();
         const abm = getAbmName(item).toLowerCase();
-        if (!branch.includes(q) && !abm.includes(q)) {
+        const city = getCityName(item).toLowerCase();
+        if (!branch.includes(q) && !abm.includes(q) && !city.includes(q)) {
           return false;
         }
       }
@@ -392,7 +411,7 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
       <View style={styles.center}>
         <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.stateText}>Loading data…</Text>
+        <Text style={styles.stateText}>Loading Stock vs Cash Deposit report…</Text>
       </View>
     );
   }
@@ -402,20 +421,8 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
       <View style={styles.center}>
         <Text style={styles.stateIcon}>⚠️</Text>
         <Text style={[styles.stateText, { color: '#DC2626' }]}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
+        <TouchableOpacity style={styles.retryBtn} onPress={() => loadData(token)}>
           <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (data.length === 0) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.stateIcon}>📊</Text>
-        <Text style={styles.stateText}>No data found</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
-          <Text style={styles.retryText}>Refresh</Text>
         </TouchableOpacity>
       </View>
     );
@@ -425,9 +432,9 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* Header component (Title only) */}
+      {/* Header component */}
       <Header
-        title="Target vs Achievement"
+        title="Stock vs Cash Deposit Report"
         showBack={true}
         onBackPress={() => navigation?.goBack()}
         style={styles.headerStyle}
@@ -435,9 +442,9 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
         iconColor={colors.white}
       />
 
-      {/* Main Content Area */}
+      {/* Main Content */}
       <View style={styles.mainContainer}>
-        {/* Search Bar */}
+        {/* Search Row */}
         <View style={styles.searchRow}>
           <TouchableOpacity
             activeOpacity={1}
@@ -452,7 +459,7 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
             <TextInput
               ref={searchInputRef}
               style={styles.searchInput}
-              placeholder="Search Branch or ABM Name..."
+              placeholder="Search Branch, City or ABM..."
               placeholderTextColor="#94A3B8"
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -539,23 +546,25 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Card list */}
+        {/* Card List */}
         <FlatList
           data={filteredData}
           keyExtractor={(item, idx) => String(item.id ?? idx)}
-          renderItem={({ item, index }) => <TvaCard item={item} index={index} />}
+          renderItem={({ item, index }) => (
+            <StockVsCashCard item={item} index={index} />
+          )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.stateIcon}>🔍</Text>
-              <Text style={styles.stateText}>No matching branch or ABM found</Text>
+              <Text style={styles.stateIcon}>📊</Text>
+              <Text style={styles.stateText}>No Stock vs Cash Deposit data found</Text>
             </View>
           }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => load(true)}
+              onRefresh={() => onRefresh(token)}
               colors={[colors.primary]}
               tintColor={colors.primary}
             />
@@ -934,8 +943,9 @@ const styles = StyleSheet.create({
   },
   headerTitleStyle: {
     color: colors.white,
-    fontSize: fontSize.large,
+    fontSize: 16,
     fontFamily: fontFamily.bold,
+    flex: 1,
   },
   mainContainer: {
     flex: 1,
@@ -948,10 +958,13 @@ const styles = StyleSheet.create({
 
   /* Search Row */
   searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 14,
     marginBottom: 8,
   },
   searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.white,
@@ -1034,11 +1047,6 @@ const styles = StyleSheet.create({
   dropdownBtnIconActive: {
     tintColor: colors.white,
   },
-  emptyContainer: {
-    paddingTop: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
   /* List */
   listContent: {
@@ -1047,14 +1055,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F6FB',
   },
 
-  /* Card – aligned with brandwise sales card */
-  cardSmall: {
+  /* Card */
+  card: {
     backgroundColor: colors.white,
     borderRadius: 18,
     padding: 14,
-    marginBottom: 12,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#EDE9FE',
+    borderColor: '#E2E8F0',
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.07,
@@ -1069,6 +1077,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 10,
     gap: 10,
   },
   indexBadge: {
@@ -1089,135 +1099,214 @@ const styles = StyleSheet.create({
   headerInfo: {
     flex: 1,
   },
-  branchName: {
-    fontSize: 14,
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  branchNameText: {
+    flex: 1,
+    fontSize: 15,
     fontFamily: fontFamily.bold,
     color: '#fff',
   },
-  abmName: {
+  locationText: {
     fontSize: 11,
     fontFamily: fontFamily.regular,
-    color: 'rgba(255,255,255,0.78)',
+    color: 'rgba(255,255,255,0.9)',
     marginTop: 2,
   },
-
-  divider: {
-    height: 1,
-    backgroundColor: '#EEF0F5',
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 5,
+    marginLeft: 6,
   },
-
-  /* Section Label inside card */
-  sectionLabel: {
-    fontSize: 9.5,
+  statusBadgeActive: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+  },
+  statusBadgeInactive: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusDotActive: {
+    backgroundColor: '#16A34A',
+  },
+  statusDotInactive: {
+    backgroundColor: '#DC2626',
+  },
+  statusText: {
+    fontSize: 12,
     fontFamily: fontFamily.bold,
-    color: '#94A3B8',
-    letterSpacing: 0.7,
-    textTransform: 'uppercase',
-    marginTop: 12,
-    marginBottom: 6,
-    marginHorizontal: 14,
+    letterSpacing: 0.2,
+  },
+  statusTextActive: {
+    color: '#15803D',
+  },
+  statusTextInactive: {
+    color: '#B91C1C',
   },
 
-  /* Grid container for 2-column small boxes */
+  /* Meta Bar */
+  metaBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  metaCol: {
+    flex: 1,
+  },
+  metaDivider: {
+    width: 1,
+    height: 22,
+    backgroundColor: '#CBD5E1',
+    marginHorizontal: 10,
+  },
+  metaLabel: {
+    fontSize: 9,
+    fontFamily: fontFamily.regular,
+    color: '#64748B',
+    marginBottom: 1,
+  },
+  metaVal: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    color: '#0F172A',
+  },
+
+  /* Metrics Grid */
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    padding: 10,
-    paddingTop: 12,
+    marginBottom: 10,
   },
-  metricBoxCompact: {
+  metricBox: {
     width: '48%',
     backgroundColor: '#F8FAFC',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    paddingVertical: 7,
-    paddingHorizontal: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     marginBottom: 8,
   },
-  boxTitle: {
-    fontSize: 9.5,
-    fontFamily: fontFamily.bold,
-    color: '#475569',
-    textAlign: 'center',
-    marginBottom: 5,
-    letterSpacing: 0.4,
+  fullWidthBox: {
+    width: '100%',
+    backgroundColor: '#EEF2FF',
+    borderColor: '#C7D2FE',
   },
-  boxRow: {
+  boxLabel: {
+    fontSize: 9.5,
+    fontFamily: fontFamily.regular,
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  boxValue: {
+    fontSize: 12.5,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+  },
+
+  /* Today's Section */
+  todaySection: {
+    backgroundColor: '#FEFCE8',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FEF08A',
+    padding: 10,
+    marginBottom: 10,
+  },
+  todaySectionHeader: {
+    marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FEF08A',
+  },
+  todaySectionTitle: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: '#854D0E',
+  },
+  todayGrid: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
   },
-  boxCol: {
+  todayCol: {
     flex: 1,
     alignItems: 'center',
   },
-  boxColDivider: {
+  todayDivider: {
     width: 1,
-    height: 18,
-    backgroundColor: '#CBD5E1',
+    height: 24,
+    backgroundColor: '#FDE047',
   },
-  boxSubLabel: {
-    fontSize: 8,
+  todayLabel: {
+    fontSize: 8.5,
     fontFamily: fontFamily.regular,
-    color: '#94A3B8',
-    marginBottom: 1,
+    color: '#A16207',
+    textAlign: 'center',
+    marginBottom: 2,
   },
-  boxSubValue: {
-    fontSize: 11,
+  todayValue: {
+    fontSize: 11.5,
+    fontFamily: fontFamily.bold,
+    color: '#854D0E',
+    textAlign: 'center',
+  },
+
+  /* Footer Bar */
+  footerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  footerCol: {
+    flex: 1,
+  },
+  footerDivider: {
+    width: 1,
+    height: 26,
+    backgroundColor: '#CBD5E1',
+    marginHorizontal: 10,
+  },
+  footerLabel: {
+    fontSize: 9,
+    fontFamily: fontFamily.regular,
+    color: '#475569',
+    marginBottom: 2,
+  },
+  footerVal: {
+    fontSize: 12.5,
     fontFamily: fontFamily.bold,
     color: '#0F172A',
   },
-
-  /* Growth grid box override */
-  growthBoxGrid: {
-    
-    backgroundColor: '#F0FDF4',
-    borderColor: '#BBF7D0',
-    borderWidth: 1.5,
-  },
-  growthTitleGrid: {
-    color: '#15803D',
-  },
-  growthSubLabelGrid: {
-    color: '#166534',
-  },
-  growthSubValueGrid: {
-    color: '#16A34A',
-  },
-  growthDividerGrid: {
-    backgroundColor: '#BBF7D0',
-  },
-  growthNeg: {
+  textNeg: {
     color: '#DC2626',
   },
-
-  /* Info row */
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  infoLabel: {
-    fontSize: 12,
-    fontFamily: fontFamily.regular,
-    color: '#64748B',
-  },
-  infoValueWrap: { alignItems: 'flex-end' },
-  infoValue: {
-    fontSize: 12,
-    fontFamily: fontFamily.bold,
-    color: '#0F172A',
-  },
-  infoSub: {
-    fontSize: 10,
-    fontFamily: fontFamily.regular,
-    color: '#94A3B8',
+  limitHighlight: {
+    color: '#16A34A'
   },
 
   /* States */
@@ -1227,6 +1316,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
+  },
+  emptyContainer: {
+    paddingTop: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stateIcon: { fontSize: 44, marginBottom: 12 },
   stateText: {
@@ -1453,4 +1547,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TargetAchivement;
+export default StockVsCashReportScreen;
