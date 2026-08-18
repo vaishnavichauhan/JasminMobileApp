@@ -88,3 +88,60 @@ export const fetchPriceListReportApi = async (
     return null;
   }
 };
+
+export interface StockInfoItem {
+  branch_name?: string;
+  location_name?: string;
+  branch_code?: string;
+  location_code?: string;
+  product_name?: string;
+  item_name?: string;
+  item_code?: string | number;
+  code?: string | number;
+  available_stock?: number | string;
+  saleable_stock?: number | string;
+  stock?: number | string;
+  items?: StockInfoItem[];
+  [key: string]: any;
+}
+
+/**
+ * Fetch Stock Info for a specific modelGroup
+ * GET /price-lists/stock-info?modelGroup=...&sync=true
+ */
+export const fetchPriceListStockInfoApi = async (
+  token: string | null,
+  modelGroup: string,
+  sync: boolean = true
+): Promise<any> => {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const query = `?modelGroup=${encodeURIComponent(modelGroup)}&sync=${sync ? 'true' : 'false'}`;
+    const url = `${BASE_URL}/price-lists/stock-info${query}`;
+    console.log('[Stock Info API] Request URL:', url);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+    });
+
+    if (!response.ok) {
+      console.warn('[Stock Info API] Response not OK:', response.status);
+      return null;
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.warn('[Stock Info API] Fetch error:', error);
+    return null;
+  }
+};
+

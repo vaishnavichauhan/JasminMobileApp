@@ -69,6 +69,33 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       const response = await loginApi(obj);
       console.log('Login response:', response);
 
+      const isDeviceRegRequired =
+        response.status === 'DEVICE_REGISTRATION_REQUIRED' ||
+        response.data?.status === 'DEVICE_REGISTRATION_REQUIRED' ||
+        response.status === 'device_registration_required' ||
+        response.data?.status === 'device_registration_required';
+
+      if (isDeviceRegRequired) {
+        setLoading(false);
+        const resolvedDeviceId =
+          response.deviceId ||
+          response.data?.deviceId ||
+          obj.deviceId;
+
+        const approvedDevices =
+          response.approvedDevices ||
+          response.data?.approvedDevices ||
+          [];
+
+        navigation?.navigate('DeviceRegistration', {
+          username: username.trim(),
+          password: password,
+          deviceId: resolvedDeviceId,
+          approvedDevices: approvedDevices,
+        });
+        return;
+      }
+
       const userData = response.user || response.data || { username: username.trim() };
       const authToken = response.token || response.accessToken;
       const successMsg =

@@ -11,17 +11,33 @@ import ReportsScreen from '../screens/homeScreen/ReportsScreen.tsx/ReportsScreen
 import TargetAchivement from '../screens/homeScreen/ReportsScreen.tsx/TargetAchivement';
 import AlertMasterScreen from '../screens/homeScreen/AlertMasterScreen/AlertMasterScreen';
 import ProfileScreen from '../screens/homeScreen/ProfileScreen/ProfileScreen';
+import DeviceRegistrationScreen from '../screens/authScreen/DeviceRegistrationScreen/DeviceRegistrationScreen';
+import DeviceLimitReachedScreen from '../screens/authScreen/DeviceLimitReachedScreen/DeviceLimitReachedScreen';
+import { ApprovedDeviceItem } from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../styles/variables';
 import AbmWiseReportScreen from '../screens/homeScreen/ReportsScreen.tsx/AbmWiseReportScreen';
 import StockVsCashReportScreen from '../screens/homeScreen/ReportsScreen.tsx/StockVsCashReportScreen';
 import PriceListReport from '../screens/homeScreen/ReportsScreen.tsx/PriceListReport';
+import FinanceBrandReport from '../screens/homeScreen/ReportsScreen.tsx/FinanceBrandReport';
 import PriceListDetailScreen from '../screens/homeScreen/PriceListScreen/PriceListDetailScreen';
 import PriceListReportDetailScreen from '../screens/homeScreen/ReportsScreen.tsx/PriceListReportDetailScreen';
 import Watermark from '../components/Watermark/Watermark';
 
 export type RootStackParamList = {
   Login: undefined;
+  DeviceRegistration: {
+    username: string;
+    password?: string;
+    deviceId: string;
+    approvedDevices?: ApprovedDeviceItem[];
+  };
+  DeviceLimitReached: {
+    username: string;
+    password?: string;
+    deviceId: string;
+    approvedDevices?: ApprovedDeviceItem[];
+  };
   Home: undefined;
   HomeScreen: undefined;
   Offers: undefined;
@@ -31,6 +47,7 @@ export type RootStackParamList = {
   TargetAchivement: undefined;
   AbmWiseReportScreen:undefined;
   StockVsCashReportScreen:undefined;
+  FinanceBrandReport: undefined;
   PriceListReport:undefined;
   PriceListDetailScreen: { variationId: number | string; formatName: string };
   PriceListReportDetailScreen: { variationId: number | string; formatName: string };
@@ -85,6 +102,7 @@ export const AuthNavigation = () => {
             <Stack.Screen name="TargetAchivement" component={TargetAchivement} />
             <Stack.Screen name="AbmWiseReportScreen" component={AbmWiseReportScreen} />
             <Stack.Screen name="StockVsCashReportScreen" component={StockVsCashReportScreen} />
+            <Stack.Screen name="FinanceBrandReport" component={FinanceBrandReport} />
             <Stack.Screen name="PriceListReport" component={PriceListReport} />
             <Stack.Screen name="PriceListDetailScreen" component={PriceListDetailScreen} />
             <Stack.Screen name="PriceListReportDetailScreen" component={PriceListReportDetailScreen} />
@@ -92,7 +110,11 @@ export const AuthNavigation = () => {
             <Stack.Screen name="Profile" component={ProfileScreen} />
           </>
         ) : (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="DeviceRegistration" component={DeviceRegistrationScreen} />
+            <Stack.Screen name="DeviceLimitReached" component={DeviceLimitReachedScreen} />
+          </>
         )}
       </Stack.Navigator>
       {isLoggedIn }

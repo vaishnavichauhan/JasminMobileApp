@@ -14,7 +14,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
-import { StockCashDepositItem } from '../../../api/stockCashDepositApi';
+import { StockCashDepositItem, fetchStatesApi } from '../../../api/stockCashDepositApi';
 import { useStockCashDepositStore } from '../../../store';
 import { colors, fontFamily, borderRadius } from '../../../styles/variables';
 import Header from '../../../components/Header/Header';
@@ -285,6 +285,13 @@ const StockVsCashReportScreen: React.FC<{ navigation?: any }> = ({
     onRefresh,
   } = useStockCashDepositStore();
 
+  // State multi-select filter
+  const [selectedStates, setSelectedStates] = useState<string[]>([]);
+  const [tempSelectedStates, setTempSelectedStates] = useState<string[]>([]);
+  const [isStateModalOpen, setIsStateModalOpen] = useState(false);
+  const [stateSearchText, setStateSearchText] = useState('');
+  const [apiStates, setApiStates] = useState<string[]>([]);
+
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
   const [branchSearchText, setBranchSearchText] = useState('');
@@ -295,9 +302,44 @@ const StockVsCashReportScreen: React.FC<{ navigation?: any }> = ({
 
   const searchInputRef = useRef<TextInput>(null);
 
+  // Fetch all states from http://localhost:5005/api/states/all
+  useEffect(() => {
+    fetchStatesApi(token).then((res) => {
+      if (Array.isArray(res) && res.length > 0) {
+        setApiStates(res);
+      }
+    });
+  }, [token]);
+
   useEffect(() => {
     loadData(token);
   }, [token, loadData]);
+
+  // Extract unique state names dynamically from /states/all API + data fallback
+  const availableStates = useMemo(() => {
+    const set = new Set<string>();
+    if (apiStates.length > 0) {
+      apiStates.forEach((s) => set.add(s));
+    } else {
+      ['Gujarat', 'Maharashtra', 'Madhya Pradesh', 'Rajasthan', 'Goa'].forEach((s) => set.add(s));
+      if (Array.isArray(data)) {
+        data.forEach((item) => {
+          const st = item.state_name || item.stateName || item.state;
+          if (st && typeof st === 'string' && st.trim().length > 0 && st !== '—') {
+            set.add(st.trim());
+          }
+        });
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [apiStates, data]);
+
+  // Filter states inside modal by search query
+  const filteredModalStates = useMemo(() => {
+    if (!stateSearchText.trim()) return availableStates;
+    const q = stateSearchText.toLowerCase().trim();
+    return availableStates.filter((s) => s.toLowerCase().includes(q));
+  }, [availableStates, stateSearchText]);
 
   // Extract unique branch names dynamically from API data
   const availableBranches = useMemo(() => {
@@ -341,10 +383,24 @@ const StockVsCashReportScreen: React.FC<{ navigation?: any }> = ({
     return availableABMs.filter((a) => a.toLowerCase().includes(q));
   }, [availableABMs, abmSearchText]);
 
-  // Filter main list by branch multi-select, ABM multi-select & search query
+  // Filter main list by state multi-select ("state_name"), branch multi-select, ABM multi-select & search query
   const filteredData = useMemo(() => {
     return data.filter((item) => {
-      // 1. Branch Multi-select Filter
+      // 1. State Multi-select Filter using "state_name"
+      if (selectedStates.length > 0) {
+        const itemState = String(
+          item.state_name || item.stateName || item.state || ''
+        ).trim().toLowerCase();
+
+        const matchesState = selectedStates.some(
+          (sel) => sel.trim().toLowerCase() === itemState
+        );
+        if (!matchesState) {
+          return false;
+        }
+      }
+
+      // 2. Branch Multi-select Filter
       if (selectedBranches.length > 0) {
         const itemBranch = getBranchName(item).trim();
         if (!selectedBranches.includes(itemBranch)) {
@@ -352,7 +408,7 @@ const StockVsCashReportScreen: React.FC<{ navigation?: any }> = ({
         }
       }
 
-      // 2. ABM Multi-select Filter
+      // 3. ABM Multi-select Filter
       if (selectedABMs.length > 0) {
         const itemAbm = getAbmName(item).trim();
         if (!selectedABMs.includes(itemAbm)) {
@@ -360,7 +416,7 @@ const StockVsCashReportScreen: React.FC<{ navigation?: any }> = ({
         }
       }
 
-      // 3. Search Query Filter
+      // 4. Search Query Filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const branch = getBranchName(item).toLowerCase();
@@ -373,10 +429,42 @@ const StockVsCashReportScreen: React.FC<{ navigation?: any }> = ({
 
       return true;
     });
-  }, [data, searchQuery, selectedBranches, selectedABMs]);
+  }, [data, searchQuery, selectedStates, selectedBranches, selectedABMs]);
 
+  const isAllStatesSelected = tempSelectedStates.length === 0;
   const isAllBranchesSelected = selectedBranches.length === 0;
   const isAllABMsSelected = selectedABMs.length === 0;
+
+  const handleOpenStateModal = () => {
+    setTempSelectedStates([...selectedStates]);
+    setStateSearchText('');
+    setIsStateModalOpen(true);
+  };
+
+  const handleSelectAllStates = () => {
+    setTempSelectedStates([]);
+  };
+
+  const handleToggleState = (st: string) => {
+    setTempSelectedStates((prev) => {
+      if (prev.includes(st)) {
+        return prev.filter((s) => s !== st);
+      } else {
+        return [...prev, st];
+      }
+    });
+  };
+
+  const handleApplyStateFilter = () => {
+    setSelectedStates(tempSelectedStates);
+    setIsStateModalOpen(false);
+  };
+
+  const handleResetStateFilter = () => {
+    setTempSelectedStates([]);
+    setSelectedStates([]);
+    setIsStateModalOpen(false);
+  };
 
   const handleSelectAllBranches = () => {
     setSelectedBranches([]);
@@ -479,8 +567,42 @@ const StockVsCashReportScreen: React.FC<{ navigation?: any }> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Dropdowns Row (Branches & ABMs) */}
+        {/* Dropdowns Row (State, Branches & ABMs) */}
         <View style={styles.dropdownsRow}>
+          {/* State Dropdown Button */}
+          <TouchableOpacity
+            style={[
+              styles.dropdownBtn,
+              selectedStates.length > 0 && styles.dropdownBtnActive,
+            ]}
+            activeOpacity={0.8}
+            onPress={handleOpenStateModal}
+          >
+            <Text
+              style={[
+                styles.dropdownBtnText,
+                selectedStates.length > 0 && styles.dropdownBtnTextActive,
+              ]}
+              numberOfLines={1}
+            >
+              {selectedStates.length === 0
+                ? 'All States'
+                : selectedStates.length === 1
+                ? selectedStates[0]
+                : selectedStates.length === 2
+                ? `${selectedStates[0]}, ${selectedStates[1]}`
+                : `${selectedStates.length} States`}
+            </Text>
+            <Image
+              source={Images.down}
+              style={[
+                styles.dropdownBtnIcon,
+                selectedStates.length > 0 && styles.dropdownBtnIconActive,
+              ]}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+
           {/* All Branches Dropdown Button */}
           <TouchableOpacity
             style={[
@@ -571,6 +693,182 @@ const StockVsCashReportScreen: React.FC<{ navigation?: any }> = ({
           }
         />
       </View>
+
+      {/* ── State Selection Modal Dropdown (Multi-select) ── */}
+      <Modal
+        visible={isStateModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsStateModalOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsStateModalOpen(false)}
+        >
+          <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
+            {/* Modal Header */}
+            <View style={styles.modalHeaderRow}>
+              <View style={styles.modalTitleWrap}>
+                <Text style={styles.modalTitle}>Select States</Text>
+                {tempSelectedStates.length > 0 && (
+                  <View style={styles.selectedCountBadge}>
+                    <Text style={styles.selectedCountText}>
+                      {tempSelectedStates.length} selected
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsStateModalOpen(false)}
+                style={styles.modalCloseBtn}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* In-Modal Search Bar */}
+            <View style={styles.modalSearchContainer}>
+              <Image
+                source={Images.filter}
+                style={styles.modalSearchIcon}
+                resizeMode="contain"
+              />
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder="Search state name..."
+                placeholderTextColor="#94A3B8"
+                value={stateSearchText}
+                onChangeText={setStateSearchText}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {stateSearchText.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setStateSearchText('')}
+                  style={styles.modalClearSearchBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.modalClearSearchText}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* List of States with Multi-Select Checkboxes */}
+            <ScrollView
+              showsVerticalScrollIndicator={true}
+              style={styles.modalScrollView}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* "All States" Option */}
+              <TouchableOpacity
+                style={[
+                  styles.branchOptionItem,
+                  isAllStatesSelected && styles.branchOptionItemActive,
+                ]}
+                onPress={handleSelectAllStates}
+                activeOpacity={0.7}
+              >
+                <View style={styles.optionLeft}>
+                  <View
+                    style={[
+                      styles.checkboxBox,
+                      isAllStatesSelected && styles.checkboxBoxActive,
+                    ]}
+                  >
+                    {isAllStatesSelected && (
+                      <Text style={styles.checkmarkIcon}>✓</Text>
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.branchOptionText,
+                      isAllStatesSelected && styles.branchOptionTextActive,
+                    ]}
+                  >
+                    All States
+                  </Text>
+                </View>
+                {isAllStatesSelected && (
+                  <View style={styles.allBadge}>
+                    <Text style={styles.allBadgeText}>Default</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Individual State Options */}
+              {filteredModalStates.map((st) => {
+                const isSelected = tempSelectedStates.includes(st);
+                return (
+                  <TouchableOpacity
+                    key={st}
+                    style={[
+                      styles.branchOptionItem,
+                      isSelected && styles.branchOptionItemActive,
+                    ]}
+                    onPress={() => handleToggleState(st)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.optionLeft}>
+                      <View
+                        style={[
+                          styles.checkboxBox,
+                          isSelected && styles.checkboxBoxActive,
+                        ]}
+                      >
+                        {isSelected && (
+                          <Text style={styles.checkmarkIcon}>✓</Text>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.branchOptionText,
+                          isSelected && styles.branchOptionTextActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {st}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+
+              {filteredModalStates.length === 0 && (
+                <View style={styles.modalEmptyContainer}>
+                  <Text style={styles.modalEmptyText}>No states found</Text>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Modal Bottom Actions */}
+            <View style={styles.modalFooterRow}>
+              {(tempSelectedStates.length > 0 || selectedStates.length > 0) && (
+                <TouchableOpacity
+                  style={styles.modalResetBtn}
+                  onPress={handleResetStateFilter}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalResetText}>Reset</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={styles.modalApplyBtn}
+                onPress={handleApplyStateFilter}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalApplyText}>
+                  {tempSelectedStates.length === 0
+                    ? 'Show All'
+                    : `Apply (${tempSelectedStates.length})`}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* ── Branch Selection Modal Dropdown (Multi-select) ── */}
       <Modal
@@ -1014,11 +1312,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FAF5FF',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderColor: '#DDD6FE',
-    paddingHorizontal: 10,
-    height: 42,
+    paddingHorizontal: 8,
+    height: 40,
   },
   dropdownBtnActive: {
     backgroundColor: colors.primary,
@@ -1030,11 +1328,11 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   dropdownBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fontFamily.bold,
     color: colors.primary,
     flex: 1,
-    marginRight: 4,
+    marginRight: 2,
   },
   dropdownBtnTextActive: {
     color: colors.white,
@@ -1475,6 +1773,11 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   checkboxCheckmark: {
+    color: colors.white,
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+  },
+  checkmarkIcon: {
     color: colors.white,
     fontSize: 11,
     fontFamily: fontFamily.bold,

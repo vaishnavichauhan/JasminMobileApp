@@ -1,9 +1,20 @@
 import { create } from 'zustand';
-import { fetchAbmWiseTvaData, AbmWiseTvaItem } from '../api/targetVsAchievementApi';
+import {
+  fetchFinanceBrandReportApi,
+  FinanceBrandReportData,
+  FinanceBrandRow,
+  FinanceBrandItem,
+  FinanceMachineItem,
+  FinanceCompanyItem,
+} from '../api/financeBrandApi';
 import { fetchAllStatesApi } from '../api/dashboardApi';
 
-export interface AbmWiseState {
-  data: AbmWiseTvaItem[];
+export interface FinanceBrandState {
+  data: FinanceBrandReportData;
+  rows: FinanceBrandRow[];
+  brands: FinanceBrandItem[];
+  machines: FinanceMachineItem[];
+  companies: FinanceCompanyItem[];
   loading: boolean;
   refreshing: boolean;
   error: string | null;
@@ -23,8 +34,12 @@ export interface AbmWiseState {
   onRefresh: (token: string | null) => Promise<void>;
 }
 
-export const useAbmWiseStore = create<AbmWiseState>((set, get) => ({
-  data: [],
+export const useFinanceBrandStore = create<FinanceBrandState>((set, get) => ({
+  data: { brands: [], machines: [], companies: [], rows: [] },
+  rows: [],
+  brands: [],
+  machines: [],
+  companies: [],
   loading: false,
   refreshing: false,
   error: null,
@@ -43,7 +58,7 @@ export const useAbmWiseStore = create<AbmWiseState>((set, get) => ({
         set({ apiStatesList: states });
       }
     } catch (err: any) {
-      console.warn('[ABM TvA Store] loadStatesDropdown error:', err?.message || err);
+      console.warn('[Finance Brand Store] loadStatesDropdown error:', err?.message || err);
     }
   },
 
@@ -58,10 +73,17 @@ export const useAbmWiseStore = create<AbmWiseState>((set, get) => ({
 
       const targetState =
         stateToFetch !== undefined ? stateToFetch : get().selectedState;
-      const list = await fetchAbmWiseTvaData(token, targetState);
-      set({ data: Array.isArray(list) ? list : [] });
+      const reportData = await fetchFinanceBrandReportApi(token, targetState);
+
+      set({
+        data: reportData,
+        rows: reportData.rows || [],
+        brands: reportData.brands || [],
+        machines: reportData.machines || [],
+        companies: reportData.companies || [],
+      });
     } catch (err: any) {
-      set({ error: 'Failed to load ABM wise report data' });
+      set({ error: 'Failed to load Finance & Brand report data' });
     } finally {
       set({ loading: false, refreshing: false });
     }

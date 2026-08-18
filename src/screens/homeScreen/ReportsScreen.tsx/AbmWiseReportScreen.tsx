@@ -247,9 +247,6 @@ const AbmWiseReportScreen: React.FC<{ navigation?: any }> = ({ navigation }) => 
     onRefresh,
   } = useAbmWiseStore();
 
-  console.log("dataABM...",data);
-  
-  
   const [isStateModalOpen, setIsStateModalOpen] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
 
@@ -287,16 +284,9 @@ const AbmWiseReportScreen: React.FC<{ navigation?: any }> = ({ navigation }) => 
         const name = getAbmName(item).toLowerCase();
         if (!name.includes(q)) return false;
       }
-      // 2. State Filter (client-side fallback filter)
-      if (selectedState !== 'All States') {
-        const itemState = (item.state_name || item.stateName || item.state || '').toString().toLowerCase().trim();
-        if (itemState && itemState !== selectedState.toLowerCase().trim()) {
-          return false;
-        }
-      }
       return true;
     });
-  }, [data, searchQuery, selectedState]);
+  }, [data, searchQuery]);
 
   if (loading) {
     return (
@@ -423,7 +413,7 @@ const AbmWiseReportScreen: React.FC<{ navigation?: any }> = ({ navigation }) => 
         />
       </View>
 
-      {/* ── State Selection Modal Dropdown ── */}
+      {/* ── State Selection Modal Dropdown (Single Select) ── */}
       <Modal
         visible={isStateModalOpen}
         transparent
@@ -805,6 +795,23 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: '#0F172A',
   },
+  modalSubtitle: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  modalResetBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: '#F1F5F9',
+  },
+  modalResetText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontFamily: fontFamily.bold,
+  },
   modalCloseBtn: {
     padding: 4,
   },
@@ -812,6 +819,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#94A3B8',
     fontFamily: fontFamily.bold,
+  },
+  modalApplyBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  modalApplyBtnText: {
+    fontSize: 14,
+    fontFamily: fontFamily.bold,
+    color: colors.white,
   },
   stateOptionItem: {
     flexDirection: 'row',

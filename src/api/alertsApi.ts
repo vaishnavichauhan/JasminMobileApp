@@ -13,7 +13,7 @@ export interface AlertItem {
 }
 
 export const getHostUrl = (): string => {
-  return 'https://interlink.jasminmobile.com';
+  return BASE_URL.replace(/\/api\/?$/, '');
 };
 
 export const normalizeImageUrl = (url: any): string => {

@@ -39,12 +39,15 @@ const ReportsScreen: React.FC<ReportsScreenProps> = () => {
         case 2:
           navigation?.navigate('AbmWiseReportScreen');
           break;
-          case 3:
-            navigation?.navigate('StockVsCashReportScreen');
-            break;
-            case 5:
-            navigation?.navigate('PriceListReport');
-            break;
+      case 3:
+        navigation?.navigate('StockVsCashReportScreen');
+        break;
+      case 4:
+        navigation?.navigate('FinanceBrandReport');
+        break;
+      case 5:
+        navigation?.navigate('PriceListReport');
+        break;
       default:
         console.log('Report selected:', item.title);
         break;
