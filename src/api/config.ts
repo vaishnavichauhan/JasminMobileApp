@@ -1,1 +1,1 @@
-export const BASE_URL = 'http://localhost:5005/api';
+export const BASE_URL = 'https://interlink.jasminmobile.com/api';

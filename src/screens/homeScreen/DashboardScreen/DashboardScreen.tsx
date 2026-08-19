@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './DashboardScreenStyles';
 import Images from '../../../assets/images';
 import { useAuth } from '../../../context/AuthContext';
-import { colors } from '../../../styles/variables';
+import { colors, fontFamily } from '../../../styles/variables';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   CashDepositAbmItem,
@@ -103,13 +103,12 @@ const formatOfferTickerText = (item: OfferItem, index: number): string => {
   return `Offer ${index + 1} - ${brand}`;
 };
 
-/* ── 1-Line Horizontal Auto-Scrolling Active Offers Ticker ── */
+/* ── 1-Line Horizontal Auto-Scrolling Active Offers Circular Ticker ── */
 const ActiveOffersTicker: React.FC<{ token: string | null }> = ({ token }) => {
   const [activeOffers, setActiveOffers] = React.useState<OfferItem[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollPos = useRef(0);
-  const contentWidth = useRef(0);
-  const containerWidth = useRef(0);
+  const singleLoopWidth = useRef(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -120,11 +119,7 @@ const ActiveOffersTicker: React.FC<{ token: string | null }> = ({ token }) => {
           (o) => o.status !== 'expired' && String(o.status).toLowerCase() !== 'expired'
         );
         if (isMounted) {
-          if (active.length > 0) {
-            setActiveOffers(active);
-          } else {
-            setActiveOffers([]);
-          }
+          setActiveOffers(active.length > 0 ? active : []);
         }
       } catch (e) {
         if (isMounted) {
@@ -138,15 +133,16 @@ const ActiveOffersTicker: React.FC<{ token: string | null }> = ({ token }) => {
     };
   }, [token]);
 
-  // Smooth continuous horizontal auto-scrolling
+  // Smooth continuous circular (infinite seamless loop) auto-scrolling
   useEffect(() => {
     if (activeOffers.length === 0) return;
 
     const interval = setInterval(() => {
-      if (!scrollViewRef.current || contentWidth.current <= containerWidth.current) return;
+      if (!scrollViewRef.current || singleLoopWidth.current <= 0) return;
+
       scrollPos.current += 1.2;
-      if (scrollPos.current >= contentWidth.current - containerWidth.current + 20) {
-        scrollPos.current = 0;
+      if (scrollPos.current >= singleLoopWidth.current) {
+        scrollPos.current -= singleLoopWidth.current;
       }
       scrollViewRef.current.scrollTo({ x: scrollPos.current, animated: false });
     }, 25);
@@ -165,24 +161,54 @@ const ActiveOffersTicker: React.FC<{ token: string | null }> = ({ token }) => {
         ref={scrollViewRef}
         horizontal
         showsHorizontalScrollIndicator={false}
+        scrollEnabled={false}
         scrollEventThrottle={16}
-        onContentSizeChange={(w) => {
-          contentWidth.current = w;
-        }}
-        onLayout={(e) => {
-          containerWidth.current = e.nativeEvent.layout.width;
-        }}
         style={styles.tickerScroll}
         contentContainerStyle={styles.tickerContent}
       >
-        {activeOffers.map((item, idx) => {
-          const offerText = formatOfferTickerText(item, idx);
-          return (
-            <Text key={item.id || idx} style={styles.tickerText} numberOfLines={1}>
-              {offerText}   •   
-            </Text>
-          );
-        })}
+        {/* Set 1: Measured loop width */}
+        <View
+          style={{ flexDirection: 'row', alignItems: 'center' }}
+          onLayout={(e) => {
+            const w = e.nativeEvent.layout.width;
+            if (w > 0) {
+              singleLoopWidth.current = w;
+            }
+          }}
+        >
+          {activeOffers.map((item, idx) => {
+            const offerText = formatOfferTickerText(item, idx);
+            return (
+              <Text key={`offer-set1-${item.id || idx}`} style={styles.tickerText} numberOfLines={1}>
+                {offerText}   •   
+              </Text>
+            );
+          })}
+        </View>
+
+        {/* Set 2: Duplicate for seamless circular transition */}
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {activeOffers.map((item, idx) => {
+            const offerText = formatOfferTickerText(item, idx);
+            return (
+              <Text key={`offer-set2-${item.id || idx}`} style={styles.tickerText} numberOfLines={1}>
+                {offerText}   •   
+              </Text>
+            );
+          })}
+        </View>
+
+        {/* Set 3: Extra padding set to prevent any gaps on wide screens */}
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {activeOffers.map((item, idx) => {
+            const offerText = formatOfferTickerText(item, idx);
+            return (
+              <Text key={`offer-set3-${item.id || idx}`} style={styles.tickerText} numberOfLines={1}>
+                {offerText}   •   
+              </Text>
+            );
+          })}
+        </View>
       </ScrollView>
     </View>
   );
@@ -239,6 +265,7 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
     refreshing,
     cashDepositList,
     brandSalesList,
+    brandSalesTotals,
     selectedState,
     isStateModalOpen,
     abmSearchQuery,
@@ -844,16 +871,196 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                   <ActivityIndicator size="large" color={colors.primary} />
                   <Text style={styles.loadingText}>Loading brand sales...</Text>
                 </View>
-              ) : filteredBrandSalesList.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>
-                    {brandSearchQuery.trim()
-                      ? `No brand matching "${brandSearchQuery}" found`
-                      : 'No brand sales records found'}
-                  </Text>
-                </View>
               ) : (
-                filteredBrandSalesList.map((item, index) => {
+                <>
+                  {/* ── Total All Data Summary Card ── */}
+                  {brandSalesTotals && (
+                    <View style={styles.totalBrandCard}>
+                      {/* Total Card Header */}
+                      <View style={styles.totalBrandCardHeader}>
+                        <View style={styles.totalBrandHeaderLeft}>
+                          <View style={styles.totalBrandIconWrapper}>
+                            <Image
+                              source={Images.report}
+                              style={styles.totalBrandProductIcon}
+                              resizeMode="contain"
+                            />
+                          </View>
+                          <View>
+                            <Text style={styles.totalBrandTitle}>
+                              {brandSalesTotals.brandName || 'Total'}
+                            </Text>
+                            <Text style={styles.totalBrandSubtitle}>
+                              Total All Data
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.totalBadge}>
+                          <Text style={styles.totalBadgeText}>TOTALS</Text>
+                        </View>
+                      </View>
+
+                      {/* 2x2 Grid for Total FTD, LMFTD, MTD, LMTD */}
+                      <View style={styles.brandStatsGrid}>
+                        {/* 1. Total FTD */}
+                        <View style={[styles.brandBox, styles.totalBox]}>
+                          <View style={styles.brandBoxHeader}>
+                            <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
+                              Total FTD
+                            </Text>
+                            <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
+                              <Text style={styles.brandBoxQtyText}>
+                                Qty: {formatQuantity(brandSalesTotals.ftdQty)}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={[styles.brandBoxValueText, styles.totalBoxValueText]}>
+                            {formatCurrency(brandSalesTotals.ftdValue)}
+                          </Text>
+                        </View>
+
+                        {/* 2. Total LMFTD */}
+                        <View style={[styles.brandBox, styles.totalBox]}>
+                          <View style={styles.brandBoxHeader}>
+                            <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
+                              Total LMFTD
+                            </Text>
+                            <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
+                              <Text style={styles.brandBoxQtyText}>
+                                Qty: {formatQuantity(brandSalesTotals.lmftdQty)}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={[styles.brandBoxValueText, styles.totalBoxValueText]}>
+                            {formatCurrency(brandSalesTotals.lmftdValue)}
+                          </Text>
+                        </View>
+
+                        {/* 3. Total MTD */}
+                        <View style={[styles.brandBox, styles.totalBoxMtd]}>
+                          <View style={styles.brandBoxHeader}>
+                            <Text style={[styles.brandBoxTitle, styles.totalBoxTitleMtd]}>
+                              Total MTD
+                            </Text>
+                            <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadgeMtd]}>
+                              <Text
+                                style={[
+                                  styles.brandBoxQtyText,
+                                  styles.brandBoxQtyTextMtd,
+                                ]}
+                              >
+                                Qty: {formatQuantity(brandSalesTotals.mtdQty)}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={[styles.brandBoxValueText, styles.totalBoxValueTextMtd]}>
+                            {formatCurrency(brandSalesTotals.mtdValue)}
+                          </Text>
+                        </View>
+
+                        {/* 4. Total LMTD */}
+                        <View style={[styles.brandBox, styles.totalBox]}>
+                          <View style={styles.brandBoxHeader}>
+                            <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
+                              Total LMTD
+                            </Text>
+                            <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
+                              <Text style={styles.brandBoxQtyText}>
+                                Qty: {formatQuantity(brandSalesTotals.lmtdQty)}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={[styles.brandBoxValueText, styles.totalBoxValueText]}>
+                            {formatCurrency(brandSalesTotals.lmtdValue)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Growth Metrics Footer */}
+                      <View style={styles.brandGrowthRow}>
+                        {/* 5. Total Growth Qty */}
+                        <View
+                          style={[
+                            styles.brandGrowthBox,
+                            (Number(brandSalesTotals.growthQtyPercentage) || 0) < 0
+                              ? styles.growthRedBox
+                              : styles.growthGreenBox,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.brandGrowthLabel,
+                              (Number(brandSalesTotals.growthQtyPercentage) || 0) < 0
+                                ? styles.growthRedText
+                                : styles.growthGreenText,
+                            ]}
+                          >
+                            Total Growth Qty
+                          </Text>
+                          <Text
+                            style={[
+                              styles.brandGrowthValue,
+                              (Number(brandSalesTotals.growthQtyPercentage) || 0) < 0
+                                ? styles.growthRedText
+                                : styles.growthGreenText,
+                            ]}
+                          >
+                            {(Number(brandSalesTotals.growthQtyPercentage) || 0) > 0
+                              ? `▲ +${formatPercent(brandSalesTotals.growthQtyPercentage)}`
+                              : (Number(brandSalesTotals.growthQtyPercentage) || 0) < 0
+                              ? `▼ ${formatPercent(brandSalesTotals.growthQtyPercentage)}`
+                              : formatPercent(brandSalesTotals.growthQtyPercentage)}
+                          </Text>
+                        </View>
+
+                        {/* 6. Total Growth Value */}
+                        <View
+                          style={[
+                            styles.brandGrowthBox,
+                            (Number(brandSalesTotals.growthValuePercentage) || 0) < 0
+                              ? styles.growthRedBox
+                              : styles.growthGreenBox,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.brandGrowthLabel,
+                              (Number(brandSalesTotals.growthValuePercentage) || 0) < 0
+                                ? styles.growthRedText
+                                : styles.growthGreenText,
+                            ]}
+                          >
+                            Total Growth Val
+                          </Text>
+                          <Text
+                            style={[
+                              styles.brandGrowthValue,
+                              (Number(brandSalesTotals.growthValuePercentage) || 0) < 0
+                                ? styles.growthRedText
+                                : styles.growthGreenText,
+                            ]}
+                          >
+                            {(Number(brandSalesTotals.growthValuePercentage) || 0) > 0
+                              ? `▲ +${formatPercent(brandSalesTotals.growthValuePercentage)}`
+                              : (Number(brandSalesTotals.growthValuePercentage) || 0) < 0
+                              ? `▼ ${formatPercent(brandSalesTotals.growthValuePercentage)}`
+                              : formatPercent(brandSalesTotals.growthValuePercentage)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  )}
+
+                  {filteredBrandSalesList.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                      <Text style={styles.emptyText}>
+                        {brandSearchQuery.trim()
+                          ? `No brand matching "${brandSearchQuery}" found`
+                          : 'No brand sales records found'}
+                      </Text>
+                    </View>
+                  ) : (
+                    filteredBrandSalesList.map((item, index) => {
                   const growthQtyRaw =
                     item.growth_qty_percentage ?? item.growthQtyPercentage ?? 0;
                   const growthValueRaw =
@@ -1012,6 +1219,8 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                     </View>
                   );
                 })
+              )}
+                </>
               )}
             </ScrollView>
           </View>

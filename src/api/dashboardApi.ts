@@ -28,6 +28,21 @@ export interface BrandWiseSaleItem {
   [key: string]: any;
 }
 
+export interface BrandWiseSalesTotals {
+  brandName?: string;
+  ftdQty: number;
+  ftdValue: number;
+  lmftdQty: number;
+  lmftdValue: number;
+  mtdQty: number;
+  mtdValue: number;
+  lmtdQty: number;
+  lmtdValue: number;
+  growthQtyPercentage?: number;
+  growthValuePercentage?: number;
+  [key: string]: any;
+}
+
 /**
  * Format currency in Indian Rupees format (e.g. ₹ 1,91,93,074.00)
  */
@@ -488,6 +503,234 @@ export const fetchBrandWiseSalesDataApi = async (
   } catch (error: any) {
     console.warn('fetchBrandWiseSalesDataApi error:', error);
     throw error;
+  }
+};
+
+/**
+ * 2b) Fetch Brand Wise Sales Totals (Total All Data)
+ * GET https://interlink.jasminmobile.com/api/brand-wise-sales/totals?date=2026-08-10&state=Gujarat
+ */
+export const fetchBrandWiseSalesTotalsApi = async (
+  token?: string | null,
+  filter?: BrandWiseSalesFilterParams | string
+): Promise<BrandWiseSalesTotals | null> => {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+      headers['x-access-token'] = token;
+    }
+
+    const queryParts: string[] = [];
+
+    if (typeof filter === 'string') {
+      if (filter.trim()) {
+        queryParts.push(`brand_name=${encodeURIComponent(filter.trim())}`);
+      }
+    } else if (filter && typeof filter === 'object') {
+      if (filter.date && filter.date.trim()) {
+        queryParts.push(`date=${encodeURIComponent(filter.date.trim())}`);
+      }
+      if (filter.state && filter.state.trim() && filter.state !== 'All States') {
+        queryParts.push(`state=${encodeURIComponent(filter.state.trim())}`);
+      }
+      if (filter.brandName && filter.brandName.trim()) {
+        queryParts.push(`brand_name=${encodeURIComponent(filter.brandName.trim())}`);
+      }
+    }
+
+    const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+    const response = await fetch(`${BASE_URL}/brand-wise-sales/totals${queryString}`, {
+      method: 'GET',
+      headers,
+    });
+
+    const text = await response.text();
+    let json: any = {};
+    if (text && text.trim().length > 0) {
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = {};
+      }
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        json.message || json.error || `Server error: ${response.status}`
+      );
+    }
+
+    const raw =
+      json.totals ||
+      json.data?.totals ||
+      json.data ||
+      json.results ||
+      json.result ||
+      json;
+    const item = Array.isArray(raw) ? (raw[0] || {}) : raw;
+
+    const brandName =
+      getVal(
+        item,
+        'brand_name',
+        'brandName',
+        'BRAND_NAME',
+        'BrandName',
+        'Brand',
+        'brand'
+      ) || 'Total';
+
+    const ftdQty = Number(
+      getVal(
+        item,
+        'ftd_qty_ach',
+        'ftdQty',
+        'ftd_qty',
+        'FTD_QTY',
+        'ftdQuantity',
+        'ftd_quantity',
+        'ftd_count',
+        'ftd'
+      ) ?? 0
+    );
+    const ftdValue = Number(
+      getVal(
+        item,
+        'ftd_value_ach',
+        'ftdValue',
+        'ftd_value',
+        'FTD_VALUE',
+        'ftdVal',
+        'ftd_val',
+        'ftdAmount',
+        'ftd_amount',
+        'ftd_total',
+        'ftdTotal'
+      ) ?? 0
+    );
+    const lmftdQty = Number(
+      getVal(
+        item,
+        'lmftd_qty_ach',
+        'lmftdQty',
+        'lmftd_qty',
+        'LMFTD_QTY',
+        'lmftdQuantity',
+        'lm_ftd_qty',
+        'lmftd'
+      ) ?? 0
+    );
+    const lmftdValue = Number(
+      getVal(
+        item,
+        'lmftd_value_ach',
+        'lmftdValue',
+        'lmftd_value',
+        'LMFTD_VALUE',
+        'lmftdVal',
+        'lmftd_val',
+        'lmftdAmount',
+        'lm_ftd_value',
+        'lm_ftd_val'
+      ) ?? 0
+    );
+    const mtdQty = Number(
+      getVal(
+        item,
+        'mtd_qty_ach',
+        'mtdQty',
+        'mtd_qty',
+        'MTD_QTY',
+        'mtdQuantity',
+        'mtd_quantity',
+        'mtd_count',
+        'mtd'
+      ) ?? 0
+    );
+    const mtdValue = Number(
+      getVal(
+        item,
+        'mtd_value_ach',
+        'mtdValue',
+        'mtd_value',
+        'MTD_VALUE',
+        'mtdVal',
+        'mtd_val',
+        'mtdAmount',
+        'mtd_amount',
+        'mtd_total',
+        'mtdTotal'
+      ) ?? 0
+    );
+    const lmtdQty = Number(
+      getVal(
+        item,
+        'lmtd_qty_ach',
+        'lmtdQty',
+        'lmtd_qty',
+        'LMTD_QTY',
+        'lmtdQuantity',
+        'lm_mtd_qty',
+        'lmtd'
+      ) ?? 0
+    );
+    const lmtdValue = Number(
+      getVal(
+        item,
+        'lmtd_value_ach',
+        'lmtdValue',
+        'lmtd_value',
+        'LMTD_VALUE',
+        'lmtdVal',
+        'lmtd_val',
+        'lmtdAmount',
+        'lm_mtd_value',
+        'lm_mtd_val'
+      ) ?? 0
+    );
+
+    const growthQtyPercentage =
+      getVal(
+        item,
+        'growth_qty_percentage',
+        'growthQtyPercentage',
+        'growth_qty',
+        'growth_quantity_percentage'
+      ) ??
+      (lmftdQty > 0 ? (((ftdQty - lmftdQty) / lmftdQty) * 100).toFixed(2) : 0);
+
+    const growthValuePercentage =
+      getVal(
+        item,
+        'growth_value_percentage',
+        'growthValuePercentage',
+        'growth_value',
+        'growth_val'
+      ) ??
+      (lmftdValue > 0 ? (((ftdValue - lmftdValue) / lmftdValue) * 100).toFixed(2) : 0);
+
+    return {
+      brandName,
+      ftdQty,
+      ftdValue,
+      lmftdQty,
+      lmftdValue,
+      mtdQty,
+      mtdValue,
+      lmtdQty,
+      lmtdValue,
+      growthQtyPercentage: Number(growthQtyPercentage) || 0,
+      growthValuePercentage: Number(growthValuePercentage) || 0,
+      ...item,
+    };
+  } catch (error: any) {
+    console.warn('[Dashboard API] fetchBrandWiseSalesTotalsApi error:', error.message);
+    return null;
   }
 };
 

@@ -16,7 +16,7 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import { usePriceListStore } from '../../../store';
 import { fetchPriceListStockInfoApi } from '../../../api/priceListApi';
-import { colors, fontFamily, borderRadius } from '../../../styles/variables';
+import { colors, fontFamily, borderRadius, fontSize } from '../../../styles/variables';
 import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
 
@@ -79,6 +79,7 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
   const [selectedProducts, setSelectedProducts] = useState<string[]>(['All Products']);
   const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [expandedItemId, setExpandedItemId] = useState<string | number | null>(null);
   const searchInputRef = useRef<TextInput>(null);
 
   const isReportDetail = route.name === 'PriceListReportDetailScreen';
@@ -110,7 +111,7 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
       item['modelName'] ||
       '';
 
-    console.log('[PriceListDetailScreen] View Stock Clicked for Item:', item, 'Extracted modelGroup:', modelGroup);
+    
 
     try {
       const res = await fetchPriceListStockInfoApi(token, modelGroup, sync);
@@ -385,7 +386,22 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
     });
   }, [reportDetails?.data, searchQuery, activeBrands, activeProducts]);
 
-  const renderItem = ({ item }: { item: any }) => {
+  const PriceListItemCard: React.FC<{
+    item: any;
+    index: number;
+    isExpanded: boolean;
+    onToggleExpand: () => void;
+    isReportDetail: boolean;
+    visibleColumns: any[];
+    onFetchStockInfo: (item: any) => void;
+  }> = ({
+    item,
+    isExpanded,
+    onToggleExpand,
+    isReportDetail,
+    visibleColumns,
+    onFetchStockInfo,
+  }) => {
     // Standard keys safely rendered
     const brand = renderStringValue(
       item.Brand ||
@@ -406,25 +422,106 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
     const modelGroup = renderStringValue(item.model_group_name || item.modelGroupName);
     const activeOffers = renderStringValue(item.active_offers || item.activeOffers);
 
+    // Hide "View Stock" button when GeneralmodelGroup is "*General"
+    const generalModelGroupVal = String(
+      item.GeneralmodelGroup ??
+      item['GeneralmodelGroup'] ??
+      item['General Model Group'] ??
+      item.general_model_group ??
+      item.generalModelGroup ??
+      item['General_model_group'] ??
+      item.model_group_name ??
+      item.modelGroupName ??
+      item['Model Group'] ??
+      ''
+    ).trim();
+
+    const isGeneral =
+      generalModelGroupVal === '*General' ||
+      generalModelGroupVal.toLowerCase() === '*general' ||
+      generalModelGroupVal.toLowerCase().includes('*general') ||
+      generalModelGroupVal === '* General' ||
+      generalModelGroupVal.toLowerCase() === '* general';
+
+    const showViewStock = !isReportDetail && !isGeneral;
+
     return (
       <View style={styles.card}>
         {/* Brand & Product Header */}
         <View style={styles.cardHeader}>
-          <View style={styles.headerLeft}>
+          {/* Top Row: Full-width Product Name + Down Arrow button */}
+          <View style={styles.cardTopRow}>
             <View style={styles.titleInfoRow}>
               <Text style={styles.titleInfoLabel}>Product Name: </Text>
               <Text style={styles.productNameText} numberOfLines={2}>
                 {productName}
               </Text>
             </View>
+
+            {/* Down Arrow / Expand Toggle Button */}
+            <TouchableOpacity
+              style={styles.expandToggleBtn}
+              onPress={onToggleExpand}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Image
+                source={Images.down}
+                style={[
+                  styles.expandToggleIcon,
+                  isExpanded && styles.expandToggleIconRotated,
+                ]}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Sub Row: Brand Badge */}
+          <View style={styles.cardSubRow}>
             <View style={styles.brandBadge}>
               <Text style={styles.brandText}>Brand: {brand}</Text>
             </View>
           </View>
-          {!isReportDetail && (
+        </View>
+
+        {/* Details List */}
+        <View style={styles.detailsContent}>
+          {/* Model Group is always visible */}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Model Group</Text>
+            <Text style={styles.infoValue}>{modelGroup}</Text>
+          </View>
+
+          {/* Other information is hidden and only shown when Down Arrow is clicked */}
+          {isExpanded && (
+            <View style={styles.expandedDetailsSection}>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Active Offers</Text>
+                <Text style={[styles.infoValue, styles.activeOffersText]}>
+                  {activeOffers}
+                </Text>
+              </View>
+
+              {/* Dynamic Columns from columns[] where not_show_in_report = false */}
+              {visibleColumns.map((col) => {
+                const val = item[col.column_name];
+                return (
+                  <View key={col.column_name} style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>{col.column_name}</Text>
+                    <Text style={styles.infoValue}>{renderStringValue(val)}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        {/* Bottom Footer: View Stock Button */}
+        {showViewStock && (
+          <View style={styles.cardFooter}>
             <TouchableOpacity
-              style={styles.stockBtn}
-              onPress={() => handleFetchStockInfo(item, true)}
+              style={styles.stockBtnBottom}
+              onPress={() => onFetchStockInfo(item)}
               activeOpacity={0.7}
             >
               <Image
@@ -434,34 +531,28 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
               />
               <Text style={styles.stockBtnText}>View Stock</Text>
             </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Details List */}
-        <View style={styles.detailsContent}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Model Group</Text>
-            <Text style={styles.infoValue}>{modelGroup}</Text>
           </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Active Offers</Text>
-            <Text style={[styles.infoValue, styles.activeOffersText]}>
-              {activeOffers}
-            </Text>
-          </View>
-
-          {/* Dynamic Columns from columns[] where not_show_in_report = false */}
-          {visibleColumns.map((col) => {
-            const val = item[col.column_name];
-            return (
-              <View key={col.column_name} style={styles.infoRow}>
-                <Text style={styles.infoLabel}>{col.column_name}</Text>
-                <Text style={styles.infoValue}>{renderStringValue(val)}</Text>
-              </View>
-            );
-          })}
-        </View>
+        )}
       </View>
+    );
+  };
+
+  const renderItem = ({ item, index }: { item: any; index: number }) => {
+    const itemKey = item.id ?? item._id ?? index;
+    const isExpanded = expandedItemId === itemKey;
+
+    return (
+      <PriceListItemCard
+        item={item}
+        index={index}
+        isExpanded={isExpanded}
+        onToggleExpand={() =>
+          setExpandedItemId((prev) => (prev === itemKey ? null : itemKey))
+        }
+        isReportDetail={isReportDetail}
+        visibleColumns={visibleColumns}
+        onFetchStockInfo={(it) => handleFetchStockInfo(it, true)}
+      />
     );
   };
 
@@ -661,6 +752,7 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
       <View style={styles.mainContainer}>
         <FlatList
           data={filteredData}
+          extraData={expandedItemId}
           keyExtractor={(item, idx) => String(item.id || item._id || idx)}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
@@ -1381,32 +1473,36 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingBottom: 10,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    marginBottom: 10,
+    marginBottom: 8,
+    gap: 6,
   },
-  headerLeft: {
-    flex: 1,
-    marginRight: 10,
-    gap: 4,
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  cardSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   titleInfoRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'baseline',
-    marginBottom: 2,
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 6,
   },
   titleInfoLabel: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontFamily: fontFamily.bold,
     color: '#64748B',
   },
   productNameText: {
-    fontSize: 14.5,
+    fontSize: 14,
     fontFamily: fontFamily.bold,
     color: '#0F172A',
     flex: 1,
@@ -1451,9 +1547,59 @@ const styles = StyleSheet.create({
     tintColor: '#FFFFFF',
   },
   stockBtnText: {
-    fontSize: 11,
+    fontSize: fontSize.small,
     fontFamily: fontFamily.bold,
     color: '#FFFFFF',
+  },
+  cardFooter: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  stockBtnBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#15803D',
+    borderWidth: 1,
+    borderColor: '#15803D',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 5,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  expandToggleBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#EDE9FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expandToggleIcon: {
+    width: 12,
+    height: 12,
+    tintColor: colors.primary,
+  },
+  expandToggleIconRotated: {
+    transform: [{ rotate: '180deg' }],
+  },
+  expandedDetailsSection: {
+    gap: 8,
+    marginTop: 4,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
   detailsContent: {
     gap: 8,

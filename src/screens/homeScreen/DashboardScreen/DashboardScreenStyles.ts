@@ -931,6 +931,99 @@ const styles = StyleSheet.create({
   },
 
   /* ── Brand Wise Sales Card UI ── */
+  totalBrandCard: {
+    backgroundColor: '#FAF5FF',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#C084FC',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  totalBrandCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9D5FF',
+    marginBottom: 10,
+  },
+  totalBrandHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  totalBrandIconWrapper: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  totalBrandProductIcon: {
+    width: 18,
+    height: 18,
+    tintColor: colors.white,
+  },
+  totalBrandTitle: {
+    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    color: '#4C1D95',
+  },
+  totalBrandSubtitle: {
+    fontSize: 11,
+    fontFamily: fontFamily.medium,
+    color: '#7C3AED',
+  },
+  totalBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  totalBadgeText: {
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    color: colors.white,
+    letterSpacing: 0.5,
+  },
+  totalBox: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E9D5FF',
+  },
+  totalBoxTitle: {
+    color: '#6B21A8',
+  },
+  totalQtyBadge: {
+    backgroundColor: '#F3E8FF',
+  },
+  totalBoxValueText: {
+    color: '#1E1B4B',
+  },
+  totalBoxMtd: {
+    backgroundColor: '#FFFFFF',
+    borderColor: colors.primary,
+    borderWidth: 1.5,
+  },
+  totalBoxTitleMtd: {
+    color: colors.primary,
+    fontFamily: fontFamily.bold,
+  },
+  totalQtyBadgeMtd: {
+    backgroundColor: '#EDE9FE',
+  },
+  totalBoxValueTextMtd: {
+    color: colors.primary,
+    fontFamily: fontFamily.bold,
+  },
+
   brandCard: {
     backgroundColor: colors.white,
     borderRadius: 18,

@@ -49,33 +49,37 @@ export interface TabNavigationProps {
   user?: any;
 }
 
-interface QuickPillItemProps {
+interface QuickGridItemProps {
   title: string;
   icon: any;
+  tintColor: string;
+  bgColor: string;
   onPress: (nav: any) => void;
 }
 
-const QuickPillItem: React.FC<QuickPillItemProps> = ({
+const QuickGridItem: React.FC<QuickGridItemProps> = ({
   title,
   icon,
+  tintColor,
+  bgColor,
   onPress,
 }) => {
   const navigation = useNavigation<any>();
 
   return (
     <TouchableOpacity
-      style={tabStyles.pillItem}
-      activeOpacity={0.75}
+      style={tabStyles.gridItem}
+      activeOpacity={0.72}
       onPress={() => onPress(navigation)}
     >
-      <View style={tabStyles.pillIconBadge}>
+      <View style={[tabStyles.gridIconBadge, { backgroundColor: bgColor }]}>
         <Image
           source={icon}
-          style={tabStyles.pillIcon}
+          style={[tabStyles.gridIcon, { tintColor: tintColor }]}
           resizeMode="contain"
         />
       </View>
-      <Text style={tabStyles.pillTitle} numberOfLines={1}>
+      <Text style={tabStyles.gridTitle} numberOfLines={1}>
         {title}
       </Text>
     </TouchableOpacity>
@@ -473,7 +477,14 @@ export const TabNavigation: React.FC<TabNavigationProps> = () => {
               >
                 {/* Header */}
                 <View style={tabStyles.menuHeader}>
-                  <Text style={tabStyles.menuTitle}>Menu</Text>
+                  <View style={tabStyles.menuHeaderLeft}>
+                    <View style={tabStyles.menuHeaderToggleIcon}>
+                      <View style={[tabStyles.menuHeaderToggleBar, { width: 14 }]} />
+                      <View style={[tabStyles.menuHeaderToggleBar, { width: 9, marginVertical: 2.5 }]} />
+                      <View style={[tabStyles.menuHeaderToggleBar, { width: 14 }]} />
+                    </View>
+                    <Text style={tabStyles.menuTitle}>Quick Menu</Text>
+                  </View>
                   <TouchableOpacity
                     style={tabStyles.closeBtn}
                     activeOpacity={0.7}
@@ -483,60 +494,71 @@ export const TabNavigation: React.FC<TabNavigationProps> = () => {
                   </TouchableOpacity>
                 </View>
 
-                {/* Vertical Stack of 3D Pill Views */}
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={tabStyles.verticalListContainer}
-                >
+                {/* 2-Column Grid of Navigation Actions */}
+                <View style={tabStyles.gridContainer}>
                   {/* 1. Dashboard */}
-                  <QuickPillItem
+                  <QuickGridItem
                     title="Dashboard"
                     icon={Images.dashboardIcon}
+                    tintColor="#7C3AED"
+                    bgColor="#EDE9FE"
                     onPress={(nav) => handleMenuSelect(nav, 'Dashboard')}
                   />
 
                   {/* 2. Home */}
-                  <QuickPillItem
+                  <QuickGridItem
                     title="Home"
                     icon={Images.home}
+                    tintColor="#0284C7"
+                    bgColor="#E0F2FE"
                     onPress={(nav) => handleMenuSelect(nav, 'HomeScreen')}
                   />
 
                   {/* 3. PriceList */}
-                  <QuickPillItem
-                    title="PriceList"
+                  <QuickGridItem
+                    title="Price List"
                     icon={Images.clipboard}
+                    tintColor="#4F46E5"
+                    bgColor="#EEF2FF"
                     onPress={(nav) => handleMenuSelect(nav, 'PriceList')}
                   />
 
                   {/* 4. Alert */}
-                  <QuickPillItem
-                    title="Alert"
+                  <QuickGridItem
+                    title="Alerts"
                     icon={Images.notification}
+                    tintColor="#E11D48"
+                    bgColor="#FFE4E6"
                     onPress={(nav) => handleMenuSelect(nav, 'AlertMaster')}
                   />
 
                   {/* 5. Offers */}
-                  <QuickPillItem
+                  <QuickGridItem
                     title="Offers"
                     icon={Images.offer}
+                    tintColor="#D97706"
+                    bgColor="#FEF3C7"
                     onPress={(nav) => handleMenuSelect(nav, 'Offers')}
                   />
 
                   {/* 6. Reports */}
-                  <QuickPillItem
+                  <QuickGridItem
                     title="Reports"
                     icon={Images.report}
+                    tintColor="#059669"
+                    bgColor="#D1FAE5"
                     onPress={(nav) => handleMenuSelect(nav, 'Reports')}
                   />
 
                   {/* 7. Profile */}
-                  <QuickPillItem
+                  <QuickGridItem
                     title="Profile"
                     icon={Images.user}
+                    tintColor="#9333EA"
+                    bgColor="#F5F3FF"
                     onPress={(nav) => handleMenuSelect(nav, 'Profile')}
                   />
-                </ScrollView>
+                </View>
               </Animated.View>
             </TouchableWithoutFeedback>
           </View>
@@ -607,11 +629,11 @@ const tabStyles = StyleSheet.create({
     backgroundColor: colors.white,
     alignSelf: 'flex-end',
     marginRight: 14,
-    width: 145,
+    width: 275,
     borderRadius: 22,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    maxHeight: '68%',
+    paddingTop: 12,
+    paddingBottom: 14,
+    paddingHorizontal: 12,
     shadowColor: '#1E1B4B',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.28,
@@ -624,66 +646,86 @@ const tabStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 5,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    marginBottom: 5,
+    marginBottom: 10,
     paddingHorizontal: 2,
   },
+  menuHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuHeaderToggleIcon: {
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  menuHeaderToggleBar: {
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: colors.primary,
+  },
   menuTitle: {
-    fontSize: fontSize.extraSmall || 12,
-    color: colors.black,
+    fontSize: 14,
+    color: '#0F172A',
     fontFamily: fontFamily.bold,
+    letterSpacing: 0.2,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   closeBtn: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeBtnText: {
-    fontSize: 9,
-    color: colors.subtitleColor,
+    fontSize: 10,
+    color: '#64748B',
     fontFamily: fontFamily.bold,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
-  verticalListContainer: {
-    paddingTop: 1,
-    paddingBottom: 1,
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 7,
   },
-  pillItem: {
+  gridItem: {
+    width: '48.5%',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 5.5,
+    paddingVertical: 7.5,
     paddingHorizontal: 8,
-    borderRadius: 16,
-    marginBottom: 4,
-    backgroundColor: '#FAF5FF',
+    borderRadius: 13,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#EDE9FE',
-    shadowColor: '#6B21A8',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  pillIconBadge: {
-    width: 20,
-    height: 20,
+  gridIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 6,
+    marginRight: 7,
   },
-  pillIcon: {
-    width: 13,
-    height: 13,
-    tintColor: colors.primary,
+  gridIcon: {
+    width: 15,
+    height: 15,
   },
-  pillTitle: {
+  gridTitle: {
     flex: 1,
     fontSize: 11.5,
-    color: colors.black,
+    color: '#1E293B',
     fontFamily: fontFamily.bold,
   },
 });

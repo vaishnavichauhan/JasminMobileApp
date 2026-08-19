@@ -2,9 +2,11 @@ import { create } from 'zustand';
 import {
   fetchStockCashDepositAbmWiseApi,
   fetchBrandWiseSalesDataApi,
+  fetchBrandWiseSalesTotalsApi,
   fetchAllStatesApi,
   CashDepositAbmItem,
   BrandWiseSaleItem,
+  BrandWiseSalesTotals,
 } from '../api/dashboardApi';
 
 export type DashboardTab = 'CASH_DEPOSIT' | 'BRAND_WISE';
@@ -24,6 +26,7 @@ export interface DashboardState {
   // Data
   cashDepositList: CashDepositAbmItem[];
   brandSalesList: BrandWiseSaleItem[];
+  brandSalesTotals: BrandWiseSalesTotals | null;
   apiStatesList: string[];
   loading: boolean;
   refreshing: boolean;
@@ -75,6 +78,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   activeTab: 'CASH_DEPOSIT',
   cashDepositList: [],
   brandSalesList: [],
+  brandSalesTotals: null,
   apiStatesList: [],
   loading: false,
   refreshing: false,
@@ -115,6 +119,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       selectedState: 'All States',
       abmSearchQuery: '',
       brandSearchQuery: '',
+      brandSalesTotals: null,
       selectedDate: todayStr,
       calendarYear: new Date().getFullYear(),
       calendarMonth: new Date().getMonth(),
@@ -130,6 +135,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       selectedState: 'All States',
       abmSearchQuery: '',
       brandSearchQuery: '',
+      brandSalesTotals: null,
       selectedDate: todayStr,
       calendarYear: new Date().getFullYear(),
       calendarMonth: new Date().getMonth(),
@@ -164,7 +170,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     }
   },
 
-  // Fetch Brand Wise Sales Data
+  // Fetch Brand Wise Sales Data & Totals
   loadBrandSalesData: async (
     token,
     isRefresh = false,
@@ -181,12 +187,27 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       const targetBrand =
         brandToFetch !== undefined ? brandToFetch : get().brandSearchQuery;
 
-      const data = await fetchBrandWiseSalesDataApi(token, {
-        state: targetState,
-        date: targetDate,
-        brandName: targetBrand,
-      });
-      set({ brandSalesList: Array.isArray(data) ? data : [] });
+      const [salesRes, totalsRes] = await Promise.allSettled([
+        fetchBrandWiseSalesDataApi(token, {
+          state: targetState,
+          date: targetDate,
+          brandName: targetBrand,
+        }),
+        fetchBrandWiseSalesTotalsApi(token, {
+          state: targetState,
+          date: targetDate,
+          brandName: targetBrand,
+        }),
+      ]);
+
+      const brandSalesList =
+        salesRes.status === 'fulfilled' && Array.isArray(salesRes.value)
+          ? salesRes.value
+          : [];
+      const brandSalesTotals =
+        totalsRes.status === 'fulfilled' ? totalsRes.value : null;
+
+      set({ brandSalesList, brandSalesTotals });
     } catch (err: any) {
       console.warn('useDashboardStore loadBrandSalesData error:', err.message);
     } finally {

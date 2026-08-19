@@ -10,6 +10,7 @@ import {
   Keyboard,
   Alert,
   Image,
+  ToastAndroid,
 } from 'react-native';
 import { styles } from './LoginScreenStyles';
 import TextInputes from '../../../components/TextInputes/TextInputes';
@@ -98,24 +99,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
       const userData = response.user || response.data || { username: username.trim() };
       const authToken = response.token || response.accessToken;
-      const successMsg =
-        response.message || response.msg || response.detail || 'Logged in successfully!';
 
       setLoading(false);
 
-      Alert.alert(
-        'Login Successful',
-        successMsg,
-        [
-          {
-            text: 'OK',
-            onPress: async () => {
-              await login(userData, authToken);
-            },
-          },
-        ],
-        { cancelable: false }
-      );
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('Login Successfully', ToastAndroid.SHORT);
+      }
+
+      await login(userData, authToken);
     } catch (err: any) {
       setLoading(false);
       Alert.alert('Login Error...', err.message || 'An error occurred during login');
