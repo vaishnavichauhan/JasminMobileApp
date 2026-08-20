@@ -20,11 +20,16 @@ export const styles = StyleSheet.create({
   keyboardAvoidingView: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+    width: '100%',
+  },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: marginHorizontal.small,
-    paddingVertical: Platform.OS === 'ios' ? spaceVertical.normal : spaceVertical.small,
+    paddingTop: spaceVertical.large,
+    paddingBottom: 80,
   },
   headerContainer: {
     alignItems: 'center',
@@ -110,5 +115,41 @@ export const styles = StyleSheet.create({
     color: colors.footerText,
     fontSize: fontSize.extraSmall,
     fontFamily: fontFamily.regular,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: spaceVertical.small,
+  },
+  errorBannerIcon: {
+    fontSize: 18,
+    marginRight: 10,
+  },
+  errorBannerContent: {
+    flex: 1,
+  },
+  errorBannerTitle: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    color: '#991B1B',
+    marginBottom: 2,
+  },
+  errorBannerText: {
+    fontSize: 11.5,
+    fontFamily: fontFamily.medium,
+    color: '#DC2626',
+    lineHeight: 16,
+  },
+  errorBannerClose: {
+    fontSize: 14,
+    color: '#991B1B',
+    paddingLeft: 8,
+    fontWeight: 'bold',
   },
 });

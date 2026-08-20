@@ -11,6 +11,7 @@ import {
   Alert,
   Image,
   ToastAndroid,
+  TouchableOpacity,
 } from 'react-native';
 import { styles } from './LoginScreenStyles';
 import TextInputes from '../../../components/TextInputes/TextInputes';
@@ -30,11 +31,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ username?: string; password?: string }>({});
+  const [serverError, setServerError] = useState<string | null>(null);
   const { login } = useAuth();
 
   const handleSignIn = async () => {
     // Dismiss keyboard
     Keyboard.dismiss();
+    setServerError(null);
 
     const newErrors: { username?: string; password?: string } = {};
 
@@ -99,6 +102,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
       const userData = response.user || response.data || { username: username.trim() };
       const authToken = response.token || response.accessToken;
+      const authRefreshToken = response.refreshToken || response.data?.refreshToken;
 
       setLoading(false);
 
@@ -106,10 +110,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         ToastAndroid.show('Login Successfully', ToastAndroid.SHORT);
       }
 
-      await login(userData, authToken);
+      await login(userData, authToken, authRefreshToken);
     } catch (err: any) {
       setLoading(false);
-      Alert.alert('Login Error...', err.message || 'An error occurred during login');
+      const errMsg = err?.message || 'Invalid Credentials';
+      setServerError(errMsg);
+      // Alert.alert('Login Error...', errMsg);
     }
   };
 
@@ -120,91 +126,111 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Header with Logo & Titles */}
-            <View style={styles.headerContainer}>
-              <View style={styles.logoWrapper}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={true}
+          overScrollMode="always"
+        >
+          {/* Header with Logo & Titles */}
+          <View style={styles.headerContainer}>
+            <View style={styles.logoWrapper}>
+              <Image
+                source={Images.logo}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Sign in to your ERP dashboard</Text>
+          </View>
+
+          {/* Login Card */}
+          <View style={styles.card}>
+            {/* Inline Server Error Banner */}
+            {serverError ? (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorBannerIcon}>⚠️</Text>
+                <View style={styles.errorBannerContent}>
+                  <Text style={styles.errorBannerTitle}>Login Error</Text>
+                  <Text style={styles.errorBannerText}>{serverError}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setServerError(null)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={styles.errorBannerClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {/* Username Input with PNG User Icon */}
+            <TextInputes
+              label="USERNAME"
+              placeholder="Enter your username"
+              value={username}
+              onChangeText={(text) => {
+                setUsername(text);
+                if (error.username) setError((prev) => ({ ...prev, username: undefined }));
+                if (serverError) setServerError(null);
+              }}
+              leftIcon={
                 <Image
-                  source={Images.logo}
-                  style={styles.logo}
+                  source={Images.user}
+                  style={styles.inputIcon}
                   resizeMode="contain"
                 />
-              </View>
+              }
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="next"
+              error={error.username}
+            />
 
-              <Text style={styles.title}>Welcome Back</Text>
-              <Text style={styles.subtitle}>Sign in to your ERP dashboard</Text>
-            </View>
+            {/* Password Input with PNG Lock Icon & PNG Eye Toggle */}
+            <TextInputes
+              label="PASSWORD"
+              placeholder="Enter your password"
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (error.password) setError((prev) => ({ ...prev, password: undefined }));
+                if (serverError) setServerError(null);
+              }}
+              leftIcon={
+                <Image
+                  source={Images.lock}
+                  style={styles.inputIcon}
+                  resizeMode="contain"
+                />
+              }
+              isPassword={true}
+              returnKeyType="done"
+              onSubmitEditing={handleSignIn}
+              error={error.password}
+            />
 
-            {/* Login Card */}
-            <View style={styles.card}>
-              {/* Username Input with PNG User Icon */}
-              <TextInputes
-                label="USERNAME"
-                placeholder="Enter your username"
-                value={username}
-                onChangeText={(text) => {
-                  setUsername(text);
-                  if (error.username) setError((prev) => ({ ...prev, username: undefined }));
-                }}
-                leftIcon={
-                  <Image
-                    source={Images.user}
-                    style={styles.inputIcon}
-                    resizeMode="contain"
-                  />
-                }
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="next"
-                error={error.username}
-              />
-
-              {/* Password Input with PNG Lock Icon & PNG Eye Toggle */}
-              <TextInputes
-                label="PASSWORD"
-                placeholder="Enter your password"
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (error.password) setError((prev) => ({ ...prev, password: undefined }));
-                }}
-                leftIcon={
-                  <Image
-                    source={Images.lock}
-                    style={styles.inputIcon}
-                    resizeMode="contain"
-                  />
-                }
-                isPassword={true}
-                returnKeyType="done"
-                onSubmitEditing={handleSignIn}
-                error={error.password}
-              />
-
-              {/* Sign In Button with PNG ArrowRight Icon */}
-              <Button
-                title="Sign In"
-                onPress={handleSignIn}
-                loading={loading}
-                icon={
-                  <Image
-                    source={Images.arrowRight}
-                    style={styles.buttonIcon}
-                    resizeMode="contain"
-                  />
-                }
-                iconPosition="right"
-                style={styles.signInButton}
-                textStyle={styles.signInButtonText}
-              />
-            </View>
-          </ScrollView>
-        </TouchableWithoutFeedback>
+            {/* Sign In Button with PNG ArrowRight Icon */}
+            <Button
+              title="Sign In"
+              onPress={handleSignIn}
+              loading={loading}
+              icon={
+                <Image
+                  source={Images.arrowRight}
+                  style={styles.buttonIcon}
+                  resizeMode="contain"
+                />
+              }
+              iconPosition="right"
+              style={styles.signInButton}
+              textStyle={styles.signInButtonText}
+            />
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );

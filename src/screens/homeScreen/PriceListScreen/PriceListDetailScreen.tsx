@@ -19,6 +19,8 @@ import { fetchPriceListStockInfoApi } from '../../../api/priceListApi';
 import { colors, fontFamily, borderRadius, fontSize } from '../../../styles/variables';
 import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
+import AccessDenied from '../../../components/AccessDenied/AccessDenied';
+import { isAccessDeniedError } from '../../../utils/authUtils';
 
 const renderStringValue = (val: any): string => {
   if (val === null || val === undefined || val === '') return '—';
@@ -34,6 +36,27 @@ const renderStringValue = (val: any): string => {
   }
   return String(val);
 };
+
+const formatTimestamp = (val: any): string => {
+  if (!val || val === '—') return '—';
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const hoursStr = String(hours).padStart(2, '0');
+    return `${day}/${month}/${year} ${hoursStr}:${minutes} ${ampm}`;
+  } catch {
+    return String(val);
+  }
+};
+
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
@@ -77,6 +100,8 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBrands, setSelectedBrands] = useState<string[]>(['All Brands']);
   const [selectedProducts, setSelectedProducts] = useState<string[]>(['All Products']);
+  const [brandSearchQuery, setBrandSearchQuery] = useState('');
+  const [productSearchQuery, setProductSearchQuery] = useState('');
   const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [expandedItemId, setExpandedItemId] = useState<string | number | null>(null);
@@ -84,6 +109,8 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
 
   const isReportDetail = route.name === 'PriceListReportDetailScreen';
 
+  console.log("reportDetails",reportDetails);
+  
   const handleFetchStockInfo = async (item: any, sync: boolean = true) => {
     setSelectedStockItem(item);
     setStockSearchQuery('');
@@ -293,6 +320,18 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
     return Array.from(set);
   }, [reportDetails?.data]);
 
+  const filteredAvailableBrands = useMemo(() => {
+    if (!brandSearchQuery.trim()) return availableBrands;
+    const q = brandSearchQuery.toLowerCase().trim();
+    return availableBrands.filter((b) => b.toLowerCase().includes(q));
+  }, [availableBrands, brandSearchQuery]);
+
+  const filteredAvailableProducts = useMemo(() => {
+    if (!productSearchQuery.trim()) return availableProducts;
+    const q = productSearchQuery.toLowerCase().trim();
+    return availableProducts.filter((p) => p.toLowerCase().includes(q));
+  }, [availableProducts, productSearchQuery]);
+
   const activeBrands = useMemo(() => {
     return (selectedBrands || []).filter((b) => b && b !== 'All Brands');
   }, [selectedBrands]);
@@ -420,7 +459,27 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
       item.model
     );
     const modelGroup = renderStringValue(item.model_group_name || item.modelGroupName);
-    const activeOffers = renderStringValue(item.active_offers || item.activeOffers);
+    const rawTimestamp =
+      item.timestamp ??
+      item.Timestamp ??
+      item.TIMESTAMP ??
+      item.time_stamp ??
+      item.created_at ??
+      item.createdAt ??
+      reportDetails?.timestamp ??
+      '';
+    const formattedDateTime = formatTimestamp(rawTimestamp);
+
+    const activeOffers = renderStringValue(
+      item.active_offers ??
+      item.activeOffers ??
+      item.Active_Offers ??
+      item['Active Offers'] ??
+      item.offer ??
+      item.offers ??
+      item.Offer ??
+      item.Offers
+    );
 
     // Hide "View Stock" button when GeneralmodelGroup is "*General"
     const generalModelGroupVal = String(
@@ -447,16 +506,17 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
 
     return (
       <View style={styles.card}>
-        {/* Brand & Product Header */}
+        {/* Top Header: Date & Time (Left) + Down Arrow (Right) */}
         <View style={styles.cardHeader}>
-          {/* Top Row: Full-width Product Name + Down Arrow button */}
-          <View style={styles.cardTopRow}>
-            <View style={styles.titleInfoRow}>
-              <Text style={styles.titleInfoLabel}>Product Name: </Text>
-              <Text style={styles.productNameText} numberOfLines={2}>
-                {productName}
-              </Text>
-            </View>
+          <View style={styles.cardTopMetaRow}>
+            {formattedDateTime !== '—' ? (
+              <View style={styles.dateBadge}>
+                <Text style={styles.dateLabel}>Last Updated date: </Text>
+                <Text style={styles.dateText}>{formattedDateTime}</Text>
+              </View>
+            ) : (
+              <View />
+            )}
 
             {/* Down Arrow / Expand Toggle Button */}
             <TouchableOpacity
@@ -475,39 +535,65 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
               />
             </TouchableOpacity>
           </View>
-
-          {/* Sub Row: Brand Badge */}
-          <View style={styles.cardSubRow}>
-            <View style={styles.brandBadge}>
-              <Text style={styles.brandText}>Brand: {brand}</Text>
-            </View>
-          </View>
         </View>
 
         {/* Details List */}
         <View style={styles.detailsContent}>
-          {/* Model Group is always visible */}
+          {/* Product Name */}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Product Name</Text>
+            <Text style={styles.productNameValue} numberOfLines={2}>
+              {productName}
+            </Text>
+          </View>
+
+          {/* Brand */}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Brand</Text>
+            <Text style={styles.infoValue}>{brand}</Text>
+          </View>
+
+          {/* Model Group */}
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Model Group</Text>
             <Text style={styles.infoValue}>{modelGroup}</Text>
           </View>
 
+          {/* Offer */}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Offer</Text>
+            <Text style={[styles.infoValue, styles.activeOffersText]}>
+              {activeOffers}
+            </Text>
+          </View>
+
           {/* Other information is hidden and only shown when Down Arrow is clicked */}
           {isExpanded && (
             <View style={styles.expandedDetailsSection}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Active Offers</Text>
-                <Text style={[styles.infoValue, styles.activeOffersText]}>
-                  {activeOffers}
-                </Text>
-              </View>
-
               {/* Dynamic Columns from columns[] where not_show_in_report = false */}
               {visibleColumns.map((col) => {
-                const val = item[col.column_name];
+                const colKey = col.column_name;
+                const lowerKey = String(colKey).toLowerCase();
+                if (
+                  lowerKey === 'timestamp' ||
+                  lowerKey === 'active_offers' ||
+                  lowerKey === 'activeoffers' ||
+                  lowerKey === 'active offers' ||
+                  lowerKey === 'offer' ||
+                  lowerKey === 'offers' ||
+                  lowerKey === 'product_name' ||
+                  lowerKey === 'productname' ||
+                  lowerKey === 'brand' ||
+                  lowerKey === 'brand_name' ||
+                  lowerKey === 'model_group_name' ||
+                  lowerKey === 'modelgroupname'
+                ) {
+                  return null;
+                }
+                const val = item[colKey];
                 return (
-                  <View key={col.column_name} style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>{col.column_name}</Text>
+                  <View key={colKey} style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>{colKey}</Text>
                     <Text style={styles.infoValue}>{renderStringValue(val)}</Text>
                   </View>
                 );
@@ -558,22 +644,51 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
 
   if (detailsLoading) {
     return (
-      <View style={styles.center}>
+      <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.stateText}>Loading report details…</Text>
+        <Header
+          title={formatName || 'Price List Details'}
+          showBack={true}
+          onBackPress={() => navigation?.goBack()}
+          style={styles.headerStyle}
+          titleStyle={styles.headerTitleStyle}
+          iconColor={colors.white}
+        />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.stateText}>Loading report details…</Text>
+        </View>
       </View>
     );
   }
 
   if (detailsError) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.stateIcon}>⚠️</Text>
-        <Text style={[styles.stateText, { color: '#DC2626' }]}>{detailsError}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => loadReportDetails(token, variationId)}>
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+        <Header
+          title={formatName || 'Price List Details'}
+          showBack={true}
+          onBackPress={() => navigation?.goBack()}
+          style={styles.headerStyle}
+          titleStyle={styles.headerTitleStyle}
+          iconColor={colors.white}
+        />
+        {isAccessDeniedError(detailsError) ? (
+          <AccessDenied
+            message={detailsError}
+            onRetry={() => loadReportDetails(token, variationId)}
+            onGoBack={() => navigation?.goBack()}
+          />
+        ) : (
+          <View style={styles.center}>
+            <Text style={styles.stateIcon}>⚠️</Text>
+            <Text style={[styles.stateText, { color: '#DC2626' }]}>{detailsError}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={() => loadReportDetails(token, variationId)}>
+              <Text style={styles.retryText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
   }
@@ -755,12 +870,21 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
           extraData={expandedItemId}
           keyExtractor={(item, idx) => String(item.id || item._id || idx)}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            filteredData.length === 0 && styles.listContentEmpty,
+          ]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.stateIcon}>📋</Text>
-              <Text style={styles.stateText}>No variation items found</Text>
+              <Text style={styles.stateText}>No data found</Text>
+              <TouchableOpacity
+                style={styles.retryBtn}
+                onPress={() => loadReportDetails(token, variationId, selectedDate)}
+              >
+                <Text style={styles.retryText}>Refresh</Text>
+              </TouchableOpacity>
             </View>
           }
           refreshControl={
@@ -779,12 +903,18 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
         visible={isBrandModalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsBrandModalOpen(false)}
+        onRequestClose={() => {
+          setIsBrandModalOpen(false);
+          setBrandSearchQuery('');
+        }}
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => setIsBrandModalOpen(false)}
+          onPress={() => {
+            setIsBrandModalOpen(false);
+            setBrandSearchQuery('');
+          }}
         >
           <View style={styles.selectModalCard} onStartShouldSetResponder={() => true}>
             <View style={styles.modalHeaderRow}>
@@ -807,7 +937,10 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
-                  onPress={() => setIsBrandModalOpen(false)}
+                  onPress={() => {
+                    setIsBrandModalOpen(false);
+                    setBrandSearchQuery('');
+                  }}
                   style={styles.modalCloseBtn}
                   activeOpacity={0.7}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -817,44 +950,75 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
               </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 350 }}>
-              {availableBrands.map((b) => {
-                const isAllOption = b === 'All Brands';
-                const isSelected = isAllOption
-                  ? activeBrands.length === 0
-                  : selectedBrands.includes(b);
+            {/* Brand Search Bar */}
+            <View style={styles.modalSearchBox}>
+              <Image source={Images.filter} style={styles.modalSearchIcon} resizeMode="contain" />
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder="Search brand..."
+                placeholderTextColor="#94A3B8"
+                value={brandSearchQuery}
+                onChangeText={setBrandSearchQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {brandSearchQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setBrandSearchQuery('')}
+                  style={styles.modalSearchClearBtn}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.modalSearchClearText}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
-                return (
-                  <TouchableOpacity
-                    key={b}
-                    style={[
-                      styles.stateOptionItem,
-                      isSelected && styles.stateOptionItemActive,
-                    ]}
-                    onPress={() => handleToggleBrand(b)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }}>
+              {filteredAvailableBrands.length === 0 ? (
+                <Text style={styles.modalEmptyText}>No brands found</Text>
+              ) : (
+                filteredAvailableBrands.map((b) => {
+                  const isAllOption = b === 'All Brands';
+                  const isSelected = isAllOption
+                    ? activeBrands.length === 0
+                    : selectedBrands.includes(b);
+
+                  return (
+                    <TouchableOpacity
+                      key={b}
                       style={[
-                        styles.stateOptionText,
-                        isSelected && styles.stateOptionTextActive,
+                        styles.stateOptionItem,
+                        isSelected && styles.stateOptionItemActive,
                       ]}
+                      onPress={() => handleToggleBrand(b)}
+                      activeOpacity={0.7}
                     >
-                      {b}
-                    </Text>
-                    {isSelected && (
-                      <View style={styles.checkmarkBadge}>
-                        <Text style={styles.checkmarkText}>✓</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
+                      <Text
+                        style={[
+                          styles.stateOptionText,
+                          isSelected && styles.stateOptionTextActive,
+                        ]}
+                      >
+                        {b}
+                      </Text>
+                      {isSelected && (
+                        <View style={styles.checkmarkBadge}>
+                          <Text style={styles.checkmarkText}>✓</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </ScrollView>
 
             <TouchableOpacity
               style={styles.modalApplyBtn}
-              onPress={() => setIsBrandModalOpen(false)}
+              onPress={() => {
+                setIsBrandModalOpen(false);
+                setBrandSearchQuery('');
+              }}
               activeOpacity={0.8}
             >
               <Text style={styles.modalApplyBtnText}>Apply</Text>
@@ -868,12 +1032,18 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
         visible={isProductModalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsProductModalOpen(false)}
+        onRequestClose={() => {
+          setIsProductModalOpen(false);
+          setProductSearchQuery('');
+        }}
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => setIsProductModalOpen(false)}
+          onPress={() => {
+            setIsProductModalOpen(false);
+            setProductSearchQuery('');
+          }}
         >
           <View style={styles.selectModalCard} onStartShouldSetResponder={() => true}>
             <View style={styles.modalHeaderRow}>
@@ -896,7 +1066,10 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
-                  onPress={() => setIsProductModalOpen(false)}
+                  onPress={() => {
+                    setIsProductModalOpen(false);
+                    setProductSearchQuery('');
+                  }}
                   style={styles.modalCloseBtn}
                   activeOpacity={0.7}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -906,45 +1079,76 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
               </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 350 }}>
-              {availableProducts.map((p) => {
-                const isAllOption = p === 'All Products';
-                const isSelected = isAllOption
-                  ? activeProducts.length === 0
-                  : selectedProducts.includes(p);
+            {/* Product Search Bar */}
+            <View style={styles.modalSearchBox}>
+              <Image source={Images.filter} style={styles.modalSearchIcon} resizeMode="contain" />
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder="Search product..."
+                placeholderTextColor="#94A3B8"
+                value={productSearchQuery}
+                onChangeText={setProductSearchQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {productSearchQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setProductSearchQuery('')}
+                  style={styles.modalSearchClearBtn}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.modalSearchClearText}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
-                return (
-                  <TouchableOpacity
-                    key={p}
-                    style={[
-                      styles.stateOptionItem,
-                      isSelected && styles.stateOptionItemActive,
-                    ]}
-                    onPress={() => handleToggleProduct(p)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }}>
+              {filteredAvailableProducts.length === 0 ? (
+                <Text style={styles.modalEmptyText}>No products found</Text>
+              ) : (
+                filteredAvailableProducts.map((p) => {
+                  const isAllOption = p === 'All Products';
+                  const isSelected = isAllOption
+                    ? activeProducts.length === 0
+                    : selectedProducts.includes(p);
+
+                  return (
+                    <TouchableOpacity
+                      key={p}
                       style={[
-                        styles.stateOptionText,
-                        isSelected && styles.stateOptionTextActive,
+                        styles.stateOptionItem,
+                        isSelected && styles.stateOptionItemActive,
                       ]}
-                      numberOfLines={1}
+                      onPress={() => handleToggleProduct(p)}
+                      activeOpacity={0.7}
                     >
-                      {p}
-                    </Text>
-                    {isSelected && (
-                      <View style={styles.checkmarkBadge}>
-                        <Text style={styles.checkmarkText}>✓</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
+                      <Text
+                        style={[
+                          styles.stateOptionText,
+                          isSelected && styles.stateOptionTextActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {p}
+                      </Text>
+                      {isSelected && (
+                        <View style={styles.checkmarkBadge}>
+                          <Text style={styles.checkmarkText}>✓</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </ScrollView>
 
             <TouchableOpacity
               style={styles.modalApplyBtn}
-              onPress={() => setIsProductModalOpen(false)}
+              onPress={() => {
+                setIsProductModalOpen(false);
+                setProductSearchQuery('');
+              }}
               activeOpacity={0.8}
             >
               <Text style={styles.modalApplyBtnText}>Apply</Text>
@@ -1476,8 +1680,40 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    marginBottom: 8,
-    gap: 6,
+    marginBottom: 6,
+  },
+  cardTopMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  dateLabel: {
+    fontSize: 11,
+    fontFamily: fontFamily.medium,
+    color: '#64748B',
+  },
+  dateText: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: '#475569',
+  },
+  productNameValue: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: '#0F172A',
+    flex: 1,
+    textAlign: 'right',
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -1651,10 +1887,15 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: '#fff',
   },
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   emptyContainer: {
-    paddingTop: 80,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 40,
   },
   modalOverlay: {
     flex: 1,
@@ -1741,11 +1982,7 @@ const styles = StyleSheet.create({
     height: 16,
     tintColor: colors.primary,
   },
-  dateText: {
-    fontSize: 13.5,
-    fontFamily: fontFamily.medium,
-    color: '#334155',
-  },
+  
   filterActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2063,6 +2300,45 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 13,
     fontFamily: fontFamily.bold,
+  },
+  modalSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
+    height: 38,
+    marginBottom: 10,
+  },
+  modalSearchIcon: {
+    width: 13,
+    height: 13,
+    tintColor: '#94A3B8',
+    marginRight: 8,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontSize: 12.5,
+    fontFamily: fontFamily.regular,
+    color: '#0F172A',
+    paddingVertical: 0,
+  },
+  modalSearchClearBtn: {
+    padding: 4,
+  },
+  modalSearchClearText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontFamily: fontFamily.bold,
+  },
+  modalEmptyText: {
+    textAlign: 'center',
+    color: '#94A3B8',
+    fontSize: 12.5,
+    fontFamily: fontFamily.medium,
+    paddingVertical: 20,
   },
 
   /* ── Live Stock Modal Styles ── */

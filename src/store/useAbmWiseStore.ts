@@ -61,7 +61,7 @@ export const useAbmWiseStore = create<AbmWiseState>((set, get) => ({
       const list = await fetchAbmWiseTvaData(token, targetState);
       set({ data: Array.isArray(list) ? list : [] });
     } catch (err: any) {
-      set({ error: 'Failed to load ABM wise report data' });
+      set({ error: err?.message || 'Failed to load ABM wise report data' });
     } finally {
       set({ loading: false, refreshing: false });
     }

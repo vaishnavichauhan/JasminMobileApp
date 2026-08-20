@@ -156,12 +156,14 @@ const DeviceRegistrationScreen: React.FC<DeviceRegistrationScreenProps> = ({
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          bounces={false}
+        >
             {/* Header with Lock Icon & Titles */}
             <View style={styles.headerContainer}>
               <View style={styles.lockIconCircle}>
@@ -248,7 +250,6 @@ const DeviceRegistrationScreen: React.FC<DeviceRegistrationScreenProps> = ({
               </TouchableOpacity>
             </View>
           </ScrollView>
-        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </View>
   );

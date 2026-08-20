@@ -15,6 +15,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import styles from './AlertMasterStyles';
 import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
+import AccessDenied from '../../../components/AccessDenied/AccessDenied';
+import { isAccessDeniedError } from '../../../utils/authUtils';
 import { useAuth } from '../../../context/AuthContext';
 import { colors } from '../../../styles/variables';
 import { useAlertStore, AlertFilter } from '../../../store';
@@ -33,6 +35,7 @@ const AlertMasterScreen: React.FC<AlertMasterScreenProps> = ({ navigation }) => 
     alertsList,
     loading,
     refreshing,
+    error,
     searchQuery,
     statusFilter,
     isStatusModalOpen,
@@ -279,6 +282,16 @@ const AlertMasterScreen: React.FC<AlertMasterScreenProps> = ({ navigation }) => 
           <View style={styles.centerLoading}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>Loading alerts...</Text>
+          </View>
+        ) : error && isAccessDeniedError(error) ? (
+          <AccessDenied
+            message={error}
+            onRetry={() => loadAlerts(token)}
+            onGoBack={handleBack}
+          />
+        ) : error ? (
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyText, { color: '#DC2626' }]}>{error}</Text>
           </View>
         ) : (
           <FlatList

@@ -117,8 +117,8 @@ export const AuthNavigation = () => {
           </>
         )}
       </Stack.Navigator>
-      {isLoggedIn }
-      {/* {isLoggedIn && <Watermark />} */}
+      {/* {isLoggedIn } */}
+      {isLoggedIn && <Watermark />}
     </View>
   );
 };

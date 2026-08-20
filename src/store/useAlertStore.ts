@@ -7,6 +7,7 @@ export interface AlertState {
   alertsList: AlertItem[];
   loading: boolean;
   refreshing: boolean;
+  error: string | null;
   searchQuery: string;
   statusFilter: AlertFilter;
   isStatusModalOpen: boolean;
@@ -27,6 +28,7 @@ export const useAlertStore = create<AlertState>((set, get) => ({
   alertsList: [],
   loading: false,
   refreshing: false,
+  error: null,
   searchQuery: '',
   statusFilter: 'ALL',
   isStatusModalOpen: false,
@@ -73,10 +75,11 @@ export const useAlertStore = create<AlertState>((set, get) => ({
   loadAlerts: async (token, isRefresh = false) => {
     try {
       if (!isRefresh) set({ loading: true });
+      set({ error: null });
       const data = await fetchAlertsApi(token);
       set({ alertsList: Array.isArray(data) ? data : [] });
     } catch (err: any) {
-      console.warn('useAlertStore loadAlerts error:', err.message);
+      set({ error: err?.message || 'Failed to load alerts. Please try again.' });
     } finally {
       set({ loading: false, refreshing: false });
     }

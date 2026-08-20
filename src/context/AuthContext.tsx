@@ -1,26 +1,25 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logoutApi } from '../api/authApi';
+import { STORAGE_KEYS, saveTokens, clearAllAuthData } from '../api/tokenStorage';
+import { setUnauthorizedLogoutHandler } from '../api/apiClient';
 
 interface AuthContextType {
   user: any;
   token: string | null;
+  refreshToken: string | null;
   isLoading: boolean;
   isLoggedIn: boolean;
   justLoggedIn: boolean;
   clearJustLoggedIn: () => void;
-  login: (userData: any, token?: string) => Promise<void>;
+  login: (userData: any, token?: string, refreshToken?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
-
-const STORAGE_KEYS = {
-  USER_DATA: '@jasmin_user_data',
-  AUTH_TOKEN: '@jasmin_auth_token',
-};
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
+  refreshToken: null,
   isLoading: true,
   isLoggedIn: false,
   justLoggedIn: false,
@@ -32,21 +31,58 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [justLoggedIn, setJustLoggedIn] = useState(false);
 
-  // Load stored session on app startup
+  const logoutRef = React.useRef<() => Promise<void>>();
+
+  // Logout handler: clears AsyncStorage, resets state & calls API
+  const logout = useCallback(async () => {
+    const currentToken = token;
+    // 1. Instantly reset auth state so UI transitions immediately to LoginScreen
+    setUser(null);
+    setToken(null);
+    setRefreshToken(null);
+    setJustLoggedIn(false);
+
+    // 2. Clear all credentials from AsyncStorage
+    try {
+      await clearAllAuthData();
+    } catch (storageErr) {
+      console.warn('[AuthContext] Error clearing storage on logout:', storageErr);
+    }
+
+    // 3. Best-effort server-side logout
+    try {
+      if (currentToken) {
+        await logoutApi(currentToken);
+      } else {
+        await logoutApi();
+      }
+    } catch (error) {
+      console.warn('Error during logout API call:', error);
+    }
+  }, [token]);
+
+  logoutRef.current = logout;
+
+  // Load stored session ONCE on app startup
   useEffect(() => {
     const loadStorageData = async () => {
       try {
         const storedUser = await AsyncStorage.getItem(STORAGE_KEYS.USER_DATA);
         const storedToken = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+        const storedRefresh = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
 
         if (storedUser) {
           setUser(JSON.parse(storedUser));
         }
         if (storedToken) {
           setToken(storedToken);
+        }
+        if (storedRefresh) {
+          setRefreshToken(storedRefresh);
         }
       } catch (error) {
         console.warn('Error loading auth data from storage:', error);
@@ -56,46 +92,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     loadStorageData();
-  }, []);
 
-  // Login handler: saves user & token to AsyncStorage & updates state
-  const login = async (userData: any, authToken?: string) => {
+    // Register auto-logout when 7-day refresh token expires
+    setUnauthorizedLogoutHandler(() => {
+      console.warn('[AuthContext] 7-day Refresh token expired. Logging out automatically.');
+      logoutRef.current?.();
+    });
+  }, []); // Run ONLY once on mount
+
+  // Login handler: saves user, access token & refresh token to AsyncStorage & updates state
+  const login = async (userData: any, authToken?: string, authRefreshToken?: string) => {
     try {
       setUser(userData);
       if (authToken) {
         setToken(authToken);
       }
+      if (authRefreshToken) {
+        setRefreshToken(authRefreshToken);
+      }
       setJustLoggedIn(true);
 
       await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
       if (authToken) {
-        await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, authToken);
+        await saveTokens(authToken, authRefreshToken);
       }
     } catch (error) {
       console.warn('Error saving auth data to storage:', error);
-    }
-  };
-
-  // Logout handler: calls API, clears AsyncStorage & resets state
-  const logout = async () => {
-    try {
-      if (token) {
-        await logoutApi(token);
-      } else {
-        await logoutApi();
-      }
-    } catch (error) {
-      console.warn('Error during logout API call:', error);
-    } finally {
-      setUser(null);
-      setToken(null);
-      setJustLoggedIn(false);
-      try {
-        await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
-        await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-      } catch (storageError) {
-        console.warn('Error removing items from storage:', storageError);
-      }
     }
   };
 

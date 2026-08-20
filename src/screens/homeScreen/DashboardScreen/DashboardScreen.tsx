@@ -15,6 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './DashboardScreenStyles';
 import Images from '../../../assets/images';
+import AccessDenied from '../../../components/AccessDenied/AccessDenied';
+import { isAccessDeniedError } from '../../../utils/authUtils';
 import { useAuth } from '../../../context/AuthContext';
 import { colors, fontFamily } from '../../../styles/variables';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -263,6 +265,7 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
     activeTab,
     loading,
     refreshing,
+    error,
     cashDepositList,
     brandSalesList,
     brandSalesTotals,
@@ -374,15 +377,23 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
-      {/* ── Top Header ── */}
+      {/* ── Top Header Bar ── */}
       <View style={styles.header}>
-        {/* Left Side: Logo + User Name & Role */}
+        {/* Left Side: Logo */}
         <View style={styles.headerLeft}>
           <Image
             source={Images.logo}
             style={styles.headerLogo}
             resizeMode="contain"
           />
+        </View>
+
+        {/* Right Side: Interactive User Profile Chip (Navigates to Profile) */}
+        <TouchableOpacity
+          style={styles.profileChip}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('Profile')}
+        >
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>
               {userName}
@@ -391,22 +402,15 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
               {userRole}
             </Text>
           </View>
-        </View>
-
-        {/* Right Side Buttons: Notification + User Avatar Logo (Navigates to Profile) */}
-        <View style={styles.headerRight}>
-          {/* Notification Button */}
-        
-
-          {/* User Avatar Logo -> Navigates to Profile Screen when clicked */}
-          <TouchableOpacity
-            style={styles.avatarWrapper}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('Profile')}
-          >
+          <View style={styles.avatarWrapper}>
             <Text style={styles.avatarLetter}>{avatarLetter}</Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+          <Image
+            source={Images.down}
+            style={styles.profileDownArrow}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
       </View>
 
       {/* ── 1-Line Active Offers Auto-Scrolling Bar (Top, Right After Header) ── */}
@@ -671,6 +675,11 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                   <ActivityIndicator size="large" color={colors.primary} />
                   <Text style={styles.loadingText}>Loading ABM deposit cards...</Text>
                 </View>
+              ) : error && isAccessDeniedError(error) ? (
+                <AccessDenied
+                  message={error}
+                  onRetry={() => loadCashDepositData(token, true, selectedState)}
+                />
               ) : filteredCashDepositList.length === 0 ? (
                 <View style={styles.emptyContainer}>
                   <Text style={styles.emptyText}>No matching ABM deposit records found</Text>
@@ -871,6 +880,19 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                   <ActivityIndicator size="large" color={colors.primary} />
                   <Text style={styles.loadingText}>Loading brand sales...</Text>
                 </View>
+              ) : error && isAccessDeniedError(error) ? (
+                <AccessDenied
+                  message={error}
+                  onRetry={() =>
+                    loadBrandSalesData(
+                      token,
+                      true,
+                      selectedState,
+                      selectedDate,
+                      brandSearchQuery
+                    )
+                  }
+                />
               ) : (
                 <>
                   {/* ── Total All Data Summary Card ── */}

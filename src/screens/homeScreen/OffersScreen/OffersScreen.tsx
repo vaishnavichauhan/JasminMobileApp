@@ -16,6 +16,8 @@ import {
 import styles from './OffersStyles';
 import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
+import AccessDenied from '../../../components/AccessDenied/AccessDenied';
+import { isAccessDeniedError } from '../../../utils/authUtils';
 import { useAuth } from '../../../context/AuthContext';
 import { colors } from '../../../styles/variables';
 import { OfferItem } from '../../../api/offersApi';
@@ -50,6 +52,7 @@ const OffersScreen: React.FC<OffersScreenProps> = ({ navigation }) => {
     offersList,
     loading,
     refreshing,
+    error,
     quickSearch,
     activeIndex,
     setActiveTab,
@@ -389,6 +392,16 @@ const OffersScreen: React.FC<OffersScreenProps> = ({ navigation }) => {
             <View style={styles.centerLoading}>
               <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loadingText}>Loading promotional offers...</Text>
+            </View>
+          ) : error && isAccessDeniedError(error) ? (
+            <AccessDenied
+              message={error}
+              onRetry={() => loadOffers(token)}
+              onGoBack={handleBack}
+            />
+          ) : error ? (
+            <View style={styles.emptyContainer}>
+              <Text style={[styles.emptyText, { color: '#DC2626' }]}>{error}</Text>
             </View>
           ) : displayedOffers.length === 0 ? (
             <View style={styles.emptyContainer}>

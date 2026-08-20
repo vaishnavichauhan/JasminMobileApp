@@ -19,6 +19,8 @@ import { useAbmWiseStore } from '../../../store';
 import { colors, fontFamily, fontSize, borderRadius } from '../../../styles/variables';
 import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
+import AccessDenied from '../../../components/AccessDenied/AccessDenied';
+import { isAccessDeniedError } from '../../../utils/authUtils';
 
 /* ── helpers ── */
 const fmtNum = (v: any): string => {
@@ -287,18 +289,51 @@ const AbmWiseReportScreen: React.FC<{ navigation?: any }> = ({ navigation }) => 
       return true;
     });
   }, [data, searchQuery]);
+ 
+  
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.stateText}>Loading ABM report…</Text>
+        <Header
+          title="ABM wise TvA Report"
+          showBack={true}
+          onBackPress={() => navigation?.goBack()}
+          style={styles.headerStyle}
+          titleStyle={styles.headerTitleStyle}
+          iconColor={colors.white}
+        />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.stateText}>Loading ABM report…</Text>
+        </View>
       </View>
     );
   }
 
   if (error) {
+    if (isAccessDeniedError(error)) {
+      return (
+        <View style={styles.container}>
+          <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+          <Header
+            title="ABM wise TvA Report"
+            showBack={true}
+            onBackPress={() => navigation?.goBack()}
+            style={styles.headerStyle}
+            titleStyle={styles.headerTitleStyle}
+            iconColor={colors.white}
+          />
+          <AccessDenied
+            message={error}
+            onRetry={() => loadData(token)}
+            onGoBack={() => navigation?.goBack()}
+          />
+        </View>
+      );
+    }
+
     return (
       <View style={styles.center}>
         <Text style={styles.stateIcon}>⚠️</Text>
@@ -394,12 +429,18 @@ const AbmWiseReportScreen: React.FC<{ navigation?: any }> = ({ navigation }) => 
           data={filteredData}
           keyExtractor={(item, idx) => String(item.id ?? idx)}
           renderItem={({ item, index }) => <AbmCard item={item} index={index} />}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            filteredData.length === 0 && styles.listContentEmpty,
+          ]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.stateIcon}>📊</Text>
-              <Text style={styles.stateText}>No ABM data found</Text>
+              <Text style={styles.stateText}>No data found</Text>
+              <TouchableOpacity style={styles.retryBtn} onPress={() => loadData(token, true)}>
+                <Text style={styles.retryText}>Refresh</Text>
+              </TouchableOpacity>
             </View>
           }
           refreshControl={
@@ -736,10 +777,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
   },
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   emptyContainer: {
-    paddingTop: 40,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 40,
   },
   stateIcon: { fontSize: 44, marginBottom: 12 },
   stateText: {

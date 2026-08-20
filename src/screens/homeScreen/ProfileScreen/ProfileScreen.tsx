@@ -19,19 +19,50 @@ interface ProfileScreenProps {
   navigation?: any;
 }
 
+const parseStatesList = (rawState: any): string[] => {
+  if (!rawState) return [];
+  let parsed: any = rawState;
+
+  if (typeof rawState === 'string') {
+    const trimmed = rawState.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        parsed = JSON.parse(trimmed);
+      } catch {
+        parsed = [trimmed];
+      }
+    } else if (trimmed.includes(',')) {
+      parsed = trimmed.split(',').map((s) => s.trim());
+    } else if (trimmed && trimmed !== '-') {
+      parsed = [trimmed];
+    } else {
+      parsed = [];
+    }
+  }
+
+  if (Array.isArray(parsed)) {
+    return parsed
+      .map((s) => String(s ?? '').trim())
+      .filter((s) => s.length > 0 && s !== '-');
+  }
+
+  return [];
+};
+
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const [loggingOut, setLoggingOut] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
   const { user, logout } = useAuth();
-  console.log("user...",user);
-  
 
   // User values
   const username = user?.username || '-';
-  const firstLetter = (username.charAt(0) || 'A').toUpperCase();
-  const email = user?.email || "-";
-  const mobile =user?.mob_no|| "-";
+  const name = user?.name || '-';
+  const statesList = parseStatesList(user?.state ?? user?.states ?? user?.state_name ?? user?.allowed_states);
+  const firstLetter = (name.charAt(0) || 'A').toUpperCase();
+  const email = user?.email || '-';
+  const mobile = user?.mob_no || user?.mobile || user?.phone || '-';
   const role = user?.role || '-';
-  const userId = user?.id  || '-';
+  const userId = String(user?.id ?? '-');
 
   const handleBack = () => {
     if (navigation && navigation.canGoBack && navigation.canGoBack()) {
@@ -39,6 +70,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     } else if (navigation && navigation.navigate) {
       navigation.navigate('Dashboard');
     }
+  };
+
+  const handleCopyUserId = () => {
+    setCopiedId(true);
+    setTimeout(() => {
+      setCopiedId(false);
+    }, 2000);
   };
 
   const handleLogout = () => {
@@ -63,88 +101,222 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* 1. Reusable Top Header */}
-      <Header title="Profile" onBackPress={handleBack} />
+      {/* Top Header */}
+      <Header
+        title="Profile"
+        showBack={true}
+        onBackPress={handleBack}
+        style={styles.headerStyle}
+        titleStyle={styles.headerTitleStyle}
+        iconColor={colors.white}
+      />
 
-      {/* 2. Primary Color Background Section with User Initial Avatar (Fixed) */}
-      <View style={styles.primaryBannerSection}>
+      {/* Hero Overview Header */}
+      <View style={styles.heroSection}>
         <View style={styles.avatarWrapper}>
           <Text style={styles.avatarInitial}>{firstLetter}</Text>
         </View>
-        <Text style={styles.bannerUserName}>{username}</Text>
-        <Text style={styles.bannerUserRole}>{role}</Text>
+
+        <View style={styles.heroBadgesRow}>
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleBadgeText}>Name: {name !== '-' ? name : username}</Text>
+          </View>
+        </View>
       </View>
 
-      {/* 3. Details Card Section (Only this section scrolls) */}
-      <View style={styles.detailsCardSection}>
+      {/* Main Content Area */}
+      <View style={styles.mainContent}>
         <ScrollView
-          contentContainerStyle={styles.cardScrollContent}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.infoList}>
-            {/* User Name */}
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>User Name</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>
-                {username}
-              </Text>
+          {/* Card 1: Personal Details */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardHeaderIcon}>👤</Text>
+              <Text style={styles.cardHeaderText}>Personal Details</Text>
             </View>
 
-            {/* User ID */}
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>User ID</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>
-                {userId}
-              </Text>
-            </View>
+            <View style={styles.cardBody}>
+              {/* Name */}
+              <View style={styles.itemRow}>
+                <View style={styles.itemLabelWrap}>
+                  <Text style={styles.itemLabel}>Name</Text>
+                </View>
+                <Text style={styles.itemValue} numberOfLines={1}>
+                  {name}
+                </Text>
+              </View>
 
-            {/* Email */}
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>
-                {email}
-              </Text>
-            </View>
+              <View style={styles.divider} />
 
-            {/* Mobile Number */}
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Mobile Number</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>
-                {mobile}
-              </Text>
-            </View>
+              {/* User Name */}
+              <View style={styles.itemRow}>
+                <View style={styles.itemLabelWrap}>
+                  <Text style={styles.itemLabel}>User Name</Text>
+                </View>
+                <Text style={styles.itemValue} numberOfLines={1}>
+                  {username}
+                </Text>
+              </View>
 
-            {/* Role */}
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Role</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>
-                {role}
-              </Text>
-            </View>
+              <View style={styles.divider} />
 
-            
+              {/* Email */}
+              <View style={styles.itemRow}>
+                <View style={styles.itemLabelWrap}>
+                  <Text style={styles.itemLabel}>Email</Text>
+                </View>
+                <Text style={styles.itemValue} numberOfLines={1}>
+                  {email}
+                </Text>
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* Mobile Number */}
+              <View style={styles.itemRow}>
+                <View style={styles.itemLabelWrap}>
+                  <Text style={styles.itemLabel}>Mobile Number</Text>
+                </View>
+                <Text style={styles.itemValue} numberOfLines={1}>
+                  {mobile}
+                </Text>
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* State / Assigned States */}
+              <View style={styles.stateItemRow}>
+                <View style={styles.stateHeaderRow}>
+                  <View style={styles.stateLabelWithBadge}>
+                    <Text style={styles.itemLabel}>
+                      {statesList.length > 1 ? 'Assigned States' : 'State'}
+                    </Text>
+                    {statesList.length > 1 && (
+                      <View style={styles.stateCountBadge}>
+                        <Text style={styles.stateCountBadgeText}>{statesList.length}</Text>
+                      </View>
+                    )}
+                  </View>
+                  {statesList.length === 0 && (
+                    <Text style={styles.itemValue}>-</Text>
+                  )}
+                  {statesList.length === 1 && (
+                    <View
+                      style={[
+                        styles.stateChip,
+                        statesList[0].toLowerCase() === 'all' && styles.stateChipAll,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.stateChipText,
+                          statesList[0].toLowerCase() === 'all' && styles.stateChipAllText,
+                        ]}
+                      >
+                        {statesList[0]}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {statesList.length > 1 && (
+                  <View style={styles.stateChipsContainer}>
+                    {statesList.map((st, idx) => {
+                      const isAll = st.toLowerCase() === 'all';
+                      return (
+                        <View
+                          key={`${st}-${idx}`}
+                          style={[styles.stateChip, isAll && styles.stateChipAll]}
+                        >
+                          <Text
+                            style={[
+                              styles.stateChipText,
+                              isAll && styles.stateChipAllText,
+                            ]}
+                          >
+                            {st}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            </View>
           </View>
 
-          {/* 4. Logout Row (Left side "Logout", Right side arrow) */}
+          {/* Card 2: Account & Access */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardHeaderIcon}>🛡️</Text>
+              <Text style={styles.cardHeaderText}>Account & Access</Text>
+            </View>
+
+            <View style={styles.cardBody}>
+              {/* User ID */}
+              <TouchableOpacity
+                style={styles.itemRow}
+                activeOpacity={0.7}
+                onPress={handleCopyUserId}
+              >
+                <View style={styles.itemLabelWrap}>
+                  <Text style={styles.itemLabel}>User ID</Text>
+                </View>
+                <View style={styles.idWrap}>
+                  <Text style={styles.itemValue}>{userId}</Text>
+                  <View style={[styles.idBadge, copiedId && styles.idBadgeCopied]}>
+                    <Text style={[styles.idBadgeText, copiedId && styles.idBadgeTextCopied]}>
+                      {copiedId ? 'Copied' : 'ID'}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.divider} />
+
+              {/* Role */}
+              <View style={styles.itemRow}>
+                <View style={styles.itemLabelWrap}>
+                  <Text style={styles.itemLabel}>Access Role</Text>
+                </View>
+                <View style={styles.rolePill}>
+                  <Text style={styles.rolePillText}>{role}</Text>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* Account Status */}
+              
+            </View>
+          </View>
+
+         
+
+          {/* Full-width Danger Logout Button */}
           <TouchableOpacity
-            style={styles.logoutRow}
-            activeOpacity={0.7}
+            style={styles.logoutButton}
+            activeOpacity={0.8}
             onPress={handleLogout}
             disabled={loggingOut}
           >
-            <Text style={styles.logoutText}>Logout</Text>
             {loggingOut ? (
-              <ActivityIndicator size="small" color={colors.error} />
+              <ActivityIndicator size="small" color={colors.white} />
             ) : (
-              <Image
-                source={Images.arrowRight}
-                style={styles.logoutArrowIcon}
-                resizeMode="contain"
-              />
+              <>
+                <Text style={styles.logoutIcon}>⏻</Text>
+                <Text style={styles.logoutButtonText}>Log Out of Account</Text>
+              </>
             )}
           </TouchableOpacity>
+           {/* App Info Footer */}
+          <View style={styles.appInfoContainer}>
+            <Text style={styles.appInfoText}>Jasmin ERP • v1.0.0</Text>
+          </View>
         </ScrollView>
       </View>
     </View>

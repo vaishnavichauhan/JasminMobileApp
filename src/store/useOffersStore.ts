@@ -8,6 +8,7 @@ export interface OffersState {
   offersList: OfferItem[];
   loading: boolean;
   refreshing: boolean;
+  error: string | null;
   quickSearch: string;
   activeIndex: number;
 
@@ -24,6 +25,7 @@ export const useOffersStore = create<OffersState>((set, get) => ({
   offersList: [],
   loading: false,
   refreshing: false,
+  error: null,
   quickSearch: '',
   activeIndex: 0,
 
@@ -35,10 +37,11 @@ export const useOffersStore = create<OffersState>((set, get) => ({
   loadOffers: async (token, isRefresh = false) => {
     try {
       if (!isRefresh) set({ loading: true });
+      set({ error: null });
       const data = await fetchOffersApi(token);
       set({ offersList: Array.isArray(data) ? data : [] });
     } catch (err: any) {
-      console.warn('useOffersStore loadOffers error:', err.message);
+      set({ error: err?.message || 'Failed to load offers. Please try again.' });
     } finally {
       set({ loading: false, refreshing: false });
     }

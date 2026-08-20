@@ -1,4 +1,5 @@
-import { BASE_URL } from './config';
+import { API_ENDPOINTS } from './config';
+import { fetchWithAuth } from './apiClient';
 
 export interface CashDepositAbmItem {
   id?: string | number;
@@ -144,26 +145,15 @@ export const fetchStockCashDepositAbmWiseApi = async (
   stateName?: string
 ): Promise<CashDepositAbmItem[]> => {
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-      headers['x-access-token'] = token;
-    }
-
     const query =
       stateName && stateName.trim() && stateName !== 'All States'
         ? `?state=${encodeURIComponent(stateName.trim())}`
         : '';
 
-    const response = await fetch(`${BASE_URL}/stock-cash-deposit/abm-wise${query}`, {
+    const response = await fetchWithAuth(`${API_ENDPOINTS.DASHBOARD.STOCK_CASH_DEPOSIT_ABM_WISE}${query}`, {
       method: 'GET',
-      headers,
     });
-
+    
     const text = await response.text();
     let json: any = {};
     if (text && text.trim().length > 0) {
@@ -271,16 +261,6 @@ export const fetchBrandWiseSalesDataApi = async (
   filter?: BrandWiseSalesFilterParams | string
 ): Promise<BrandWiseSaleItem[]> => {
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-      headers['x-access-token'] = token;
-    }
-
     const queryParts: string[] = [];
 
     if (typeof filter === 'string') {
@@ -300,9 +280,8 @@ export const fetchBrandWiseSalesDataApi = async (
     }
 
     const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
-    const response = await fetch(`${BASE_URL}/brand-wise-sales/data${queryString}`, {
+    const response = await fetchWithAuth(`${API_ENDPOINTS.DASHBOARD.BRAND_WISE_SALES_DATA}${queryString}`, {
       method: 'GET',
-      headers,
     });
 
     const text = await response.text();
@@ -515,16 +494,6 @@ export const fetchBrandWiseSalesTotalsApi = async (
   filter?: BrandWiseSalesFilterParams | string
 ): Promise<BrandWiseSalesTotals | null> => {
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-      headers['x-access-token'] = token;
-    }
-
     const queryParts: string[] = [];
 
     if (typeof filter === 'string') {
@@ -544,9 +513,8 @@ export const fetchBrandWiseSalesTotalsApi = async (
     }
 
     const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
-    const response = await fetch(`${BASE_URL}/brand-wise-sales/totals${queryString}`, {
+    const response = await fetchWithAuth(`${API_ENDPOINTS.DASHBOARD.BRAND_WISE_SALES_TOTALS}${queryString}`, {
       method: 'GET',
-      headers,
     });
 
     const text = await response.text();
@@ -742,19 +710,8 @@ export const fetchAllStatesApi = async (
   token?: string | null
 ): Promise<string[]> => {
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-      headers['x-access-token'] = token;
-    }
-
-    const response = await fetch(`${BASE_URL}/states/all`, {
+    const response = await fetchWithAuth(API_ENDPOINTS.DASHBOARD.STATES_ALL, {
       method: 'GET',
-      headers,
     });
 
     const text = await response.text();

@@ -233,12 +233,16 @@ export const TabNavigation: React.FC<TabNavigationProps> = () => {
     }
   }, [plusMenuVisible]);
 
-  const tabHeight = Platform.OS === 'ios'
-    ? (bottomInset > 0 ? 54 + bottomInset : 64)
-    : 62;
-  const tabBottomOffset = Platform.OS === 'ios'
-    ? (bottomInset > 0 ? 8 : 12)
-    : 10;
+  const isIos = Platform.OS === 'ios';
+
+  // On Android with 3-button navigation, bottomInset is ~48px.
+  // On gesture navigation, bottomInset is ~16-24px.
+  // This ensures the floating tab bar never gets overlapped by the Android navigation bar.
+  const tabBottomOffset = isIos
+    ? (bottomInset > 0 ? Math.max(bottomInset - 16, 8) : 12)
+    : (bottomInset > 0 ? bottomInset + 4 : 10);
+
+  const tabHeight = 62;
   const menuBottomSpacing = tabHeight + tabBottomOffset + 14;
 
   const closeMenuWithAnimation = (callback?: () => void) => {
@@ -292,9 +296,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = () => {
             borderColor: '#F1F5F9',
             marginHorizontal: 12,
             height: tabHeight,
-            paddingBottom: Platform.OS === 'ios'
-              ? (bottomInset > 0 ? bottomInset - 4 : 8)
-              : 8,
+            paddingBottom: 6,
             paddingTop: 6,
             position: 'absolute',
             bottom: tabBottomOffset,
@@ -316,7 +318,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = () => {
           tabBarLabelStyle: {
             fontSize: fontSize.tooSmall || 10,
             fontFamily: fontFamily.bold,
-            marginTop: 2,
+            marginTop: 1,
             marginBottom: 2,
           },
         }}

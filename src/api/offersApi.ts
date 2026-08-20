@@ -1,4 +1,5 @@
-import { BASE_URL } from './config';
+import { API_ENDPOINTS } from './config';
+import { fetchWithAuth } from './apiClient';
 
 export interface OfferItem {
   id: string | number;
@@ -54,44 +55,32 @@ export const fetchOffersApi = async (
   token?: string | null,
   filters?: OfferFilterParams
 ): Promise<OfferItem[]> => {
-  try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-      headers['x-access-token'] = token;
+  const queryParts: string[] = [];
+  if (filters) {
+    if (filters.brand_name) {
+      queryParts.push(`brand_name=${encodeURIComponent(filters.brand_name)}`);
     }
-
-    const queryParts: string[] = [];
-    if (filters) {
-      if (filters.brand_name) {
-        queryParts.push(`brand_name=${encodeURIComponent(filters.brand_name)}`);
-      }
-      if (filters.model_group_name) {
-        queryParts.push(`model_group_name=${encodeURIComponent(filters.model_group_name)}`);
-      }
-      if (filters.state_name) {
-        queryParts.push(`state_name=${encodeURIComponent(filters.state_name)}`);
-      }
-      if (filters.offer_type) {
-        queryParts.push(`offer_type=${encodeURIComponent(filters.offer_type)}`);
-      }
-      if (filters.from_date) {
-        queryParts.push(`from_date=${encodeURIComponent(filters.from_date)}`);
-      }
-      if (filters.to_date) {
-        queryParts.push(`to_date=${encodeURIComponent(filters.to_date)}`);
-      }
+    if (filters.model_group_name) {
+      queryParts.push(`model_group_name=${encodeURIComponent(filters.model_group_name)}`);
     }
+    if (filters.state_name) {
+      queryParts.push(`state_name=${encodeURIComponent(filters.state_name)}`);
+    }
+    if (filters.offer_type) {
+      queryParts.push(`offer_type=${encodeURIComponent(filters.offer_type)}`);
+    }
+    if (filters.from_date) {
+      queryParts.push(`from_date=${encodeURIComponent(filters.from_date)}`);
+    }
+    if (filters.to_date) {
+      queryParts.push(`to_date=${encodeURIComponent(filters.to_date)}`);
+    }
+  }
 
-    const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
-    const response = await fetch(`${BASE_URL}/offers/all${queryString}`, {
-      method: 'GET',
-      headers,
-    });
+  const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+  const response = await fetchWithAuth(`${API_ENDPOINTS.OFFERS.ALL}${queryString}`, {
+    method: 'GET',
+  });
 
     const text = await response.text();
     let json: any = {};
@@ -104,9 +93,11 @@ export const fetchOffersApi = async (
     }
 
     if (!response.ok) {
-      throw new Error(
-        json.message || json.error || `Server error: ${response.status}`
+      const err: any = new Error(
+        json.message || json.error || `Failed to fetch offers: ${response.status}`
       );
+      err.status = response.status;
+      throw err;
     }
 
     const rawList = extractArray(json);
@@ -182,8 +173,4 @@ export const fetchOffersApi = async (
         rawItem: item,
       };
     });
-  } catch (error: any) {
-    console.warn('fetchOffersApi error:', error.message || error);
-    return [];
-  }
 };

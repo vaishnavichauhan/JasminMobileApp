@@ -1,5 +1,5 @@
-import { Platform } from 'react-native';
-import { BASE_URL } from './config';
+import { API_ENDPOINTS } from './config';
+import { fetchWithAuth } from './apiClient';
 
 export interface TvaItem {
   id?: number;
@@ -90,108 +90,76 @@ export interface AbmWiseTvaItem {
   [key: string]: any;
 }
 
-const getTvaBaseUrl = (): string => {
-  return BASE_URL;
-};
+
 
 export const fetchTvaData = async (token?: string | null): Promise<TvaItem[]> => {
-  try {
-    const baseUrl = getTvaBaseUrl();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+  const url = API_ENDPOINTS.REPORTS.TARGET_VS_ACHIEVEMENT_ALL;
+  console.log('[TvA API] Request URL:', url);
 
-    const url = `${baseUrl}/target-vs-achievement/all`;
-    console.log('[TvA API] Request URL:', url);
+  const response = await fetchWithAuth(url, {
+    method: 'GET',
+  });
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers,
-    });
-
-    if (!response.ok) {
-      console.warn('[TvA API] Response not OK:', response.status);
-      return [];
-    }
-
-    const json = await response.json();
-
-    console.log('[TvA API] Response json:', json);
-    
-    // Handle various response shapes
-    if (Array.isArray(json)) return json;
-    if (json?.data && Array.isArray(json.data)) return json.data;
-    if (json?.results && Array.isArray(json.results)) return json.results;
-    return [];
-  } catch (error) {
-    console.warn('[TvA API] Fetch error:', error);
-    return [];
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => ({}));
+    const err: any = new Error(
+      errorJson.message || errorJson.error || `Failed to fetch target vs achievement: ${response.status}`
+    );
+    err.status = response.status;
+    throw err;
   }
+
+  const json = await response.json();
+
+  console.log('[TvA API] Response json:', json);
+  
+  // Handle various response shapes
+  if (Array.isArray(json)) return json;
+  if (json?.data && Array.isArray(json.data)) return json.data;
+  if (json?.results && Array.isArray(json.results)) return json.results;
+  return [];
 };
 
 export const fetchAbmWiseTvaData = async (
   token?: string | null,
   stateName?: string | string[]
 ): Promise<AbmWiseTvaItem[]> => {
-  try {
-    const baseUrl = getTvaBaseUrl();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+  let query = '';
+  if (stateName && stateName !== 'All States') {
+    const trimmed = typeof stateName === 'string' ? stateName.trim() : String(stateName).trim();
+    if (trimmed.length > 0) {
+      query = `?state=${encodeURIComponent(trimmed)}&state_name=${encodeURIComponent(trimmed)}`;
     }
-
-    let query = '';
-    if (stateName && stateName !== 'All States') {
-      const trimmed = typeof stateName === 'string' ? stateName.trim() : String(stateName).trim();
-      if (trimmed.length > 0) {
-        query = `?state=${encodeURIComponent(trimmed)}&state_name=${encodeURIComponent(trimmed)}`;
-      }
-    }
-
-    console.log('[ABM TvA API] Request URL:', `${baseUrl}/target-vs-achievement/abm-wise-summary${query}`);
-
-    const response = await fetch(`${baseUrl}/target-vs-achievement/abm-wise-summary${query}`, {
-      method: 'GET',
-      headers,
-    });
-
-    if (!response.ok) {
-      console.warn('[ABM TvA API] Response not OK:', response.status);
-      return [];
-    }
-
-    const json = await response.json();
-
-    if (Array.isArray(json)) return json;
-    if (json?.data && Array.isArray(json.data)) return json.data;
-    if (json?.results && Array.isArray(json.results)) return json.results;
-    return [];
-  } catch (error) {
-    console.warn('[ABM TvA API] Fetch error:', error);
-    return [];
   }
+
+  const url = `${API_ENDPOINTS.REPORTS.TARGET_VS_ACHIEVEMENT_ABM_WISE}${query}`;
+  console.log('[ABM TvA API] Request URL:', url);
+
+  const response = await fetchWithAuth(url, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => ({}));
+    const err: any = new Error(
+      errorJson.message || errorJson.error || `Failed to fetch ABM wise summary: ${response.status}`
+    );
+    err.status = response.status;
+    throw err;
+  }
+
+  const json = await response.json();
+
+  if (Array.isArray(json)) return json;
+  if (json?.data && Array.isArray(json.data)) return json.data;
+  if (json?.results && Array.isArray(json.results)) return json.results;
+  return [];
 };
 
 export const fetchStatesApi = async (token?: string | null): Promise<string[]> => {
   try {
-    const baseUrl = getTvaBaseUrl();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-      headers['x-access-token'] = token;
-    }
-
-    const response = await fetch(`${baseUrl}/states/all`, {
+    const response = await fetchWithAuth(API_ENDPOINTS.REPORTS.TARGET_VS_ACHIEVEMENT_STATES, {
       method: 'GET',
-      headers,
     });
 
     if (!response.ok) {

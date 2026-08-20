@@ -19,6 +19,8 @@ import { fetchTvaData, fetchStatesApi, TvaItem } from '../../../api/targetVsAchi
 import { colors, fontFamily, fontSize, borderRadius } from '../../../styles/variables';
 import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
+import AccessDenied from '../../../components/AccessDenied/AccessDenied';
+import { isAccessDeniedError } from '../../../utils/authUtils';
 
 /* ── helpers ── */
 const fmtNum = (v: any): string => {
@@ -287,8 +289,10 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
       setError(null);
       const result = await fetchTvaData(token);
       setData(result);
-    } catch {
-      setError('Failed to load data. Please try again.');
+    } catch (err: any) {
+      console.log("errvvv",err);
+      
+      setError(err?.message || 'Failed to load data. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -477,34 +481,74 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.stateText}>Loading data…</Text>
+        <Header
+          title="Target vs Achievement"
+          showBack={true}
+          onBackPress={() => navigation?.goBack()}
+          style={styles.headerStyle}
+          titleStyle={styles.headerTitleStyle}
+          iconColor={colors.white}
+        />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.stateText}>Loading data…</Text>
+        </View>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.stateIcon}>⚠️</Text>
-        <Text style={[styles.stateText, { color: '#DC2626' }]}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+        <Header
+          title="Target vs Achievement"
+          showBack={true}
+          onBackPress={() => navigation?.goBack()}
+          style={styles.headerStyle}
+          titleStyle={styles.headerTitleStyle}
+          iconColor={colors.white}
+        />
+        {isAccessDeniedError(error) ? (
+          <AccessDenied
+            message={error}
+            onRetry={() => load()}
+            onGoBack={() => navigation?.goBack()}
+          />
+        ) : (
+          <View style={styles.center}>
+            <Text style={styles.stateIcon}>⚠️</Text>
+            <Text style={[styles.stateText, { color: '#DC2626' }]}>{error}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
+              <Text style={styles.retryText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
   }
 
   if (data.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.stateIcon}>📊</Text>
-        <Text style={styles.stateText}>No data found</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
-          <Text style={styles.retryText}>Refresh</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+        <Header
+          title="Target vs Achievement"
+          showBack={true}
+          onBackPress={() => navigation?.goBack()}
+          style={styles.headerStyle}
+          titleStyle={styles.headerTitleStyle}
+          iconColor={colors.white}
+        />
+        <View style={styles.center}>
+          <Text style={styles.stateIcon}>📊</Text>
+          <Text style={styles.stateText}>No data found</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
+            <Text style={styles.retryText}>Refresh</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -666,12 +710,18 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
           data={filteredData}
           keyExtractor={(item, idx) => String(item.id ?? idx)}
           renderItem={({ item, index }) => <TvaCard item={item} index={index} />}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            filteredData.length === 0 && styles.listContentEmpty,
+          ]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.stateIcon}>🔍</Text>
               <Text style={styles.stateText}>No matching branch or ABM found</Text>
+              <TouchableOpacity style={styles.retryBtn} onPress={() => load(true)}>
+                <Text style={styles.retryText}>Refresh</Text>
+              </TouchableOpacity>
             </View>
           }
           refreshControl={
@@ -1333,8 +1383,13 @@ const styles = StyleSheet.create({
     tintColor: colors.white,
   },
   emptyContainer: {
-    paddingTop: 40,
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  listContentEmpty: {
+    flexGrow: 1,
     justifyContent: 'center',
   },
 

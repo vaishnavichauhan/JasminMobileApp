@@ -65,7 +65,7 @@ export const useStockCashDepositStore = create<StockCashDepositState>(
         const list = await fetchStockCashDepositAllApi(token, targetState);
         set({ data: Array.isArray(list) ? list : [] });
       } catch (err: any) {
-        set({ error: 'Failed to load Stock vs Cash Deposit report data' });
+        set({ error: err?.message || 'Failed to load Stock vs Cash Deposit report data' });
       } finally {
         set({ loading: false, refreshing: false });
       }

@@ -1,4 +1,5 @@
-import { BASE_URL } from './config';
+import { API_ENDPOINTS } from './config';
+import { fetchWithAuth } from './apiClient';
 
 export interface VariationItem {
   id?: number | string;
@@ -8,35 +9,25 @@ export interface VariationItem {
 }
 
 export const fetchVariationsAllApi = async (token?: string | null): Promise<VariationItem[]> => {
-  try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+  const response = await fetchWithAuth(API_ENDPOINTS.REPORTS.VARIATIONS_ALL, {
+    method: 'GET',
+  });
 
-    const response = await fetch(`${BASE_URL}/variations/all`, {
-      method: 'GET',
-      headers,
-    });
-
-    if (!response.ok) {
-      console.warn('[Variations API] Response not OK:', response.status);
-      return [];
-    }
-
-    const json = await response.json();
-
-    if (Array.isArray(json)) return json;
-    if (json?.data && Array.isArray(json.data)) return json.data;
-    if (json?.results && Array.isArray(json.results)) return json.results;
-    return [];
-  } catch (error) {
-    console.warn('[Variations API] Fetch error:', error);
-    return [];
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => ({}));
+    const err: any = new Error(
+      errorJson.message || errorJson.error || `Failed to fetch variations: ${response.status}`
+    );
+    err.status = response.status;
+    throw err;
   }
+
+  const json = await response.json();
+
+  if (Array.isArray(json)) return json;
+  if (json?.data && Array.isArray(json.data)) return json.data;
+  if (json?.results && Array.isArray(json.results)) return json.results;
+  return [];
 };
 
 export interface ColumnItem {
@@ -57,36 +48,26 @@ export const fetchPriceListReportApi = async (
   variationId: string | number,
   date?: string
 ): Promise<PriceListReportResponse | null> => {
-  try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    let query = '';
-    if (date) {
-      query = `?date=${encodeURIComponent(date)}`;
-    }
-
-    const response = await fetch(`${BASE_URL}/price-lists/report/${variationId}${query}`, {
-      method: 'GET',
-      headers,
-    });
-
-    if (!response.ok) {
-      console.warn('[PriceList Report API] Response not OK:', response.status);
-      return null;
-    }
-
-    const json = await response.json();
-    return json;
-  } catch (error) {
-    console.warn('[PriceList Report API] Fetch error:', error);
-    return null;
+  let query = '';
+  if (date) {
+    query = `?date=${encodeURIComponent(date)}`;
   }
+
+  const response = await fetchWithAuth(`${API_ENDPOINTS.REPORTS.PRICE_LIST_REPORT(variationId)}${query}`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => ({}));
+    const err: any = new Error(
+      errorJson.message || errorJson.error || `Failed to fetch price list report: ${response.status}`
+    );
+    err.status = response.status;
+    throw err;
+  }
+
+  const json = await response.json();
+  return json;
 };
 
 export interface StockInfoItem {
@@ -124,7 +105,7 @@ export const fetchPriceListStockInfoApi = async (
     }
 
     const query = `?modelGroup=${encodeURIComponent(modelGroup)}&sync=${sync ? 'true' : 'false'}`;
-    const url = `${BASE_URL}/price-lists/stock-info${query}`;
+    const url = `${API_ENDPOINTS.REPORTS.PRICE_LIST_STOCK_INFO}${query}`;
     console.log('[Stock Info API] Request URL:', url);
 
     const response = await fetch(url, {

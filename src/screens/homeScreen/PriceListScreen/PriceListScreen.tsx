@@ -17,6 +17,9 @@ import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
 import styles from './PriceListStyles';
 
+import AccessDenied from '../../../components/AccessDenied/AccessDenied';
+import { isAccessDeniedError } from '../../../utils/authUtils';
+
 const PriceListScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { token } = useAuth();
   const { data, loading, refreshing, error, loadData } = usePriceListStore();
@@ -67,15 +70,46 @@ const PriceListScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.stateText}>Loading data…</Text>
+        <Header
+          title="PriceLists"
+          showBack={true}
+          onBackPress={() => navigation?.goBack()}
+          style={styles.headerStyle}
+          titleStyle={styles.headerTitleStyle}
+          iconColor={colors.white}
+        />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.stateText}>Loading data…</Text>
+        </View>
       </View>
     );
   }
 
   if (error) {
+    if (isAccessDeniedError(error)) {
+      return (
+        <View style={styles.container}>
+          <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+          <Header
+            title="PriceLists"
+            showBack={true}
+            onBackPress={() => navigation?.goBack()}
+            style={styles.headerStyle}
+            titleStyle={styles.headerTitleStyle}
+            iconColor={colors.white}
+          />
+          <AccessDenied
+            message={error}
+            onRetry={() => loadData(token)}
+            onGoBack={() => navigation?.goBack()}
+          />
+        </View>
+      );
+    }
+
     return (
       <View style={styles.center}>
         <Text style={styles.stateIcon}>⚠️</Text>

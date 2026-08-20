@@ -13,7 +13,7 @@ export interface PriceListStoreState {
   error: string | null;
 
   // Report details state
-  reportDetails: { columns: ColumnItem[]; data: any[] } | null;
+  reportDetails: ({ columns: ColumnItem[]; data: any[]; timestamp?: string | null; [key: string]: any }) | null;
   detailsLoading: boolean;
   detailsError: string | null;
   selectedDate: string;
@@ -49,7 +49,7 @@ export const usePriceListStore = create<PriceListStoreState>((set, get) => ({
       const list = await fetchVariationsAllApi(token);
       set({ data: Array.isArray(list) ? list : [] });
     } catch (err: any) {
-      set({ error: 'Failed to load price lists. Please try again.' });
+      set({ error: err?.message || 'Failed to load price lists. Please try again.' });
     } finally {
       set({ loading: false, refreshing: false });
     }
@@ -68,12 +68,12 @@ export const usePriceListStore = create<PriceListStoreState>((set, get) => ({
         // Resolve data list from various shapes
         const columns = response.columns || [];
         const rawData = response.data || response.results || [];
-        set({ reportDetails: { columns, data: Array.isArray(rawData) ? rawData : [] } });
+        set({ reportDetails: { ...response, columns, data: Array.isArray(rawData) ? rawData : [] } });
       } else {
         set({ detailsError: 'Failed to load report details. Please try again.' });
       }
-    } catch {
-      set({ detailsError: 'Failed to load report details. Please try again.' });
+    } catch (err: any) {
+      set({ detailsError: err?.message || 'Failed to load report details. Please try again.' });
     } finally {
       set({ detailsLoading: false });
     }

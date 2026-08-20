@@ -21,9 +21,10 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: marginHorizontal.small,
-    paddingVertical: Platform.OS === 'ios' ? spaceVertical.normal : spaceVertical.small,
+    paddingTop: spaceVertical.large,
+    paddingBottom: 80,
   },
   headerContainer: {
     alignItems: 'center',

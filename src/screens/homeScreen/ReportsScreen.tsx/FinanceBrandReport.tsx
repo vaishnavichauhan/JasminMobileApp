@@ -14,6 +14,8 @@ import {
   ScrollView,
 } from 'react-native';
 import Header from '../../../components/Header/Header';
+import AccessDenied from '../../../components/AccessDenied/AccessDenied';
+import { isAccessDeniedError } from '../../../utils/authUtils';
 import { colors, fontSize, fontFamily, borderRadius } from '../../../styles/variables';
 import { useAuth } from '../../../context/AuthContext';
 import { useFinanceBrandStore } from '../../../store';
@@ -360,22 +362,64 @@ const FinanceBrandReport: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.stateText}>Loading Finance & Brand report…</Text>
+        <Header
+          title="Finance & Brand Report"
+          showBack={true}
+          onBackPress={() => navigation?.goBack()}
+          style={styles.headerStyle}
+          titleStyle={styles.headerTitleStyle}
+          iconColor={colors.white}
+        />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.stateText}>Loading Finance & Brand report…</Text>
+        </View>
       </View>
     );
   }
 
   if (error) {
+    if (isAccessDeniedError(error)) {
+      return (
+        <View style={styles.container}>
+          <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+          <Header
+            title="Finance & Brand Report"
+            showBack={true}
+            onBackPress={() => navigation?.goBack()}
+            style={styles.headerStyle}
+            titleStyle={styles.headerTitleStyle}
+            iconColor={colors.white}
+          />
+          <AccessDenied
+            message={error}
+            onRetry={() => loadData(token)}
+            onGoBack={() => navigation?.goBack()}
+          />
+        </View>
+      );
+    }
+
     return (
-      <View style={styles.center}>
-        <Text style={styles.stateIcon}>⚠️</Text>
-        <Text style={[styles.stateText, { color: '#DC2626' }]}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => loadData(token)}>
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+        <Header
+          title="Finance & Brand Report"
+          showBack={true}
+          onBackPress={() => navigation?.goBack()}
+          style={styles.headerStyle}
+          titleStyle={styles.headerTitleStyle}
+          iconColor={colors.white}
+        />
+        <View style={styles.center}>
+          <Text style={styles.stateIcon}>⚠️</Text>
+          <Text style={[styles.stateText, { color: '#DC2626' }]}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => loadData(token)}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -472,12 +516,18 @@ const FinanceBrandReport: React.FC<{ navigation?: any }> = ({ navigation }) => {
               companies={companies}
             />
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            filteredRows.length === 0 && styles.listContentEmpty,
+          ]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.stateIcon}>📊</Text>
-              <Text style={styles.stateText}>No Finance & Brand data found</Text>
+              <Text style={styles.stateText}>No data found</Text>
+              <TouchableOpacity style={styles.retryBtn} onPress={() => onRefresh(token)}>
+                <Text style={styles.retryText}>Refresh</Text>
+              </TouchableOpacity>
             </View>
           }
           refreshControl={
@@ -941,10 +991,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
   },
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   emptyContainer: {
-    paddingTop: 40,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 40,
   },
   stateIcon: { fontSize: 44, marginBottom: 12 },
   stateText: {

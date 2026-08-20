@@ -30,6 +30,7 @@ export interface DashboardState {
   apiStatesList: string[];
   loading: boolean;
   refreshing: boolean;
+  error: string | null;
 
   // ABM Filter
   abmSearchQuery: string;
@@ -82,6 +83,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   apiStatesList: [],
   loading: false,
   refreshing: false,
+  error: null,
 
   abmSearchQuery: '',
   selectedState: 'All States',
@@ -159,12 +161,13 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   loadCashDepositData: async (token, isRefresh = false, stateToFetch) => {
     try {
       if (!isRefresh) set({ loading: true });
+      set({ error: null });
       const targetState =
         stateToFetch !== undefined ? stateToFetch : get().selectedState;
       const data = await fetchStockCashDepositAbmWiseApi(token, targetState);
       set({ cashDepositList: Array.isArray(data) ? data : [] });
     } catch (err: any) {
-      console.warn('useDashboardStore loadCashDepositData error:', err.message);
+      set({ error: err?.message || 'Failed to load cash deposit data' });
     } finally {
       set({ loading: false, refreshing: false });
     }
@@ -180,6 +183,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   ) => {
     try {
       if (!isRefresh) set({ loading: true });
+      set({ error: null });
       const targetState =
         stateToFetch !== undefined ? stateToFetch : get().selectedState;
       const targetDate =
@@ -207,9 +211,17 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       const brandSalesTotals =
         totalsRes.status === 'fulfilled' ? totalsRes.value : null;
 
+      // Check if salesRes failed with access denied
+      if (salesRes.status === 'rejected') {
+        const rejErr = (salesRes as any).reason;
+        if (rejErr?.message) {
+          set({ error: rejErr.message });
+        }
+      }
+
       set({ brandSalesList, brandSalesTotals });
     } catch (err: any) {
-      console.warn('useDashboardStore loadBrandSalesData error:', err.message);
+      set({ error: err?.message || 'Failed to load brand sales data' });
     } finally {
       set({ loading: false, refreshing: false });
     }

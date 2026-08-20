@@ -1,4 +1,5 @@
-import { BASE_URL } from './config';
+import { API_ENDPOINTS } from './config';
+import { fetchWithAuth } from './apiClient';
 
 export interface StockCashDepositItem {
   id?: number | string;
@@ -67,59 +68,41 @@ export const fetchStockCashDepositAllApi = async (
   token?: string | null,
   stateName?: string
 ): Promise<StockCashDepositItem[]> => {
-  try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-      headers['x-access-token'] = token;
-    }
-
-    let query = '';
-    if (stateName && stateName.trim() && stateName !== 'All States') {
-      query = `?state_name=${encodeURIComponent(stateName.trim())}`;
-    }
-
-    const response = await fetch(`${BASE_URL}/stock-cash-deposit/all${query}`, {
-      method: 'GET',
-      headers,
-    });
-
-    if (!response.ok) {
-      console.warn('[Stock Cash Deposit API] Response not OK:', response.status);
-      return [];
-    }
-
-    const json = await response.json();
-
-    if (Array.isArray(json)) return json;
-    if (json?.data && Array.isArray(json.data)) return json.data;
-    if (json?.results && Array.isArray(json.results)) return json.results;
-    return [];
-  } catch (error) {
-    console.warn('[Stock Cash Deposit API] Fetch error:', error);
-    return [];
+  let query = '';
+  if (stateName && stateName.trim() && stateName !== 'All States') {
+    query = `?state_name=${encodeURIComponent(stateName.trim())}`;
   }
+
+  const response = await fetchWithAuth(`${API_ENDPOINTS.REPORTS.STOCK_CASH_DEPOSIT_ALL}${query}`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => ({}));
+    const errorMessage =
+      errorJson.message ||
+      errorJson.error ||
+      (response.status === 403
+        ? 'Access Denied. Insufficient permissions for stock_vs_cash_deposit (read)'
+        : `Failed to fetch stock cash deposit: ${response.status}`);
+    const err: any = new Error(errorMessage);
+    err.status = response.status;
+    err.statusCode = response.status;
+    throw err;
+  }
+
+  const json = await response.json();
+
+  if (Array.isArray(json)) return json;
+  if (json?.data && Array.isArray(json.data)) return json.data;
+  if (json?.results && Array.isArray(json.results)) return json.results;
+  return [];
 };
 
 export const fetchStatesApi = async (token?: string | null): Promise<string[]> => {
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-      headers['x-access-token'] = token;
-    }
-
-    const response = await fetch(`${BASE_URL}/states/all`, {
+    const response = await fetchWithAuth(API_ENDPOINTS.REPORTS.STOCK_CASH_DEPOSIT_STATES, {
       method: 'GET',
-      headers,
     });
 
     if (!response.ok) {

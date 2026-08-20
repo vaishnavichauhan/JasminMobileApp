@@ -83,7 +83,7 @@ export const useFinanceBrandStore = create<FinanceBrandState>((set, get) => ({
         companies: reportData.companies || [],
       });
     } catch (err: any) {
-      set({ error: 'Failed to load Finance & Brand report data' });
+      set({ error: err?.message || 'Failed to load Finance & Brand report data' });
     } finally {
       set({ loading: false, refreshing: false });
     }

@@ -20,23 +20,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
 
-  /* ── Header ── */
+  /* ── Top Header ── */
   header: {
     backgroundColor: colors.white,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: marginHorizontal.small,
-    paddingVertical: HEADER_VERTICAL_PADDING,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#EEF2F6',
     ...Platform.select({
-      android: { elevation: 3 },
+      android: {
+        elevation: 2,
+      },
       ios: {
-        shadowColor: '#000',
+        shadowColor: '#0F172A',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
+        shadowOpacity: 0.04,
+        shadowRadius: 3,
       },
     }),
   },
@@ -44,32 +46,50 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-    marginRight: 8,
   },
 
   headerLogo: {
     width: responsiveWidth(32),
-    height: responsiveWidth(11),
-    borderRadius: 8,
-    marginRight: 10,
-    paddingHorizontal: 2,
-    paddingVertical: 1,
+    height: responsiveWidth(9.5),
+  },
+
+  profileChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingLeft: 10,
+    paddingRight: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 6,
+    flexShrink: 1,
+    marginLeft: 8,
+  },
+  profileDownArrow: {
+    width: 10,
+    height: 10,
+    tintColor: '#94A3B8',
+    marginLeft: 1,
   },
 
   avatarWrapper: {
-    width: responsiveWidth(10),
-    height: responsiveWidth(10),
-    borderRadius: responsiveWidth(10) / 2,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: colors.primary,
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
   avatarLetter: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: fontFamily.bold,
     color: colors.white,
     textAlign: 'center',
@@ -80,20 +100,23 @@ const styles = StyleSheet.create({
   userInfo: {
     flexDirection: 'column',
     justifyContent: 'center',
-    flex: 1,
+    alignItems: 'flex-end',
+    flexShrink: 1,
   },
   userName: {
-    fontSize: fontSize.small,
+    fontSize: 12,
     fontFamily: fontFamily.bold,
     color: '#0F172A',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
+    textAlign: 'right',
   },
   userRole: {
-    fontSize: fontSize.extraSmall,
-    fontFamily: fontFamily.regular,
+    fontSize: 10,
+    fontFamily: fontFamily.medium,
     color: '#64748B',
     marginTop: 1,
     textTransform: 'capitalize',
+    textAlign: 'right',
   },
 
   notificationBtn: {
@@ -126,6 +149,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 10,
+    flex: 1,
+    marginLeft: 12,
   },
 
   logoutBtn: {
@@ -799,7 +824,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: marginHorizontal.small,
   },
   cardListContent: {
-    paddingBottom: Platform.OS === 'ios' ? 90 : 80,
+    paddingBottom: 120,
   },
 
   /* ── ABM Cash Deposit Card ── */

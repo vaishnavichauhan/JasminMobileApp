@@ -16,6 +16,8 @@ import { usePriceListStore } from '../../../store';
 import { colors, fontFamily, borderRadius } from '../../../styles/variables';
 import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
+import AccessDenied from '../../../components/AccessDenied/AccessDenied';
+import { isAccessDeniedError } from '../../../utils/authUtils';
 
 const PriceListReport: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { token } = useAuth();
@@ -76,6 +78,27 @@ const PriceListReport: React.FC<{ navigation?: any }> = ({ navigation }) => {
   }
 
   if (error) {
+    if (isAccessDeniedError(error)) {
+      return (
+        <View style={styles.container}>
+          <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+          <Header
+            title="PriceLists Report"
+            showBack={true}
+            onBackPress={() => navigation?.goBack()}
+            style={styles.headerStyle}
+            titleStyle={styles.headerTitleStyle}
+            iconColor={colors.white}
+          />
+          <AccessDenied
+            message={error}
+            onRetry={() => loadData(token)}
+            onGoBack={() => navigation?.goBack()}
+          />
+        </View>
+      );
+    }
+
     return (
       <View style={styles.center}>
         <Text style={styles.stateIcon}>⚠️</Text>
@@ -107,12 +130,18 @@ const PriceListReport: React.FC<{ navigation?: any }> = ({ navigation }) => {
           data={data}
           keyExtractor={(item, idx) => String(item.id ?? idx)}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            data.length === 0 && styles.listContentEmpty,
+          ]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.stateIcon}>📋</Text>
               <Text style={styles.stateText}>No reports found</Text>
+              <TouchableOpacity style={styles.retryBtn} onPress={() => loadData(token, true)}>
+                <Text style={styles.retryText}>Refresh</Text>
+              </TouchableOpacity>
             </View>
           }
           refreshControl={
@@ -251,10 +280,15 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: '#fff',
   },
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   emptyContainer: {
-    paddingTop: 80,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 40,
   },
 });
 
