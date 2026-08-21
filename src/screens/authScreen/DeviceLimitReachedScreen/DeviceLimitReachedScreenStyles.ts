@@ -65,11 +65,9 @@ export const styles = StyleSheet.create({
   warningIconText: {
     fontSize: fontSize.medium,
     color: '#F59E0B',
-    fontWeight: '800',
   },
   headerTitle: {
     fontSize: fontSize.medium,
-    fontWeight: '700',
     color: '#F59E0B',
     fontFamily: fontFamily.bold,
   },
@@ -84,13 +82,12 @@ export const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: fontSize.medium,
     color: colors.subtitleColor,
-    fontWeight: '600',
     lineHeight: fontSize.medium + 2,
+    fontFamily: fontFamily.medium,
   },
   subtitle: {
     fontSize: fontSize.extraSmall,
     color: colors.subtitleColor,
-    fontWeight: '400',
     lineHeight: 18,
     marginTop: spaceVertical.tinySamll,
     marginBottom: spaceVertical.small,
@@ -98,28 +95,27 @@ export const styles = StyleSheet.create({
   },
   deviceListContainer: {
     marginBottom: spaceVertical.small,
-    gap: spaceVertical.tinySamll + 2,
   },
-  deviceItemCard: {
+  deviceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.inputBackground,
-    borderWidth: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
     borderColor: colors.inputBorder,
     borderRadius: borderRadius.medium,
-    paddingHorizontal: marginHorizontal.small,
-    paddingVertical: spaceVertical.tiny,
+    padding: marginHorizontal.small,
+    marginBottom: spaceVertical.tinySamll,
   },
-  deviceItemCardSelected: {
+  deviceCardSelected: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(147, 51, 234, 0.14)',
+    backgroundColor: 'rgba(168, 85, 247, 0.08)',
   },
   radioOuter: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: colors.iconDefault,
+    borderColor: colors.inputBorder,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: marginHorizontal.small,
@@ -138,7 +134,6 @@ export const styles = StyleSheet.create({
   },
   deviceName: {
     fontSize: fontSize.small,
-    fontWeight: '700',
     color: colors.white,
     fontFamily: fontFamily.bold,
     marginBottom: 2,
@@ -167,7 +162,6 @@ export const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: fontSize.small,
-    fontWeight: '600',
     color: colors.white,
     fontFamily: fontFamily.medium,
   },
@@ -194,7 +188,6 @@ export const styles = StyleSheet.create({
   },
   confirmButtonText: {
     fontSize: fontSize.small,
-    fontWeight: '700',
     color: colors.white,
     fontFamily: fontFamily.bold,
   },

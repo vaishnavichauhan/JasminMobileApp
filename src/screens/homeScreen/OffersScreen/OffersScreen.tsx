@@ -181,18 +181,10 @@ const OffersScreen: React.FC<OffersScreenProps> = ({ navigation }) => {
           <View style={styles.metaBadgeWithType}>
             <Text style={styles.metaBadgeLabel}>🎁 Type:</Text>
             <View
-              style={
-                String(item.offerType || '').toLowerCase().includes('bundle')
-                  ? styles.valPillRed
-                  : styles.valPillGreen
-              }
+              style={styles.valPillGreen}
             >
               <Text
-                style={
-                  String(item.offerType || '').toLowerCase().includes('bundle')
-                    ? styles.valPillTextRed
-                    : styles.valPillTextGreen
-                }
+                style={styles.valPillTextGreen}
               >
                 {item.offerType}
               </Text>
@@ -214,6 +206,27 @@ const OffersScreen: React.FC<OffersScreenProps> = ({ navigation }) => {
       </View>
     );
   };
+
+  if (error && isAccessDeniedError(error)) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+        <Header
+          title="Offers"
+          showBack={true}
+          onBackPress={handleBack}
+          style={styles.headerStyle}
+          titleStyle={styles.headerTitleStyle}
+          iconColor={colors.white}
+        />
+        <AccessDenied
+          message={error}
+          onRetry={() => loadOffers(token)}
+          onGoBack={handleBack}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -406,7 +419,7 @@ const OffersScreen: React.FC<OffersScreenProps> = ({ navigation }) => {
           ) : displayedOffers.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
-                No {activeTab === 'ALL' ? '' : activeTab === 'ACTIVE' ? 'active ' : 'expired '}offers found matching your criteria.
+                No {activeTab === 'ALL' ? '' : activeTab === 'ACTIVE' ? 'active ' : 'expired '}offers found.
               </Text>
             </View>
           ) : (

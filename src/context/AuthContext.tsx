@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logoutApi } from '../api/authApi';
 import { STORAGE_KEYS, saveTokens, clearAllAuthData } from '../api/tokenStorage';
@@ -35,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [justLoggedIn, setJustLoggedIn] = useState(false);
 
-  const logoutRef = React.useRef<() => Promise<void>>();
+  const logoutRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
   // Logout handler: clears AsyncStorage, resets state & calls API
   const logout = useCallback(async () => {
@@ -93,10 +94,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     loadStorageData();
 
-    // Register auto-logout when 7-day refresh token expires
-    setUnauthorizedLogoutHandler(() => {
-      console.warn('[AuthContext] 7-day Refresh token expired. Logging out automatically.');
+    // Register auto-logout when user is inactive, deactivated, or session expires
+    setUnauthorizedLogoutHandler((reason?: string) => {
+      console.warn('[AuthContext] Session expired or user inactive. Auto-logging out...', reason);
       logoutRef.current?.();
+      if (reason) {
+        Alert.alert(
+          'Session Expired',
+          reason,
+          [{ text: 'OK', style: 'default' }],
+          { cancelable: true }
+        );
+      }
     });
   }, []); // Run ONLY once on mount
 
@@ -128,6 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         token,
+        refreshToken,
         isLoading,
         isLoggedIn: !!user,
         justLoggedIn,

@@ -68,6 +68,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         username: username.trim(),
         password: password,
         deviceId: uniqueDeviceId || `${Platform.OS}-device`,
+        mobile: true
       };
 
       const response = await loginApi(obj);

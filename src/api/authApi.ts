@@ -29,6 +29,7 @@ export const loginApi = async (payload: LoginPayload): Promise<LoginResponse> =>
       username: payload.username.trim(),
       password: payload.password,
       deviceId: payload.deviceId !== undefined ? payload.deviceId : '',
+      mobile: true,
     };
 
     const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
@@ -273,6 +274,8 @@ export const refreshAccessTokenApi = async (): Promise<string | null> => {
 
     const text = await response.text();
     let data: any = {};
+    
+    
     if (text && text.trim().length > 0) {
       try {
         data = JSON.parse(text);
@@ -287,8 +290,10 @@ export const refreshAccessTokenApi = async (): Promise<string | null> => {
       return null;
     }
 
+
     const newAccessToken = data.token || data.accessToken || data.data?.token || data.data?.accessToken;
     const newRefreshToken = data.refreshToken || data.data?.refreshToken;
+
 
     if (newAccessToken) {
       console.log('[AuthApi] 💾 Saved fresh access token and rotated refresh token!');

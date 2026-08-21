@@ -23,6 +23,7 @@ import { isAccessDeniedError } from '../../../utils/authUtils';
 const PriceListScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { token } = useAuth();
   const { data, loading, refreshing, error, loadData } = usePriceListStore();
+console.log("data",data);
 
   useEffect(() => {
     loadData(token);
@@ -145,8 +146,8 @@ const PriceListScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.stateIcon}>📋</Text>
-              <Text style={styles.stateText}>No price lists found</Text>
+              <Text style={styles.stateIcon}>📊</Text>
+              <Text style={styles.stateText}>No data found</Text>
             </View>
           }
           refreshControl={

@@ -48,7 +48,6 @@ export const styles = StyleSheet.create({
   },
   title: {
     fontSize: fontSize.large,
-    fontWeight: '800',
     color: colors.titleColor,
     letterSpacing: -0.3,
     textAlign: 'center',
@@ -59,7 +58,6 @@ export const styles = StyleSheet.create({
     fontSize: fontSize.extraSmall,
     color: colors.subtitleColor,
     textAlign: 'center',
-    fontWeight: '400',
     lineHeight: 18,
     paddingHorizontal: marginHorizontal.small,
     fontFamily: fontFamily.regular,
@@ -109,7 +107,6 @@ export const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontSize: fontSize.normal,
-    fontWeight: '700',
     color: colors.white,
     fontFamily: fontFamily.bold,
   },
@@ -122,7 +119,6 @@ export const styles = StyleSheet.create({
   backToLoginText: {
     color: colors.subtitleColor,
     fontSize: fontSize.small,
-    fontWeight: '600',
     fontFamily: fontFamily.medium,
   },
 });

@@ -49,7 +49,10 @@ export const usePriceListStore = create<PriceListStoreState>((set, get) => ({
       const list = await fetchVariationsAllApi(token);
       set({ data: Array.isArray(list) ? list : [] });
     } catch (err: any) {
-      set({ error: err?.message || 'Failed to load price lists. Please try again.' });
+      set({
+        error: err?.message || 'Failed to load price lists. Please try again.',
+        data: [],
+      });
     } finally {
       set({ loading: false, refreshing: false });
     }

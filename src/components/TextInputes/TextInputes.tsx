@@ -154,7 +154,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: fontSize.extraSmall,
-    fontWeight: '700',
     color: colors.labelColor,
     letterSpacing: 1.1,
     marginBottom: spaceVertical.tinySamll,
@@ -198,7 +197,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: fontSize.normal,
     paddingVertical: 0,
-    fontWeight: '400',
     fontFamily: fontFamily.regular,
   },
   errorText: {

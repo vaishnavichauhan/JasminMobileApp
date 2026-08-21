@@ -4,10 +4,10 @@ import { refreshAccessTokenApi } from './authApi';
 let isRefreshing = false;
 let refreshSubscribers: ((token: string | null) => void)[] = [];
 
-// Allow AuthContext or global app to register an unauthorized logout listener (when 7-day refresh token expires)
-let onUnauthorizedLogout: (() => void) | null = null;
+// Allow AuthContext or global app to register an unauthorized logout listener (when user is inactive or refresh token expires)
+let onUnauthorizedLogout: ((reason?: string) => void) | null = null;
 
-export const setUnauthorizedLogoutHandler = (handler: () => void) => {
+export const setUnauthorizedLogoutHandler = (handler: (reason?: string) => void) => {
   onUnauthorizedLogout = handler;
 };
 
@@ -21,9 +21,8 @@ const onRefreshed = (token: string | null) => {
 };
 
 /**
- * Universal authenticated fetch with automatic Refresh Token rotation on 401 Unauthorized.
- * If token is expired (15m), refreshes seamlessly and retries the original request.
- * If refresh token is expired (7d), triggers automatic logout to return user to Login screen.
+ * Universal authenticated fetch with automatic Refresh Token rotation on 401/403.
+ * If user is deactivated/inactive or session expires on ANY page, triggers automatic logout.
  */
 export const fetchWithAuth = async (
   url: string,
@@ -44,25 +43,49 @@ export const fetchWithAuth = async (
 
   let response = await fetch(url, { ...options, headers });
 
-  // If 401 Unauthorized or 403 Forbidden (Access token expired/invalid), attempt auto-refresh
+  // If 401 Unauthorized or 403 Forbidden (Access token expired, inactive user, or invalid session)
   if (response.status === 401 || response.status === 403) {
-    console.log(`[Auth] ⚠️ Got ${response.status} from ${url}. Attempting token refresh...`);
+    let serverMessage = '';
+    try {
+      const cloned = response.clone();
+      const body = await cloned.json();
+      serverMessage = body.message || body.error || '';
+    } catch {
+      // ignore
+    }
+
+    const isDeactivatedOrInactive =
+      serverMessage.toLowerCase().includes('deactivat') ||
+      serverMessage.toLowerCase().includes('inactive') ||
+      serverMessage.toLowerCase().includes('disabled') ||
+      serverMessage.toLowerCase().includes('blocked') ||
+      serverMessage.toLowerCase().includes('timed out');
+
+    // If user is inactive/deactivated on ANY page, immediately trigger auto-logout
+    if (isDeactivatedOrInactive) {
+      console.warn(`[Auth] 🚫 Inactive user on ${url} (${serverMessage}). Logging out immediately.`);
+      if (onUnauthorizedLogout) {
+        onUnauthorizedLogout(serverMessage || 'Your account is deactivated. Please contact support.');
+      }
+      return response;
+    }
+
+    // Otherwise attempt token refresh
     if (!isRefreshing) {
       isRefreshing = true;
       const newToken = await refreshAccessTokenApi();
       isRefreshing = false;
 
       if (newToken) {
-        console.log('[Auth] 🔄 Token refresh succeeded! Retrying original request with new token.');
         onRefreshed(newToken);
         headers.Authorization = `Bearer ${newToken}`;
         headers['x-access-token'] = newToken;
         return fetch(url, { ...options, headers });
       } else {
-        console.warn('[Auth] ❌ Refresh token has expired or is invalid. Logging out to Login screen...');
+        console.warn(`[Auth] ❌ Session expired or user deactivated on ${url}. Auto-logging out to Login screen...`);
         onRefreshed(null);
         if (onUnauthorizedLogout) {
-          onUnauthorizedLogout();
+          onUnauthorizedLogout(serverMessage || 'Session timed out. Please login again.');
         }
       }
     } else {

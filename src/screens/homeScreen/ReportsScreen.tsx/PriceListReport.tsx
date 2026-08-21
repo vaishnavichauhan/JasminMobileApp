@@ -137,8 +137,8 @@ const PriceListReport: React.FC<{ navigation?: any }> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.stateIcon}>📋</Text>
-              <Text style={styles.stateText}>No reports found</Text>
+              <Text style={styles.stateIcon}>📊</Text>
+              <Text style={styles.stateText}>No data found</Text>
               <TouchableOpacity style={styles.retryBtn} onPress={() => loadData(token, true)}>
                 <Text style={styles.retryText}>Refresh</Text>
               </TouchableOpacity>

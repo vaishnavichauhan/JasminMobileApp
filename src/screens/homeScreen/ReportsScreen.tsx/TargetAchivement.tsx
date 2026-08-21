@@ -301,21 +301,19 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
   useEffect(() => { load(); }, [load]);
 
-  // Extract unique state names dynamically from /states/all API + data fallback
+  // Extract unique state names dynamically from /states/all API + data
   const availableStates = useMemo(() => {
     const set = new Set<string>();
     if (apiStates.length > 0) {
       apiStates.forEach((s) => set.add(s));
-    } else {
-      ['Gujarat', 'Maharashtra', 'Madhya Pradesh', 'Rajasthan', 'Goa'].forEach((s) => set.add(s));
-      if (Array.isArray(data)) {
-        data.forEach((item) => {
-          const st = item.state_name || item.stateName || item.STATE_NAME || item.state || item.State;
-          if (st && typeof st === 'string' && st.trim().length > 0 && st !== '—') {
-            set.add(st.trim());
-          }
-        });
-      }
+    }
+    if (Array.isArray(data)) {
+      data.forEach((item) => {
+        const st = item.state_name || item.stateName || item.STATE_NAME || item.state || item.State;
+        if (st && typeof st === 'string' && st.trim().length > 0 && st !== '—') {
+          set.add(st.trim());
+        }
+      });
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [apiStates, data]);

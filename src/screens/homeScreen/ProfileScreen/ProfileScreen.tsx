@@ -315,7 +315,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           </TouchableOpacity>
            {/* App Info Footer */}
           <View style={styles.appInfoContainer}>
-            <Text style={styles.appInfoText}>Jasmin ERP • v1.0.0</Text>
+            <Text style={styles.appInfoText}>Jasmin ERP • v1.21.8</Text>
           </View>
         </ScrollView>
       </View>

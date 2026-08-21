@@ -9,7 +9,7 @@ const LOCAL_DEV_URL =
     : `http://localhost:${PORT}/v1/api`;
 
 // export const BASE_URL = 'https://interlink.jasminmobile.com/v1/api';
-export const BASE_URL = LOCAL_DEV_URL;
+ export const BASE_URL = LOCAL_DEV_URL;
 
 export const getHostUrl = (): string => {
   return BASE_URL.replace(/\/api\/?$/, '');

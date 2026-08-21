@@ -14,6 +14,8 @@ import {
 import styles from './HomeScreenStyles';
 import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
+import AccessDenied from '../../../components/AccessDenied/AccessDenied';
+import { isAccessDeniedError } from '../../../utils/authUtils';
 import { useAuth } from '../../../context/AuthContext';
 import { colors } from '../../../styles/variables';
 import { OfferItem } from '../../../api/offersApi';
@@ -47,6 +49,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     offersList,
     loading,
     refreshing,
+    error,
     quickSearch,
     setQuickSearch,
     clearQuickSearch,
@@ -166,6 +169,27 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       </View>
     );
   };
+
+  if (error && isAccessDeniedError(error)) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+        <Header
+          title="Home"
+          showBack={true}
+          onBackPress={handleBack}
+          style={styles.headerStyle}
+          titleStyle={styles.headerTitleStyle}
+          iconColor={colors.white}
+        />
+        <AccessDenied
+          message={error}
+          onRetry={() => loadOffers(token)}
+          onGoBack={handleBack}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

@@ -283,9 +283,6 @@ const FinanceBrandReport: React.FC<{ navigation?: any }> = ({ navigation }) => {
         }
       });
     }
-    if (set.size === 1) {
-      ['Gujarat', 'Maharashtra', 'Rajasthan', 'Madhya Pradesh', 'Delhi'].forEach((s) => set.add(s));
-    }
     return Array.from(set);
   }, [apiStatesList, rows]);
 

@@ -149,11 +149,10 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   loadStatesDropdown: async (token) => {
     try {
       const states = await fetchAllStatesApi(token);
-      if (Array.isArray(states) && states.length > 0) {
-        set({ apiStatesList: states });
-      }
+      set({ apiStatesList: Array.isArray(states) ? states : [] });
     } catch (err: any) {
       console.warn('useDashboardStore loadStatesDropdown error:', err.message);
+      set({ apiStatesList: [] });
     }
   },
 
@@ -203,6 +202,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
           brandName: targetBrand,
         }),
       ]);
+console.log("salesRes",salesRes);
 
       const brandSalesList =
         salesRes.status === 'fulfilled' && Array.isArray(salesRes.value)

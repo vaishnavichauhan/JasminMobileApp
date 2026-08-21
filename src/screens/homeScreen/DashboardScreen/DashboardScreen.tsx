@@ -106,34 +106,29 @@ const formatOfferTickerText = (item: OfferItem, index: number): string => {
 };
 
 /* ── 1-Line Horizontal Auto-Scrolling Active Offers Circular Ticker ── */
-const ActiveOffersTicker: React.FC<{ token: string | null }> = ({ token }) => {
+const ActiveOffersTicker: React.FC<{ token: string | null; navigation?: any }> = ({ token, navigation }) => {
   const [activeOffers, setActiveOffers] = React.useState<OfferItem[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollPos = useRef(0);
   const singleLoopWidth = useRef(0);
 
-  useEffect(() => {
-    let isMounted = true;
-    const loadOffers = async () => {
-      try {
-        const list = await fetchOffersApi(token);
-        const active = list.filter(
-          (o) => o.status !== 'expired' && String(o.status).toLowerCase() !== 'expired'
-        );
-        if (isMounted) {
-          setActiveOffers(active.length > 0 ? active : []);
-        }
-      } catch (e) {
-        if (isMounted) {
-          setActiveOffers([]);
-        }
-      }
-    };
-    loadOffers();
-    return () => {
-      isMounted = false;
-    };
+  const loadOffers = React.useCallback(async () => {
+    try {
+      const list = await fetchOffersApi(token);
+      const active = (list || []).filter(
+        (o) => o.status !== 'expired' && String(o.status).toLowerCase() !== 'expired'
+      );
+      setActiveOffers(active.length > 0 ? active : []);
+    } catch {
+      setActiveOffers([]);
+    }
   }, [token]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadOffers();
+    }, [loadOffers])
+  );
 
   // Smooth continuous circular (infinite seamless loop) auto-scrolling
   useEffect(() => {
@@ -155,7 +150,15 @@ const ActiveOffersTicker: React.FC<{ token: string | null }> = ({ token }) => {
   if (activeOffers.length === 0) return null;
 
   return (
-    <View style={styles.tickerContainer}>
+    <TouchableOpacity
+      style={styles.tickerContainer}
+      activeOpacity={0.85}
+      onPress={() => {
+        try {
+          navigation?.navigate('Offers');
+        } catch {}
+      }}
+    >
       <View style={styles.tickerBadge}>
         <Text style={styles.tickerBadgeText}>🔥 OFFERS</Text>
       </View>
@@ -212,7 +215,7 @@ const ActiveOffersTicker: React.FC<{ token: string | null }> = ({ token }) => {
           })}
         </View>
       </ScrollView>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -307,22 +310,15 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
     }, [token, resetFilters, loadCashDepositData])
   );
 
-  // Extract unique state names dynamically from API states and cash deposit list
+  // Extract unique state names strictly from authorized API states
   const availableStates = React.useMemo(() => {
     const set = new Set<string>();
     set.add('All States');
-    apiStatesList.forEach((st) => set.add(st));
-    cashDepositList.forEach((item) => {
-      const st = item.stateName || item.state_name || item.state;
-      if (st && typeof st === 'string' && st.trim().length > 0) {
-        set.add(st.trim());
-      }
-    });
-    if (set.size === 1) {
-      ['Gujarat', 'Maharashtra', 'Rajasthan', 'Madhya Pradesh', 'Delhi'].forEach((s) => set.add(s));
+    if (Array.isArray(apiStatesList) && apiStatesList.length > 0) {
+      apiStatesList.forEach((st) => set.add(st));
     }
     return Array.from(set);
-  }, [apiStatesList, cashDepositList]);
+  }, [apiStatesList]);
 
   // Filtered ABM List based on search query and selected state
   const filteredCashDepositList = React.useMemo(() => {
@@ -414,7 +410,7 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
       </View>
 
       {/* ── 1-Line Active Offers Auto-Scrolling Bar (Top, Right After Header) ── */}
-      <ActiveOffersTicker token={token} />
+      <ActiveOffersTicker token={token} navigation={navigation} />
 
       {/* ── Logout Confirmation Modal ── */}
       <Modal
@@ -681,9 +677,14 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                   onRetry={() => loadCashDepositData(token, true, selectedState)}
                 />
               ) : filteredCashDepositList.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No matching ABM deposit records found</Text>
-                </View>
+                // <View style={styles.emptyContainer}>
+                //   <Text style={styles.emptyText}>No Data found</Text>
+                // </View>
+                 <View style={styles.center}>
+                          <Text style={styles.stateIcon}>📊</Text>
+                          <Text style={styles.stateText}>No data found</Text>
+                         
+                        </View>
               ) : (
                 filteredCashDepositList.map((item, index) => {
                   const firstLetter = (item.abmName || 'A').trim().charAt(0).toUpperCase();
@@ -744,13 +745,13 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                         <View
                           style={[
                             styles.abmStatItem,
-                            styles.abmStatItemPendingGreen,
+                            styles.abmStatItemPendingRed,
                           ]}
                         >
-                          <Text style={styles.abmStatLabelGreen}>
+                          <Text style={styles.abmStatLabelRed}>
                             Pending Deposit
                           </Text>
-                          <Text style={styles.abmStatValueGreen}>
+                          <Text style={styles.abmStatValueRed}>
                             {formatPercent(item.pendingDepositPercentage)}
                           </Text>
                         </View>
@@ -959,23 +960,23 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                         </View>
 
                         {/* 3. Total MTD */}
-                        <View style={[styles.brandBox, styles.totalBoxMtd]}>
+                        <View style={[styles.brandBox, styles.totalBox]}>
                           <View style={styles.brandBoxHeader}>
-                            <Text style={[styles.brandBoxTitle, styles.totalBoxTitleMtd]}>
+                            <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
                               Total MTD
                             </Text>
-                            <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadgeMtd]}>
+                            <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
                               <Text
                                 style={[
                                   styles.brandBoxQtyText,
-                                  styles.brandBoxQtyTextMtd,
+                                 
                                 ]}
                               >
                                 Qty: {formatQuantity(brandSalesTotals.mtdQty)}
                               </Text>
                             </View>
                           </View>
-                          <Text style={[styles.brandBoxValueText, styles.totalBoxValueTextMtd]}>
+                          <Text style={[styles.brandBoxValueText, styles.totalBoxValueText]}>
                             {formatCurrency(brandSalesTotals.mtdValue)}
                           </Text>
                         </View>

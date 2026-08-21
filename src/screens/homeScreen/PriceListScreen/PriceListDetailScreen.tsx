@@ -98,14 +98,32 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const [selectedBrands, setSelectedBrands] = useState<string[]>(['All Brands']);
-  const [selectedProducts, setSelectedProducts] = useState<string[]>(['All Products']);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>(['All Categories']);
   const [brandSearchQuery, setBrandSearchQuery] = useState('');
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [expandedItemId, setExpandedItemId] = useState<string | number | null>(null);
   const searchInputRef = useRef<TextInput>(null);
+
+  // Debounce search query to provide smooth typing and loading indicator
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setDebouncedSearchQuery('');
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setIsSearching(false);
+    }, 180);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const isReportDetail = route.name === 'PriceListReportDetailScreen';
 
@@ -305,13 +323,27 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
     return Array.from(set);
   }, [reportDetails?.data]);
 
-  // Extract unique products dynamically
+  // Extract unique product categories dynamically
   const availableProducts = useMemo(() => {
     const set = new Set<string>();
-    set.add('All Products');
+    set.add('All Categories');
     if (Array.isArray(reportDetails?.data)) {
       reportDetails.data.forEach((item: any) => {
-        const p = item.product_name || item.productName || item.model_name || item.modelName || item.item_name || item.name;
+        const p =
+          item.ProductName ||
+          item['Product Name'] ||
+          item['ProductName'] ||
+          item.product_name ||
+          item.productName ||
+          item.product_category ||
+          item.productCategory ||
+          item['Product Category'] ||
+          item.category ||
+          item.Category ||
+          item.model_name ||
+          item.modelName ||
+          item.item_name ||
+          item.name;
         if (p && typeof p === 'string' && p.trim().length > 0) {
           set.add(p.trim());
         }
@@ -337,7 +369,9 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
   }, [selectedBrands]);
 
   const activeProducts = useMemo(() => {
-    return (selectedProducts || []).filter((p) => p && p !== 'All Products');
+    return (selectedProducts || []).filter(
+      (p) => p && p !== 'All Categories' && p !== 'All Products'
+    );
   }, [selectedProducts]);
 
   const brandDropdownLabel = useMemo(() => {
@@ -348,10 +382,10 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
   }, [activeBrands]);
 
   const productDropdownLabel = useMemo(() => {
-    if (activeProducts.length === 0) return 'All Products';
+    if (activeProducts.length === 0) return 'All Categories';
     if (activeProducts.length === 1) return activeProducts[0];
     if (activeProducts.length === 2) return `${activeProducts[0]}, ${activeProducts[1]}`;
-    return `${activeProducts.length} Products`;
+    return `${activeProducts.length} Categories`;
   }, [activeProducts]);
 
   const handleToggleBrand = (b: string) => {
@@ -370,60 +404,134 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
   };
 
   const handleToggleProduct = (p: string) => {
-    if (p === 'All Products') {
-      setSelectedProducts(['All Products']);
+    if (p === 'All Categories' || p === 'All Products') {
+      setSelectedProducts(['All Categories']);
       return;
     }
-    const withoutAll = selectedProducts.filter((item) => item !== 'All Products');
+    const withoutAll = selectedProducts.filter(
+      (item) => item !== 'All Categories' && item !== 'All Products'
+    );
     let next: string[];
     if (withoutAll.includes(p)) {
       next = withoutAll.filter((item) => item !== p);
     } else {
       next = [...withoutAll, p];
     }
-    setSelectedProducts(next.length === 0 ? ['All Products'] : next);
+    setSelectedProducts(next.length === 0 ? ['All Categories'] : next);
   };
 
-  // Filter data by search query, brand, and product name
+  // Filter data by search query (deep normalized & tokenized search), brand, and product category
   const filteredData = useMemo(() => {
     if (!reportDetails?.data) return [];
+
+    const query = debouncedSearchQuery.trim().toLowerCase();
+    const normalizedQuery = query.replace(/[^a-z0-9]/g, '');
+    const queryTokens = query
+      .split(/[\s\-_()+/,.]+/)
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length > 0);
+
     return reportDetails.data.filter((item: any) => {
+      // 1. Brand extraction
       const brand = renderStringValue(
         item.Brand || item.brand || item.brand_name || item.brandName || item.Mobile_Brand
-      ).toLowerCase();
-      const product = renderStringValue(
-        item.product_name || item.productName || item.model_name || item.modelName || item.item_name || item.name || item.model
-      ).toLowerCase();
-      const modelGroup = renderStringValue(item.model_group_name || item.modelGroupName).toLowerCase();
+      );
 
-      // 1. Search Query (Search for brand and product name)
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matches = brand.includes(q) || product.includes(q) || modelGroup.includes(q);
-        if (!matches) return false;
+      // 2. Product category extraction
+      const productCategory = renderStringValue(
+        item.ProductName ||
+        item['Product Name'] ||
+        item['ProductName'] ||
+        item.product_name ||
+        item.productName ||
+        item.product_category ||
+        item.productCategory ||
+        item['Product Category'] ||
+        item.category ||
+        item.Category ||
+        item.model_name ||
+        item.modelName ||
+        item.item_name ||
+        item.name ||
+        item.model
+      );
+
+      // 3. Model group extraction
+      const modelGroup = renderStringValue(
+        item['Model Group'] ||
+        item.model_group_name ||
+        item.modelGroupName ||
+        item.model_group ||
+        item.ModelGroup ||
+        item.GeneralmodelGroup ||
+        item['General Model Group'] ||
+        item.general_model_group ||
+        item['GeneralmodelGroup'] ||
+        item.model_name ||
+        item.modelName ||
+        item.product_name ||
+        item['Product Name'] ||
+        item.item_name ||
+        item['Item Name']
+      );
+
+      // 4. Search Query Check
+      if (query.length > 0) {
+        // Collect all text from all properties in item
+        const itemValues = Object.values(item)
+          .map((v) => (typeof v === 'object' && v !== null ? Object.values(v).join(' ') : String(v || '')))
+          .join(' ');
+
+        const searchableText = `${brand} ${productCategory} ${modelGroup} ${itemValues}`.toLowerCase();
+        const normalizedSearchable = searchableText.replace(/[^a-z0-9]/g, '');
+
+        // A: Direct substring match
+        const directMatch = searchableText.includes(query);
+
+        // B: Normalized match (strips hyphens, brackets, spaces, pluses, etc.)
+        const normalizedMatch =
+          normalizedQuery.length > 0 &&
+          (normalizedSearchable.includes(normalizedQuery) || normalizedQuery.includes(normalizedSearchable));
+
+        // C: All tokens match
+        const tokenMatch =
+          queryTokens.length > 0 &&
+          queryTokens.every((token) => {
+            const normToken = token.replace(/[^a-z0-9]/g, '');
+            return (
+              searchableText.includes(token) ||
+              (normToken.length > 0 && normalizedSearchable.includes(normToken))
+            );
+          });
+
+        if (!directMatch && !normalizedMatch && !tokenMatch) {
+          return false;
+        }
       }
 
-      // 2. Multiple Brand Filter
+      // 5. Multiple Brand Filter
       if (activeBrands.length > 0) {
+        const brandLower = brand.toLowerCase().trim();
         const isBrandMatch = activeBrands.some((b) => {
           const target = b.toLowerCase().trim();
-          return brand.includes(target) || target.includes(brand);
+          return brandLower.includes(target) || target.includes(brandLower);
         });
         if (!isBrandMatch) return false;
       }
 
-      // 3. Multiple Product Filter
+      // 6. Multiple Product Category Filter
       if (activeProducts.length > 0) {
-        const isProductMatch = activeProducts.some((p) => {
+        const catLower = productCategory.toLowerCase().trim();
+        const isCategoryMatch = activeProducts.some((p) => {
           const target = p.toLowerCase().trim();
-          return product.includes(target) || target.includes(product);
+          return catLower.includes(target) || target.includes(catLower);
         });
-        if (!isProductMatch) return false;
+        if (!isCategoryMatch) return false;
       }
 
       return true;
     });
-  }, [reportDetails?.data, searchQuery, activeBrands, activeProducts]);
+  }, [reportDetails?.data, debouncedSearchQuery, activeBrands, activeProducts]);
 
   const PriceListItemCard: React.FC<{
     item: any;
@@ -504,97 +612,233 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
 
     const showViewStock = !isReportDetail && !isGeneral;
 
+    const productCategory = renderStringValue(
+      item.ProductName ||
+      item['Product Name'] ||
+      item['ProductName'] ||
+      item.product_name ||
+      item.productName ||
+      item.product_category ||
+      item.productCategory ||
+      item['Product Category'] ||
+      item.category ||
+      item.Category ||
+      item.model_name ||
+      item.modelName ||
+      item.item_name ||
+      item.name ||
+      item.model
+    );
+
+    // Filter other dynamic columns: exclude date/timestamp, model group, brand, product category, offer, and internal IDs
+    const otherColumns = useMemo(() => {
+      const candidateKeys: string[] =
+        visibleColumns && visibleColumns.length > 0
+          ? visibleColumns.map((col) => col.column_name)
+          : Object.keys(item);
+
+      return candidateKeys.filter((key) => {
+        if (!key) return false;
+        const normalized = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        // 1) Exclude Date / Timestamp / CreatedAt (shown in Header)
+        if (
+          normalized === 'timestamp' ||
+          normalized === 'createdat' ||
+          normalized === 'lastupdateddate' ||
+          normalized === 'updatedat' ||
+          normalized === 'time' ||
+          normalized === 'date'
+        ) {
+          return false;
+        }
+
+        // 2) Exclude Model Group (shown as field #1)
+        if (
+          normalized === 'modelgroup' ||
+          normalized === 'modelgroupname' ||
+          normalized === 'generalmodelgroup' ||
+          normalized === 'generalmodelgroupname'
+        ) {
+          return false;
+        }
+
+        // 3) Exclude Brand (shown as field #2)
+        if (
+          normalized === 'brand' ||
+          normalized === 'brandname' ||
+          normalized === 'mobilebrand' ||
+          normalized === 'itembrand'
+        ) {
+          return false;
+        }
+
+        // 4) Exclude Product Category (shown as field #3)
+        if (
+          normalized === 'productname' ||
+          normalized === 'productcategory' ||
+          normalized === 'category'
+        ) {
+          return false;
+        }
+
+        // 5) Exclude Offer (shown as field #4)
+        if (
+          normalized === 'activeoffers' ||
+          normalized === 'activeoffer' ||
+          normalized === 'offer' ||
+          normalized === 'offers'
+        ) {
+          return false;
+        }
+
+        // 6) Exclude internal IDs / indices
+        if (
+          normalized === 'id' ||
+          normalized === '_id' ||
+          normalized === 'variationid' ||
+          normalized === 'variation_id' ||
+          normalized === 'srno' ||
+          normalized === 'sr_no' ||
+          normalized === 'sno' ||
+          normalized === 'index' ||
+          normalized === 'key'
+        ) {
+          return false;
+        }
+
+        return true;
+      });
+    }, [visibleColumns, item]);
+
+    const firstThreeOtherColumns = otherColumns.slice(0, 3);
+    const remainingOtherColumns = otherColumns.slice(3);
+    const hasMoreData = remainingOtherColumns.length > 0;
+
     return (
       <View style={styles.card}>
-        {/* Top Header: Date & Time (Left) + Down Arrow (Right) */}
+        {/* 1) Top Header: Last Updated date (Left) + Down Arrow (Right) */}
         <View style={styles.cardHeader}>
           <View style={styles.cardTopMetaRow}>
             {formattedDateTime !== '—' ? (
               <View style={styles.dateBadge}>
-                <Text style={styles.dateLabel}>Last Updated date: </Text>
+                <Image
+                  source={Images.calendar}
+                  style={styles.cardCalendarIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.dateLabel}>Last Updated: </Text>
                 <Text style={styles.dateText}>{formattedDateTime}</Text>
               </View>
             ) : (
               <View />
             )}
 
-            {/* Down Arrow / Expand Toggle Button */}
-            <TouchableOpacity
-              style={styles.expandToggleBtn}
-              onPress={onToggleExpand}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Image
-                source={Images.down}
+            {/* Down Arrow / Expand Toggle Button for remaining data */}
+            {hasMoreData && (
+              <TouchableOpacity
                 style={[
-                  styles.expandToggleIcon,
-                  isExpanded && styles.expandToggleIconRotated,
+                  styles.expandToggleBtn,
+                  isExpanded && styles.expandToggleBtnActive,
                 ]}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
+                onPress={onToggleExpand}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Image
+                  source={Images.down}
+                  style={[
+                    styles.expandToggleIcon,
+                    isExpanded && styles.expandToggleIconRotated,
+                  ]}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
         {/* Details List */}
         <View style={styles.detailsContent}>
-          {/* Product Name */}
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Product Name</Text>
-            <Text style={styles.productNameValue} numberOfLines={2}>
-              {productName}
-            </Text>
-          </View>
-
-          {/* Brand */}
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Brand</Text>
-            <Text style={styles.infoValue}>{brand}</Text>
-          </View>
-
-          {/* Model Group */}
+          {/* 1) Model Group (Highlighted) */}
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Model Group</Text>
-            <Text style={styles.infoValue}>{modelGroup}</Text>
+            <View style={styles.modelGroupBadgeWrapper}>
+              <Text style={styles.modelGroupValue} numberOfLines={2}>
+                {modelGroup || '—'}
+              </Text>
+            </View>
           </View>
 
-          {/* Offer */}
+          {/* 2) Brand */}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Brand</Text>
+            <View style={styles.brandBadgeWrapper}>
+              <Text style={styles.brandBadgeText}>{brand || '—'}</Text>
+            </View>
+          </View>
+
+          {/* 3) Product Category (Highlighted) */}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Product Category</Text>
+            <View style={styles.productCategoryBadgeWrapper}>
+              <Text style={styles.productCategoryBadgeText} numberOfLines={2}>
+                {productCategory || '—'}
+              </Text>
+            </View>
+          </View>
+
+          {/* 4) Offer */}
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Offer</Text>
-            <Text style={[styles.infoValue, styles.activeOffersText]}>
-              {activeOffers}
-            </Text>
+            <View
+              style={[
+                styles.offerBadgeWrapper,
+                (!activeOffers || activeOffers === '—') && styles.offerBadgeEmpty,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.activeOffersText,
+                  (!activeOffers || activeOffers === '—') && styles.activeOffersTextEmpty,
+                ]}
+                numberOfLines={2}
+              >
+                {activeOffers || '—'}
+              </Text>
+            </View>
           </View>
 
-          {/* Other information is hidden and only shown when Down Arrow is clicked */}
-          {isExpanded && (
+          {/* 5) Other data - First 3 items always visible */}
+          {firstThreeOtherColumns.map((colKey) => {
+            const val = item[colKey];
+            return (
+              <View key={colKey} style={styles.infoRow}>
+                <Text style={styles.infoLabel}>{colKey}</Text>
+                <Text
+                  style={styles.infoValue}
+                  numberOfLines={2}
+                >
+                  {renderStringValue(val)}
+                </Text>
+              </View>
+            );
+          })}
+
+          {/* Other data - Remaining items hidden with down arrow */}
+          {isExpanded && hasMoreData && (
             <View style={styles.expandedDetailsSection}>
-              {/* Dynamic Columns from columns[] where not_show_in_report = false */}
-              {visibleColumns.map((col) => {
-                const colKey = col.column_name;
-                const lowerKey = String(colKey).toLowerCase();
-                if (
-                  lowerKey === 'timestamp' ||
-                  lowerKey === 'active_offers' ||
-                  lowerKey === 'activeoffers' ||
-                  lowerKey === 'active offers' ||
-                  lowerKey === 'offer' ||
-                  lowerKey === 'offers' ||
-                  lowerKey === 'product_name' ||
-                  lowerKey === 'productname' ||
-                  lowerKey === 'brand' ||
-                  lowerKey === 'brand_name' ||
-                  lowerKey === 'model_group_name' ||
-                  lowerKey === 'modelgroupname'
-                ) {
-                  return null;
-                }
+              {remainingOtherColumns.map((colKey) => {
                 const val = item[colKey];
                 return (
                   <View key={colKey} style={styles.infoRow}>
                     <Text style={styles.infoLabel}>{colKey}</Text>
-                    <Text style={styles.infoValue}>{renderStringValue(val)}</Text>
+                    <Text
+                      style={styles.infoValue}
+                      numberOfLines={2}
+                    >
+                      {renderStringValue(val)}
+                    </Text>
                   </View>
                 );
               })}
@@ -785,14 +1029,16 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
           <TextInput
             ref={searchInputRef}
             style={styles.searchInput}
-            placeholder="Search product or brand..."
+            placeholder="Search brand, category, or model..."
             placeholderTextColor="#94A3B8"
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
             autoCorrect={false}
           />
-          {searchQuery.length > 0 && (
+          {isSearching ? (
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 6 }} />
+          ) : searchQuery.length > 0 ? (
             <TouchableOpacity
               onPress={() => setSearchQuery('')}
               style={styles.clearSearchBtn}
@@ -801,7 +1047,7 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
             >
               <Text style={styles.clearSearchText}>✕</Text>
             </TouchableOpacity>
-          )}
+          ) : null}
         </TouchableOpacity>
 
         {/* Dropdown Filters Row */}
@@ -875,17 +1121,37 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
             filteredData.length === 0 && styles.listContentEmpty,
           ]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.stateIcon}>📋</Text>
-              <Text style={styles.stateText}>No data found</Text>
-              <TouchableOpacity
-                style={styles.retryBtn}
-                onPress={() => loadReportDetails(token, variationId, selectedDate)}
-              >
-                <Text style={styles.retryText}>Refresh</Text>
-              </TouchableOpacity>
-            </View>
+            isSearching ? (
+              <View style={styles.emptyContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.stateText}>Searching products...</Text>
+              </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.stateIcon}>🔍</Text>
+                <Text style={styles.emptyTitle}>No matching records found</Text>
+                <Text style={styles.stateText}>
+                  {searchQuery.trim()
+                    ? `No products found matching "${searchQuery}"`
+                    : 'No price list data available for the selected filters'}
+                </Text>
+                {(!!searchQuery.trim() || activeBrands.length > 0 || activeProducts.length > 0) && (
+                  <TouchableOpacity
+                    style={styles.retryBtn}
+                    onPress={() => {
+                      setSearchQuery('');
+                      setSelectedBrands(['All Brands']);
+                      setSelectedProducts(['All Categories']);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.retryText}>Clear Filters & Search</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )
           }
           refreshControl={
             <RefreshControl
@@ -1048,17 +1314,17 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
           <View style={styles.selectModalCard} onStartShouldSetResponder={() => true}>
             <View style={styles.modalHeaderRow}>
               <View>
-                <Text style={styles.modalTitle}>Select Products</Text>
+                <Text style={styles.modalTitle}>Select Product Category</Text>
                 <Text style={styles.modalSubtitle}>
                   {activeProducts.length > 0
-                    ? `${activeProducts.length} product(s) selected`
-                    : 'Showing all products'}
+                    ? `${activeProducts.length} category(ies) selected`
+                    : 'Showing all categories'}
                 </Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 {activeProducts.length > 0 && (
                   <TouchableOpacity
-                    onPress={() => setSelectedProducts(['All Products'])}
+                    onPress={() => setSelectedProducts(['All Categories'])}
                     style={styles.modalResetBtn}
                     activeOpacity={0.7}
                   >
@@ -1079,12 +1345,12 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
               </View>
             </View>
 
-            {/* Product Search Bar */}
+            {/* Category Search Bar */}
             <View style={styles.modalSearchBox}>
               <Image source={Images.filter} style={styles.modalSearchIcon} resizeMode="contain" />
               <TextInput
                 style={styles.modalSearchInput}
-                placeholder="Search product..."
+                placeholder="Search category..."
                 placeholderTextColor="#94A3B8"
                 value={productSearchQuery}
                 onChangeText={setProductSearchQuery}
@@ -1105,10 +1371,10 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }}>
               {filteredAvailableProducts.length === 0 ? (
-                <Text style={styles.modalEmptyText}>No products found</Text>
+                <Text style={styles.modalEmptyText}>No categories found</Text>
               ) : (
                 filteredAvailableProducts.map((p) => {
-                  const isAllOption = p === 'All Products';
+                  const isAllOption = p === 'All Categories' || p === 'All Products';
                   const isSelected = isAllOption
                     ? activeProducts.length === 0
                     : selectedProducts.includes(p);
@@ -1694,9 +1960,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 6,
+    borderRadius: 8,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 3.5,
+    gap: 4,
+  },
+  cardCalendarIcon: {
+    width: 11,
+    height: 11,
+    tintColor: '#64748B',
   },
   dateLabel: {
     fontSize: 11,
@@ -1706,7 +1978,79 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 11,
     fontFamily: fontFamily.bold,
-    color: '#475569',
+    color: '#334155',
+  },
+  modelGroupBadgeWrapper: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 7,
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
+    alignSelf: 'flex-end',
+    maxWidth: '70%',
+  },
+  modelGroupValue: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: '#0F172A',
+    textAlign: 'right',
+  },
+  brandBadgeWrapper: {
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    alignSelf: 'flex-end',
+  },
+  brandBadgeText: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+  },
+  productCategoryBadgeWrapper: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    alignSelf: 'flex-end',
+    maxWidth: '70%',
+  },
+  productCategoryBadgeText: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    color: '#1D4ED8',
+    textAlign: 'right',
+  },
+  offerBadgeWrapper: {
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#EDE9FE',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    alignSelf: 'flex-end',
+    maxWidth: '70%',
+  },
+  offerBadgeEmpty: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  activeOffersText: {
+    color: colors.primary,
+    fontFamily: fontFamily.bold,
+    fontSize: 12,
+    textAlign: 'right',
+  },
+  activeOffersTextEmpty: {
+    color: '#94A3B8',
+    fontFamily: fontFamily.regular,
   },
   productNameValue: {
     fontSize: 13,
@@ -1714,6 +2058,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     flex: 1,
     textAlign: 'right',
+    marginLeft: 16,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -1742,15 +2087,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: '#0F172A',
     flex: 1,
-  },
-  activeOffersText: {
-    color: colors.primary,
-    fontFamily: fontFamily.bold,
-    backgroundColor: '#F5F3FF',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2.5,
-    overflow: 'hidden',
   },
   brandBadge: {
     alignSelf: 'flex-start',
@@ -1799,13 +2135,18 @@ const styles = StyleSheet.create({
   stockBtnBottom: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#15803D',
+    backgroundColor: '#16A34A',
     borderWidth: 1,
     borderColor: '#15803D',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
     gap: 5,
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 1.5,
   },
   headerRightActions: {
     flexDirection: 'row',
@@ -1821,6 +2162,10 @@ const styles = StyleSheet.create({
     borderColor: '#EDE9FE',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  expandToggleBtnActive: {
+    backgroundColor: '#EDE9FE',
+    borderColor: '#DDD6FE',
   },
   expandToggleIcon: {
     width: 12,
@@ -1869,12 +2214,20 @@ const styles = StyleSheet.create({
     fontSize: 44,
     marginBottom: 12,
   },
+  emptyTitle: {
+    fontSize: 16,
+    fontFamily: fontFamily.bold,
+    color: '#1E293B',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
   stateText: {
     fontSize: 13,
     fontFamily: fontFamily.regular,
     color: '#64748B',
     textAlign: 'center',
     marginBottom: 18,
+    paddingHorizontal: 20,
   },
   retryBtn: {
     backgroundColor: colors.primary,

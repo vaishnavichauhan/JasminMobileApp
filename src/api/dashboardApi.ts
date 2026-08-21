@@ -150,10 +150,10 @@ export const fetchStockCashDepositAbmWiseApi = async (
         ? `?state=${encodeURIComponent(stateName.trim())}`
         : '';
 
-    const response = await fetchWithAuth(`${API_ENDPOINTS.DASHBOARD.STOCK_CASH_DEPOSIT_ABM_WISE}${query}`, {
-      method: 'GET',
-    });
-    
+    const response = await fetchWithAuth(
+      `${API_ENDPOINTS.DASHBOARD.STOCK_CASH_DEPOSIT_ABM_WISE}${query}`,
+      { method: 'GET' }
+    );
     const text = await response.text();
     let json: any = {};
     if (text && text.trim().length > 0) {
@@ -163,6 +163,7 @@ export const fetchStockCashDepositAbmWiseApi = async (
         json = { data: [] };
       }
     }
+    console.log("DashboardCash", json);
 
     if (!response.ok) {
       throw new Error(
@@ -293,6 +294,7 @@ export const fetchBrandWiseSalesDataApi = async (
         json = { data: [] };
       }
     }
+    console.log("DashboardBrand", json);
 
     if (!response.ok) {
       throw new Error(
@@ -516,7 +518,6 @@ export const fetchBrandWiseSalesTotalsApi = async (
     const response = await fetchWithAuth(`${API_ENDPOINTS.DASHBOARD.BRAND_WISE_SALES_TOTALS}${queryString}`, {
       method: 'GET',
     });
-
     const text = await response.text();
     let json: any = {};
     if (text && text.trim().length > 0) {
@@ -526,6 +527,7 @@ export const fetchBrandWiseSalesTotalsApi = async (
         json = {};
       }
     }
+    console.log("DashboardBrandTotal", json);
 
     if (!response.ok) {
       throw new Error(
@@ -723,6 +725,7 @@ export const fetchAllStatesApi = async (
         json = { data: [] };
       }
     }
+    console.log("DashboardStates", json);
 
     if (!response.ok) {
       throw new Error(
@@ -748,7 +751,7 @@ export const fetchAllStatesApi = async (
 
     return Array.from(stateSet);
   } catch (error: any) {
-    console.warn('fetchAllStatesApi error:', error);
+    console.warn('fetchAllStatesApi errorss:', error);
     return [];
   }
 };

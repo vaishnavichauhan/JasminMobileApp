@@ -41,9 +41,17 @@ const extractArray = (obj: any): any[] => {
   if (!obj) return [];
   if (Array.isArray(obj)) return obj;
   if (Array.isArray(obj.data)) return obj.data;
-  if (Array.isArray(obj.offers)) return obj.offers;
-  if (Array.isArray(obj.result)) return obj.result;
+  if (Array.isArray(obj.data?.data)) return obj.data.data;
+  if (Array.isArray(obj.data?.rows)) return obj.data.rows;
   if (Array.isArray(obj.data?.offers)) return obj.data.offers;
+  if (Array.isArray(obj.data?.list)) return obj.data.list;
+  if (Array.isArray(obj.data?.records)) return obj.data.records;
+  if (Array.isArray(obj.data?.items)) return obj.data.items;
+  if (Array.isArray(obj.offers)) return obj.offers;
+  if (Array.isArray(obj.rows)) return obj.rows;
+  if (Array.isArray(obj.result)) return obj.result;
+  if (Array.isArray(obj.records)) return obj.records;
+  if (Array.isArray(obj.items)) return obj.items;
   return [];
 };
 
@@ -81,12 +89,14 @@ export const fetchOffersApi = async (
   const response = await fetchWithAuth(`${API_ENDPOINTS.OFFERS.ALL}${queryString}`, {
     method: 'GET',
   });
+console.log("oferRes",response);
 
     const text = await response.text();
     let json: any = {};
     if (text && text.trim().length > 0) {
       try {
         json = JSON.parse(text);
+        console.log("oferRes",JSON.parse(text));
       } catch {
         json = { data: [] };
       }
@@ -129,30 +139,46 @@ export const fetchOffersApi = async (
         'Discount';
 
       const fromDate =
-        getVal(item, 'fromDate', 'from_date', 'start_date', 'FromDate') ||
-        '2026-08-01';
+        getVal(item, 'fromDate', 'from_date', 'start_date', 'FromDate', 'valid_from', 'validFrom', 'START_DATE', 'FROM_DATE') ||
+        '';
 
       const toDate =
-        getVal(item, 'toDate', 'to_date', 'end_date', 'ToDate') || '2026-08-31';
+        getVal(item, 'toDate', 'to_date', 'end_date', 'ToDate', 'valid_to', 'validTo', 'expiry_date', 'expiryDate', 'END_DATE', 'TO_DATE') ||
+        '';
 
       const discount =
-        getVal(item, 'discount', 'discount_percentage', 'amount', 'value', 'cashback') ||
-        '10% OFF';
+        getVal(item, 'discount', 'discount_percentage', 'amount', 'value', 'cashback', 'DISCOUNT') ||
+        '';
 
       const description =
-        getVal(item, 'description', 'desc', 'details', 'summary') || '';
+        getVal(item, 'description', 'desc', 'details', 'summary', 'DESCRIPTION') || '';
 
       const terms =
-        getVal(item, 'terms', 'terms_and_conditions', 't_and_c') ||
+        getVal(item, 'terms', 'terms_and_conditions', 't_and_c', 'TERMS') ||
         'Valid until stocks last. Standard terms apply.';
 
-      const rawStatus = getVal(item, 'status', 'state', 'is_active');
+      const rawStatus = getVal(item, 'status', 'state', 'is_active', 'active', 'STATUS', 'IS_ACTIVE');
       let status: 'active' | 'expired' = 'active';
-      if (rawStatus === 'expired' || rawStatus === false || rawStatus === 0) {
+
+      if (
+        rawStatus === 'expired' ||
+        rawStatus === 'Expired' ||
+        rawStatus === false ||
+        rawStatus === 0 ||
+        rawStatus === '0' ||
+        rawStatus === 'inactive' ||
+        rawStatus === 'Inactive'
+      ) {
         status = 'expired';
-      } else {
+      } else if (toDate) {
+        // Convert toDate to YYYY-MM-DD for accurate comparison
+        let compToDate = String(toDate).trim().split('T')[0];
+        if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(compToDate)) {
+          const parts = compToDate.split(/[\/\-]/);
+          compToDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
         const todayStr = new Date().toISOString().split('T')[0];
-        if (toDate && toDate < todayStr) {
+        if (compToDate && compToDate < todayStr) {
           status = 'expired';
         }
       }

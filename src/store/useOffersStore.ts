@@ -41,7 +41,10 @@ export const useOffersStore = create<OffersState>((set, get) => ({
       const data = await fetchOffersApi(token);
       set({ offersList: Array.isArray(data) ? data : [] });
     } catch (err: any) {
-      set({ error: err?.message || 'Failed to load offers. Please try again.' });
+      set({
+        error: err?.message || 'Failed to load offers. Please try again.',
+        offersList: [],
+      });
     } finally {
       set({ loading: false, refreshing: false });
     }

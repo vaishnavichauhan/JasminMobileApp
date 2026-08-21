@@ -5,6 +5,7 @@ export interface HomeState {
   offersList: OfferItem[];
   loading: boolean;
   refreshing: boolean;
+  error: string | null;
   quickSearch: string;
 
   setQuickSearch: (query: string) => void;
@@ -17,6 +18,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   offersList: [],
   loading: false,
   refreshing: false,
+  error: null,
   quickSearch: '',
 
   setQuickSearch: (query) => set({ quickSearch: query }),
@@ -25,10 +27,14 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   loadOffers: async (token, isRefresh = false) => {
     try {
       if (!isRefresh) set({ loading: true });
+      set({ error: null });
       const data = await fetchOffersApi(token);
       set({ offersList: Array.isArray(data) ? data : [] });
     } catch (err: any) {
-      console.warn('useHomeStore loadOffers error:', err.message);
+      set({
+        error: err?.message || 'Failed to load offers. Please try again.',
+        offersList: [],
+      });
     } finally {
       set({ loading: false, refreshing: false });
     }
