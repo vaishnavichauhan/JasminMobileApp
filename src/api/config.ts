@@ -8,7 +8,7 @@ const LOCAL_DEV_URL =
     ? `http://10.0.2.2:${PORT}/v1/api`
     : `http://localhost:${PORT}/v1/api`;
 
-// export const BASE_URL = 'https://interlink.jasminmobile.com/v1/api';
+//  export const BASE_URL = 'https://interlink.jasminmobile.com/v1/api';
  export const BASE_URL = LOCAL_DEV_URL;
 
 export const getHostUrl = (): string => {

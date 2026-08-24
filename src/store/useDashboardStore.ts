@@ -28,14 +28,19 @@ export interface DashboardState {
   brandSalesList: BrandWiseSaleItem[];
   brandSalesTotals: BrandWiseSalesTotals | null;
   apiStatesList: string[];
+  apiZonesList: string[];
   loading: boolean;
   refreshing: boolean;
   error: string | null;
 
-  // ABM Filter
+  // Filters
   abmSearchQuery: string;
   selectedState: string;
+  selectedStates: string[];
+  selectedZones: string[];
   isStateModalOpen: boolean;
+  isFilterModalOpen: boolean;
+  filterModalActiveTab: 'STATE' | 'ZONE';
 
   // Brand Wise Filter
   brandSearchQuery: string;
@@ -48,7 +53,15 @@ export interface DashboardState {
   setActiveTab: (tab: DashboardTab) => void;
   setAbmSearchQuery: (query: string) => void;
   setSelectedState: (state: string) => void;
+  setSelectedStates: (states: string[]) => void;
+  setSelectedZones: (zones: string[]) => void;
+  toggleSelectedState: (state: string) => void;
+  toggleSelectedZone: (zone: string) => void;
+  selectAllStates: () => void;
+  selectAllZones: () => void;
   setIsStateModalOpen: (isOpen: boolean) => void;
+  setIsFilterModalOpen: (isOpen: boolean) => void;
+  setFilterModalActiveTab: (tab: 'STATE' | 'ZONE') => void;
   setBrandSearchQuery: (query: string) => void;
   setSelectedDate: (date: string) => void;
   setIsDateModalOpen: (isOpen: boolean) => void;
@@ -62,12 +75,13 @@ export interface DashboardState {
   loadCashDepositData: (
     token: string | null,
     isRefresh?: boolean,
-    stateToFetch?: string
+    stateToFetch?: string | string[]
   ) => Promise<void>;
   loadBrandSalesData: (
     token: string | null,
     isRefresh?: boolean,
-    stateToFetch?: string,
+    statesToFetch?: string[] | string,
+    zonesToFetch?: string[] | string,
     dateToFetch?: string,
     brandToFetch?: string
   ) => Promise<void>;
@@ -81,13 +95,18 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   brandSalesList: [],
   brandSalesTotals: null,
   apiStatesList: [],
+  apiZonesList: [],
   loading: false,
   refreshing: false,
   error: null,
 
   abmSearchQuery: '',
   selectedState: 'All States',
+  selectedStates: [],
+  selectedZones: [],
   isStateModalOpen: false,
+  isFilterModalOpen: false,
+  filterModalActiveTab: 'STATE',
 
   brandSearchQuery: '',
   selectedDate: getTodayDateString(),
@@ -98,8 +117,51 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   // Setters
   setActiveTab: (tab) => set({ activeTab: tab }),
   setAbmSearchQuery: (query) => set({ abmSearchQuery: query }),
-  setSelectedState: (state) => set({ selectedState: state }),
+  setSelectedState: (state) =>
+    set({
+      selectedState: state,
+      selectedStates: state && state !== 'All States' ? [state] : [],
+    }),
+  setSelectedStates: (states) =>
+    set({
+      selectedStates: states,
+      selectedState:
+        states.length === 0
+          ? 'All States'
+          : states.length === 1
+          ? states[0]
+          : `${states.length} States`,
+    }),
+  setSelectedZones: (zones) => set({ selectedZones: zones }),
+  toggleSelectedState: (st) => {
+    const { selectedStates } = get();
+    const exists = selectedStates.includes(st);
+    const newStates = exists
+      ? selectedStates.filter((item) => item !== st)
+      : [...selectedStates, st];
+    set({
+      selectedStates: newStates,
+      selectedState:
+        newStates.length === 0
+          ? 'All States'
+          : newStates.length === 1
+          ? newStates[0]
+          : `${newStates.length} States`,
+    });
+  },
+  toggleSelectedZone: (zn) => {
+    const { selectedZones } = get();
+    const exists = selectedZones.includes(zn);
+    const newZones = exists
+      ? selectedZones.filter((item) => item !== zn)
+      : [...selectedZones, zn];
+    set({ selectedZones: newZones });
+  },
+  selectAllStates: () => set({ selectedStates: [], selectedState: 'All States' }),
+  selectAllZones: () => set({ selectedZones: [] }),
   setIsStateModalOpen: (isOpen) => set({ isStateModalOpen: isOpen }),
+  setIsFilterModalOpen: (isOpen) => set({ isFilterModalOpen: isOpen }),
+  setFilterModalActiveTab: (tab) => set({ filterModalActiveTab: tab }),
   setBrandSearchQuery: (query) => set({ brandSearchQuery: query }),
   setSelectedDate: (date) => set({ selectedDate: date }),
   setIsDateModalOpen: (isOpen) => set({ isDateModalOpen: isOpen }),
@@ -119,6 +181,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     const todayStr = getTodayDateString();
     set({
       selectedState: 'All States',
+      selectedStates: [],
+      selectedZones: [],
       abmSearchQuery: '',
       brandSearchQuery: '',
       brandSalesTotals: null,
@@ -135,6 +199,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     const todayStr = getTodayDateString();
     set({
       selectedState: 'All States',
+      selectedStates: [],
+      selectedZones: [],
       abmSearchQuery: '',
       brandSearchQuery: '',
       brandSalesTotals: null,
@@ -162,7 +228,13 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       if (!isRefresh) set({ loading: true });
       set({ error: null });
       const targetState =
-        stateToFetch !== undefined ? stateToFetch : get().selectedState;
+        stateToFetch !== undefined
+          ? Array.isArray(stateToFetch)
+            ? stateToFetch.join(',')
+            : stateToFetch
+          : get().selectedStates.length > 0
+          ? get().selectedStates.join(',')
+          : get().selectedState;
       const data = await fetchStockCashDepositAbmWiseApi(token, targetState);
       set({ cashDepositList: Array.isArray(data) ? data : [] });
     } catch (err: any) {
@@ -176,15 +248,30 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   loadBrandSalesData: async (
     token,
     isRefresh = false,
-    stateToFetch,
+    statesToFetch,
+    zonesToFetch,
     dateToFetch,
     brandToFetch
   ) => {
     try {
       if (!isRefresh) set({ loading: true });
       set({ error: null });
-      const targetState =
-        stateToFetch !== undefined ? stateToFetch : get().selectedState;
+      const targetStates =
+        statesToFetch !== undefined
+          ? statesToFetch
+          : get().selectedStates.length > 0
+          ? get().selectedStates
+          : get().selectedState !== 'All States'
+          ? get().selectedState
+          : undefined;
+
+      const targetZones =
+        zonesToFetch !== undefined
+          ? zonesToFetch
+          : get().selectedZones.length > 0
+          ? get().selectedZones
+          : undefined;
+
       const targetDate =
         dateToFetch !== undefined ? dateToFetch : get().selectedDate;
       const targetBrand =
@@ -192,17 +279,19 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
       const [salesRes, totalsRes] = await Promise.allSettled([
         fetchBrandWiseSalesDataApi(token, {
-          state: targetState,
+          state: targetStates,
+          zone: targetZones,
           date: targetDate,
           brandName: targetBrand,
         }),
         fetchBrandWiseSalesTotalsApi(token, {
-          state: targetState,
+          state: targetStates,
+          zone: targetZones,
           date: targetDate,
           brandName: targetBrand,
         }),
       ]);
-console.log("salesRes",salesRes);
+      console.log('salesRes', salesRes);
 
       const brandSalesList =
         salesRes.status === 'fulfilled' && Array.isArray(salesRes.value)
@@ -210,6 +299,20 @@ console.log("salesRes",salesRes);
           : [];
       const brandSalesTotals =
         totalsRes.status === 'fulfilled' ? totalsRes.value : null;
+
+      // Extract states and zones returned from brand-wise sales API if present
+      if (salesRes.status === 'fulfilled' && salesRes.value) {
+        const resVal: any = salesRes.value;
+        if (Array.isArray(resVal.states) && resVal.states.length > 0) {
+          const mergedStates = Array.from(
+            new Set([...get().apiStatesList, ...resVal.states])
+          );
+          set({ apiStatesList: mergedStates });
+        }
+        if (Array.isArray(resVal.zones) && resVal.zones.length > 0) {
+          set({ apiZonesList: resVal.zones });
+        }
+      }
 
       // Check if salesRes failed with access denied
       if (salesRes.status === 'rejected') {
@@ -229,15 +332,27 @@ console.log("salesRes",salesRes);
 
   // Refresh current active tab
   onRefresh: async (token) => {
-    const { activeTab, selectedState, selectedDate, brandSearchQuery } = get();
+    const {
+      activeTab,
+      selectedState,
+      selectedStates,
+      selectedZones,
+      selectedDate,
+      brandSearchQuery,
+    } = get();
     set({ refreshing: true });
     if (activeTab === 'CASH_DEPOSIT') {
-      await get().loadCashDepositData(token, true, selectedState);
+      await get().loadCashDepositData(
+        token,
+        true,
+        selectedStates.length > 0 ? selectedStates : selectedState
+      );
     } else {
       await get().loadBrandSalesData(
         token,
         true,
-        selectedState,
+        selectedStates,
+        selectedZones,
         selectedDate,
         brandSearchQuery
       );

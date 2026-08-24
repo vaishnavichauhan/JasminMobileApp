@@ -249,18 +249,54 @@ export const fetchStockCashDepositAbmWiseApi = async (
 
 export interface BrandWiseSalesFilterParams {
   brandName?: string;
-  state?: string;
+  state?: string | string[];
+  zone?: string | string[];
   date?: string;
 }
 
+export interface BrandWiseSalesResponseData {
+  data: BrandWiseSaleItem[];
+  states?: string[];
+  zones?: string[];
+}
+
+/**
+ * Helper to safely extract an array of strings from response keys
+ */
+const extractStringArray = (arr: any): string[] => {
+  if (!arr) return [];
+  const set = new Set<string>();
+  const list = Array.isArray(arr) ? arr : [arr];
+  list.forEach((item) => {
+    if (typeof item === 'string' && item.trim()) {
+      set.add(item.trim());
+    } else if (item && typeof item === 'object') {
+      const val =
+        item.name ||
+        item.state ||
+        item.state_name ||
+        item.stateName ||
+        item.zone ||
+        item.zone_name ||
+        item.zoneName ||
+        item.title ||
+        item.label;
+      if (val && String(val).trim()) {
+        set.add(String(val).trim());
+      }
+    }
+  });
+  return Array.from(set);
+};
+
 /**
  * 2) Fetch Brand Wise Sales Data
- * GET http://localhost:5005/api/brand-wise-sales/data?date=2026-08-10&state=Gujarat
+ * GET http://localhost:5005/api/brand-wise-sales/data?date=2026-08-10&state=Gujarat&zone=Central-Gujarat
  */
 export const fetchBrandWiseSalesDataApi = async (
   token?: string | null,
   filter?: BrandWiseSalesFilterParams | string
-): Promise<BrandWiseSaleItem[]> => {
+): Promise<BrandWiseSaleItem[] & { states?: string[]; zones?: string[] }> => {
   try {
     const queryParts: string[] = [];
 
@@ -272,9 +308,39 @@ export const fetchBrandWiseSalesDataApi = async (
       if (filter.date && filter.date.trim()) {
         queryParts.push(`date=${encodeURIComponent(filter.date.trim())}`);
       }
-      if (filter.state && filter.state.trim() && filter.state !== 'All States') {
+
+      // State Filter (Single or Multi-select)
+      if (Array.isArray(filter.state)) {
+        const validStates = filter.state
+          .map((s) => (typeof s === 'string' ? s.trim() : ''))
+          .filter((s) => s.length > 0 && s !== 'All States');
+        if (validStates.length > 0) {
+          queryParts.push(`state=${encodeURIComponent(validStates.join(','))}`);
+        }
+      } else if (
+        typeof filter.state === 'string' &&
+        filter.state.trim() &&
+        filter.state !== 'All States'
+      ) {
         queryParts.push(`state=${encodeURIComponent(filter.state.trim())}`);
       }
+
+      // Zone Filter (Single or Multi-select)
+      if (Array.isArray(filter.zone)) {
+        const validZones = filter.zone
+          .map((z) => (typeof z === 'string' ? z.trim() : ''))
+          .filter((z) => z.length > 0 && z !== 'All Zones');
+        if (validZones.length > 0) {
+          queryParts.push(`zone=${encodeURIComponent(validZones.join(','))}`);
+        }
+      } else if (
+        typeof filter.zone === 'string' &&
+        filter.zone.trim() &&
+        filter.zone !== 'All Zones'
+      ) {
+        queryParts.push(`zone=${encodeURIComponent(filter.zone.trim())}`);
+      }
+
       if (filter.brandName && filter.brandName.trim()) {
         queryParts.push(`brand_name=${encodeURIComponent(filter.brandName.trim())}`);
       }
@@ -294,7 +360,7 @@ export const fetchBrandWiseSalesDataApi = async (
         json = { data: [] };
       }
     }
-    console.log("DashboardBrand", json);
+    console.log("DashboardBrand..", json);
 
     if (!response.ok) {
       throw new Error(
@@ -304,7 +370,26 @@ export const fetchBrandWiseSalesDataApi = async (
 
     const rawList = extractArray(json);
 
-    return rawList.map((item: any, index: number) => {
+    // Extract states and zones returned in the response
+    const extractedStates = extractStringArray(
+      json.states ||
+        json.data?.states ||
+        json.state_list ||
+        json.data?.state_list ||
+        json.available_states ||
+        json.data?.available_states
+    );
+
+    const extractedZones = extractStringArray(
+      json.zones ||
+        json.data?.zones ||
+        json.zone_list ||
+        json.data?.zone_list ||
+        json.available_zones ||
+        json.data?.available_zones
+    );
+
+    const items: any = rawList.map((item: any, index: number) => {
       const brandName =
         getVal(
           item,
@@ -481,6 +566,12 @@ export const fetchBrandWiseSalesDataApi = async (
         ...item,
       };
     });
+
+    // Attach states and zones to the array object
+    items.states = extractedStates;
+    items.zones = extractedZones;
+
+    return items;
   } catch (error: any) {
     console.warn('fetchBrandWiseSalesDataApi error:', error);
     throw error;
@@ -489,7 +580,7 @@ export const fetchBrandWiseSalesDataApi = async (
 
 /**
  * 2b) Fetch Brand Wise Sales Totals (Total All Data)
- * GET https://interlink.jasminmobile.com/api/brand-wise-sales/totals?date=2026-08-10&state=Gujarat
+ * GET https://interlink.jasminmobile.com/api/brand-wise-sales/totals?date=2026-08-10&state=Gujarat&zone=Central-Gujarat
  */
 export const fetchBrandWiseSalesTotalsApi = async (
   token?: string | null,
@@ -506,9 +597,39 @@ export const fetchBrandWiseSalesTotalsApi = async (
       if (filter.date && filter.date.trim()) {
         queryParts.push(`date=${encodeURIComponent(filter.date.trim())}`);
       }
-      if (filter.state && filter.state.trim() && filter.state !== 'All States') {
+
+      // State Filter (Single or Multi-select)
+      if (Array.isArray(filter.state)) {
+        const validStates = filter.state
+          .map((s) => (typeof s === 'string' ? s.trim() : ''))
+          .filter((s) => s.length > 0 && s !== 'All States');
+        if (validStates.length > 0) {
+          queryParts.push(`state=${encodeURIComponent(validStates.join(','))}`);
+        }
+      } else if (
+        typeof filter.state === 'string' &&
+        filter.state.trim() &&
+        filter.state !== 'All States'
+      ) {
         queryParts.push(`state=${encodeURIComponent(filter.state.trim())}`);
       }
+
+      // Zone Filter (Single or Multi-select)
+      if (Array.isArray(filter.zone)) {
+        const validZones = filter.zone
+          .map((z) => (typeof z === 'string' ? z.trim() : ''))
+          .filter((z) => z.length > 0 && z !== 'All Zones');
+        if (validZones.length > 0) {
+          queryParts.push(`zone=${encodeURIComponent(validZones.join(','))}`);
+        }
+      } else if (
+        typeof filter.zone === 'string' &&
+        filter.zone.trim() &&
+        filter.zone !== 'All Zones'
+      ) {
+        queryParts.push(`zone=${encodeURIComponent(filter.zone.trim())}`);
+      }
+
       if (filter.brandName && filter.brandName.trim()) {
         queryParts.push(`brand_name=${encodeURIComponent(filter.brandName.trim())}`);
       }

@@ -111,6 +111,7 @@ const OffersScreen: React.FC<OffersScreenProps> = ({ navigation }) => {
 
     return { allOffers: all, activeOffers: active, expiredOffers: expired };
   }, [offersList, quickSearch]);
+console.log("OfferItem,", allOffers);
 
   const displayedOffers =
     activeTab === 'ALL'
@@ -125,6 +126,7 @@ const OffersScreen: React.FC<OffersScreenProps> = ({ navigation }) => {
 
   const renderOfferItem = ({ item, index }: { item: OfferItem; index: number }) => {
     const isExpired = item.status === 'expired';
+    const hasDates = !!item.fromDate || !!item.toDate;
 
     return (
       <View
@@ -134,75 +136,119 @@ const OffersScreen: React.FC<OffersScreenProps> = ({ navigation }) => {
           isExpired && styles.offerCardExpiredHorizontal,
         ]}
       >
-        {/* Card Header: Title & Status Badge */}
-        <View style={styles.offerCardHeader}>
-          <View style={styles.offerTitleWrapper}>
-            <Text style={styles.offerTitleText} numberOfLines={2}>
-              {item.title}
-            </Text>
-          </View>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled={true}
+          style={{ flex: 1 }}
+        >
+          {/* Card Header: Type Badge & Status Badge */}
+          <View style={styles.offerCardHeader}>
+            <View style={styles.offerTypeBadge}>
+              <Image source={Images.tag} style={styles.offerTypeTagIcon} resizeMode="contain" />
+              <Text style={styles.offerTypeBadgeText}>
+                {item.transactionType || item.offerType || 'OFFER'}
+              </Text>
+            </View>
 
-          <View
-            style={[
-              styles.statusBadge,
-              isExpired
-                ? styles.statusBadgeExpired
-                : styles.statusBadgeActive,
-            ]}
-          >
-            <Text
-              style={
-                isExpired
-                  ? styles.statusBadgeTextExpired
-                  : styles.statusBadgeTextActive
-              }
-            >
-              {isExpired ? '● EXPIRED' : '● ACTIVE'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Badges Grid (Brand, Model Group, State, Type Value Pill) */}
-        <View style={styles.gridRow}>
-          {/* Highlighted Brand Name Badge */}
-          <View style={styles.brandBadgeHighlight}>
-            <Text style={styles.brandBadgeHighlightText}>
-              🏷️ Brand: {item.brandName}
-            </Text>
-          </View>
-          <View style={styles.metaBadge}>
-            <Text style={styles.metaBadgeLabel}>📱 Model: {item.modelGroupName}</Text>
-          </View>
-          <View style={styles.metaBadge}>
-            <Text style={styles.metaBadgeLabel}>📍 State: {item.stateName}</Text>
-          </View>
-
-          {/* Type Badge: plain label, background pill on value only */}
-          <View style={styles.metaBadgeWithType}>
-            <Text style={styles.metaBadgeLabel}>🎁 Type:</Text>
             <View
-              style={styles.valPillGreen}
+              style={[
+                styles.statusBadge,
+                isExpired
+                  ? styles.statusBadgeExpired
+                  : styles.statusBadgeActive,
+              ]}
             >
               <Text
-                style={styles.valPillTextGreen}
+                style={
+                  isExpired
+                    ? styles.statusBadgeTextExpired
+                    : styles.statusBadgeTextActive
+                }
               >
-                {item.offerType}
+                {isExpired ? '● EXPIRED' : '● ACTIVE'}
               </Text>
             </View>
           </View>
-        </View>
 
-        {/* From Date & To Date Row */}
-        <View style={styles.dateRow}>
-          <Image
-            source={Images.calendar}
-            style={styles.calendarIcon}
-            resizeMode="contain"
-          />
-          <Text style={styles.dateText}>
-            from date : <Text style={styles.dateValText}>{formatToDDMMYYYY(item.fromDate)}</Text>    to date : <Text style={styles.dateValText}>{formatToDDMMYYYY(item.toDate)}</Text>
-          </Text>
-        </View>
+          {/* ── Date on Top ── */}
+          {hasDates && (
+            <View style={styles.dateRowTop}>
+              <Image
+                source={Images.calendar}
+                style={styles.calendarIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.dateText}>
+                {item.fromDate ? `From: ${formatToDDMMYYYY(item.fromDate)}` : ''}
+                {item.fromDate && item.toDate ? '   ' : ''}
+                {item.toDate ? `To: ${formatToDDMMYYYY(item.toDate)}` : ''}
+              </Text>
+            </View>
+          )}
+
+          {/* Badges Grid (Brand, Model Group, State) */}
+          <View style={styles.gridRow}>
+            {/* Highlighted Brand Name Badge */}
+            <View style={styles.brandBadgeHighlight}>
+              <Text style={styles.brandBadgeHighlightText}>
+                🏷️ Brand: {item.brandName}
+              </Text>
+            </View>
+            <View style={styles.metaBadge}>
+              <Text style={styles.metaBadgeLabel}>📱 Model: {item.modelGroupName}</Text>
+            </View>
+            <View style={styles.metaBadge}>
+              <Text style={styles.metaBadgeLabel}>📍 State: {item.stateName}</Text>
+            </View>
+          </View>
+
+          {/* ── Transaction Details Section (Offer Type Value, Value Type, Upto Value, Transaction Type) ── */}
+          {(!!item.offerTypeValue || !!item.transactionType || !!item.uptoValue || !!item.valueType) && (
+            <View style={styles.txnDetailsCard}>
+              {/* Offer Type Value */}
+              {!!item.offerTypeValue && (
+                <View style={styles.txnDetailRow}>
+                  <Text style={styles.txnDetailLabel}>Offer Type Value</Text>
+                  <View style={styles.txnValuePill}>
+                    <Text style={styles.txnValuePillText}>{item.offerTypeValue}</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Value Type */}
+              {!!item.valueType && (
+                <View style={styles.txnDetailRow}>
+                  <Text style={styles.txnDetailLabel}>Value Type</Text>
+                  <Text style={styles.txnDetailValue}>{item.valueType}</Text>
+                </View>
+              )}
+
+              {/* Upto Value */}
+              {!!item.uptoValue && (
+                <View style={styles.txnDetailRow}>
+                  <Text style={styles.txnDetailLabel}>Upto Value</Text>
+                  <Text style={styles.txnDetailValueHighlight}>{item.uptoValue}</Text>
+                </View>
+              )}
+
+              {/* Transaction Type */}
+              {!!item.transactionType && (
+                <View style={styles.txnDetailRow}>
+                  <Text style={styles.txnDetailLabel}>Transaction Type</Text>
+                  <Text style={styles.txnDetailValue}>{item.transactionType}</Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* ── Offer Text at Bottom ── */}
+          {!!(item.offerText || item.title) && (
+            <View style={styles.offerTextBox}>
+              <Text style={styles.offerTextHeader}>Offer Text</Text>
+              <Text style={styles.offerItemTitleBottom}>{item.offerText || item.title}</Text>
+            </View>
+          )}
+        </ScrollView>
       </View>
     );
   };

@@ -20,7 +20,8 @@ export const Images = {
   tag:require('./tag.png'),
   down:require('./down.png'),
   product :require('./product.png'),
-  dashboardIcon:require('./dashboardIcon.png')
+  dashboardIcon:require('./dashboardIcon.png'),
+  brand:require('./brand.png')
 };
 
 export default Images;

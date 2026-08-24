@@ -14,6 +14,13 @@ export interface OfferItem {
   description?: string;
   terms?: string;
   status?: 'active' | 'expired' | string;
+  // Transaction fields
+  offerText?: string;
+  offerTypeValue?: string;
+  transactionType?: string;
+  uptoValue?: string;
+  valueType?: string;
+  rawItem?: any;
   [key: string]: any;
 }
 
@@ -57,7 +64,7 @@ const extractArray = (obj: any): any[] => {
 
 /**
   * Fetch Offers API
-  * GET http://localhost:5005/api/offers/all
+  * GET /api/offers/all
   */
 export const fetchOffersApi = async (
   token?: string | null,
@@ -89,75 +96,114 @@ export const fetchOffersApi = async (
   const response = await fetchWithAuth(`${API_ENDPOINTS.OFFERS.ALL}${queryString}`, {
     method: 'GET',
   });
-console.log("oferRes",response);
+  console.log('[Offers API] Response status:', response.status);
 
-    const text = await response.text();
-    let json: any = {};
-    if (text && text.trim().length > 0) {
-      try {
-        json = JSON.parse(text);
-        console.log("oferRes",JSON.parse(text));
-      } catch {
-        json = { data: [] };
-      }
+  const text = await response.text();
+  let json: any = {};
+  if (text && text.trim().length > 0) {
+    try {
+      json = JSON.parse(text);
+      console.log('[Offers API] Response data:', json);
+    } catch {
+      json = { data: [] };
     }
+  }
 
-    if (!response.ok) {
-      const err: any = new Error(
-        json.message || json.error || `Failed to fetch offers: ${response.status}`
-      );
-      err.status = response.status;
-      throw err;
-    }
+  if (!response.ok) {
+    const err: any = new Error(
+      json.message || json.error || `Failed to fetch offers: ${response.status}`
+    );
+    err.status = response.status;
+    throw err;
+  }
 
-    const rawList = extractArray(json);
+  const rawList = extractArray(json);
+  const resultList: OfferItem[] = [];
 
-    return rawList.map((item: any, index: number) => {
+  rawList.forEach((item: any, index: number) => {
+    const getTrans = (obj: any) =>
+      obj.transctions || obj.transactions || obj.Transctions || obj.Transactions || obj.transction || obj.transaction || [];
+    const subTxns = Array.isArray(getTrans(item))
+      ? getTrans(item)
+      : (getTrans(item) && typeof getTrans(item) === 'object' ? [getTrans(item)] : []);
+
+    const extractFieldsFromItemOrTx = (baseItem: any, tx?: any): OfferItem => {
+      const txObj = tx || {};
+      const offerText =
+        getVal(txObj, 'offer_text', 'offerText', 'text', 'title') ||
+        getVal(baseItem, 'offer_text', 'offerText', 'text', 'title', 'offer_title', 'name', 'offer_name', 'scheme_name') ||
+        '';
+
+      const offerTypeValue =
+        getVal(txObj, 'offer_type_value', 'offerTypeValue', 'offer_value', 'offerValue', 'type_value') ||
+        getVal(baseItem, 'offer_type_value', 'offerTypeValue', 'offer_value', 'offerValue', 'type_value') ||
+        '';
+
+      const transactionType =
+        getVal(txObj, 'transction_type', 'transaction_type', 'transctionType', 'transactionType', 'txn_type') ||
+        getVal(baseItem, 'transction_type', 'transaction_type', 'transctionType', 'transactionType', 'txn_type') ||
+        '';
+
+      const uptoValue =
+        getVal(txObj, 'upto_value', 'uptoValue', 'upto', 'up_to_value', 'up_to', 'max_value', 'max_discount') ||
+        getVal(baseItem, 'upto_value', 'uptoValue', 'upto', 'up_to_value', 'up_to', 'max_value', 'max_discount') ||
+        '';
+
+      const valueType =
+        getVal(txObj, 'value_type', 'valueType', 'val_type', 'discount_type') ||
+        getVal(baseItem, 'value_type', 'valueType', 'val_type', 'discount_type') ||
+        '';
+
       const title =
-        getVal(item, 'title', 'offer_title', 'name', 'offer_name', 'scheme_name') ||
+        offerText ||
+        getVal(baseItem, 'title', 'offer_title', 'name', 'offer_name', 'scheme_name') ||
         `Offer ${index + 1}`;
 
       const brandName =
-        getVal(item, 'brandName', 'brand_name', 'Brand_name', 'brand', 'Brand') ||
+        getVal(baseItem, 'brandName', 'brand_name', 'Brand_name', 'brand', 'Brand') ||
         'All Brands';
 
       const modelGroupName =
         getVal(
-          item,
+          baseItem,
           'modelGroupName',
           'model_group_name',
           'model_group',
           'modelGroups',
-          'modelGroup'
+          'modelGroup',
+          'GeneralmodelGroup',
+          'General Model Group'
         ) || 'All Models';
 
       const stateName =
-        getVal(item, 'stateName', 'state_name', 'state', 'State') || 'All States';
+        getVal(baseItem, 'stateName', 'state_name', 'state', 'State') || 'All States';
 
       const offerType =
-        getVal(item, 'offerType', 'offer_type', 'type', 'OfferType') ||
+        transactionType ||
+        getVal(baseItem, 'offerType', 'offer_type', 'type', 'OfferType') ||
         'Discount';
 
       const fromDate =
-        getVal(item, 'fromDate', 'from_date', 'start_date', 'FromDate', 'valid_from', 'validFrom', 'START_DATE', 'FROM_DATE') ||
+        getVal(baseItem, 'fromDate', 'from_date', 'start_date', 'FromDate', 'valid_from', 'validFrom', 'START_DATE', 'FROM_DATE') ||
         '';
 
       const toDate =
-        getVal(item, 'toDate', 'to_date', 'end_date', 'ToDate', 'valid_to', 'validTo', 'expiry_date', 'expiryDate', 'END_DATE', 'TO_DATE') ||
+        getVal(baseItem, 'toDate', 'to_date', 'end_date', 'ToDate', 'valid_to', 'validTo', 'expiry_date', 'expiryDate', 'END_DATE', 'TO_DATE') ||
         '';
 
       const discount =
-        getVal(item, 'discount', 'discount_percentage', 'amount', 'value', 'cashback', 'DISCOUNT') ||
-        '';
+        offerTypeValue
+          ? `${offerTypeValue}${valueType ? ` (${valueType})` : ''}`
+          : (getVal(baseItem, 'discount', 'discount_percentage', 'amount', 'value', 'cashback', 'DISCOUNT') || '');
 
       const description =
-        getVal(item, 'description', 'desc', 'details', 'summary', 'DESCRIPTION') || '';
+        getVal(baseItem, 'description', 'desc', 'details', 'summary', 'DESCRIPTION') || '';
 
       const terms =
-        getVal(item, 'terms', 'terms_and_conditions', 't_and_c', 'TERMS') ||
+        getVal(baseItem, 'terms', 'terms_and_conditions', 't_and_c', 'TERMS') ||
         'Valid until stocks last. Standard terms apply.';
 
-      const rawStatus = getVal(item, 'status', 'state', 'is_active', 'active', 'STATUS', 'IS_ACTIVE');
+      const rawStatus = getVal(baseItem, 'status', 'state', 'is_active', 'active', 'STATUS', 'IS_ACTIVE');
       let status: 'active' | 'expired' = 'active';
 
       if (
@@ -171,7 +217,6 @@ console.log("oferRes",response);
       ) {
         status = 'expired';
       } else if (toDate) {
-        // Convert toDate to YYYY-MM-DD for accurate comparison
         let compToDate = String(toDate).trim().split('T')[0];
         if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(compToDate)) {
           const parts = compToDate.split(/[\/\-]/);
@@ -184,19 +229,35 @@ console.log("oferRes",response);
       }
 
       return {
-        id: item.id || item._id || index + 1,
-        title,
-        brandName,
-        modelGroupName,
-        stateName,
-        offerType,
-        fromDate,
-        toDate,
-        discount,
-        description,
-        terms,
+        id: tx ? `${baseItem.id || baseItem._id || index + 1}-${tx.id || Math.random()}` : (baseItem.id || baseItem._id || index + 1),
+        title: String(title),
+        brandName: String(brandName),
+        modelGroupName: String(modelGroupName),
+        stateName: String(stateName),
+        offerType: String(offerType),
+        fromDate: String(fromDate),
+        toDate: String(toDate),
+        discount: discount ? String(discount) : undefined,
+        description: description ? String(description) : undefined,
+        terms: terms ? String(terms) : undefined,
         status,
-        rawItem: item,
+        offerText: offerText ? String(offerText) : undefined,
+        offerTypeValue: offerTypeValue ? String(offerTypeValue) : undefined,
+        transactionType: transactionType ? String(transactionType) : undefined,
+        uptoValue: uptoValue ? String(uptoValue) : undefined,
+        valueType: valueType ? String(valueType) : undefined,
+        rawItem: { ...baseItem, ...tx },
       };
-    });
+    };
+
+    if (subTxns.length > 0) {
+      subTxns.forEach((tx: any) => {
+        resultList.push(extractFieldsFromItemOrTx(item, tx));
+      });
+    } else {
+      resultList.push(extractFieldsFromItemOrTx(item));
+    }
+  });
+
+  return resultList;
 };

@@ -6,6 +6,9 @@ export interface TvaItem {
   branch_name?: string;
   branchName?: string;
   abm_name?: string;
+  zone?: string;
+  zone_name?: string;
+  zoneName?: string;
 
   qty_tgt?: number | string;
   value_tgt?: number | string;

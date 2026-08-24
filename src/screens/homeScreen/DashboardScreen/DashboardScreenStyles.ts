@@ -587,19 +587,20 @@ center: {
     tintColor: '#000000',
   },
 
-  /* ── Modal Styles for State Picker ── */
+  /* ── Modal Styles for State & Zone Filter Picker ── */
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 30,
   },
   modalCard: {
     width: '100%',
-    maxHeight: '65%',
+    maxHeight: '80%',
     backgroundColor: colors.white,
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 18,
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: 6 },
@@ -611,15 +612,30 @@ center: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    marginBottom: 10,
+  },
+  modalTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   modalTitle: {
     fontSize: 16,
     fontFamily: fontFamily.bold,
     color: '#0F172A',
+  },
+  selectedCountBadge: {
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+  },
+  selectedCountText: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
   },
   modalCloseBtn: {
     width: 28,
@@ -634,12 +650,105 @@ center: {
     fontFamily: fontFamily.bold,
     color: '#64748B',
   },
+
+  /* ── Segmented Tabs Row inside Filter Modal (States / Zones) ── */
+  modalTabsRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 12,
+  },
+  modalTabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+  },
+  modalTabBtnActive: {
+    backgroundColor: colors.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  modalTabText: {
+    fontSize: 12.5,
+    fontFamily: fontFamily.medium,
+    color: '#64748B',
+  },
+  modalTabTextActive: {
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+  },
+  modalTabBadge: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
+  },
+  modalTabBadgeActive: {
+    backgroundColor: '#F3E8FF',
+  },
+  modalTabBadgeText: {
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    color: '#64748B',
+  },
+  modalTabBadgeTextActive: {
+    color: colors.primary,
+  },
+
+  /* ── Modal In-Search Bar ── */
+  modalSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
+    height: 40,
+    marginBottom: 12,
+  },
+  modalSearchIcon: {
+    width: 15,
+    height: 15,
+    tintColor: '#94A3B8',
+    marginRight: 6,
+  },
+  modalSearchInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 12.5,
+    fontFamily: fontFamily.medium,
+    color: '#0F172A',
+    paddingVertical: Platform.OS === 'ios' ? 8 : 4,
+    paddingHorizontal: 2,
+  },
+  modalClearSearchBtn: {
+    padding: 4,
+  },
+  modalClearSearchText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontFamily: fontFamily.bold,
+  },
+
+  /* ── Modal List Options (Multi-select Checkboxes) ── */
+  modalOptionsList: {
+    maxHeight: 280,
+  },
   stateOptionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
     borderRadius: 12,
     marginBottom: 6,
     backgroundColor: '#F8FAFC',
@@ -647,11 +756,37 @@ center: {
     borderColor: '#F1F5F9',
   },
   stateOptionItemActive: {
-    backgroundColor: '#F3E8FF',
-    borderColor: '#C084FC',
+    backgroundColor: '#FAF5FF',
+    borderColor: '#DDD6FE',
+  },
+  optionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+  },
+  checkboxBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxBoxActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkmarkIcon: {
+    color: colors.white,
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    lineHeight: 14,
   },
   stateOptionText: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontFamily: fontFamily.medium,
     color: '#334155',
     flex: 1,
@@ -660,30 +795,71 @@ center: {
     color: colors.primary,
     fontFamily: fontFamily.bold,
   },
-  selectedCheckBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+  modalEmptyContainer: {
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalEmptyText: {
+    fontSize: 12.5,
+    fontFamily: fontFamily.medium,
+    color: '#94A3B8',
+    textAlign: 'center',
+  },
+
+  /* ── Modal Footer Action Buttons ── */
+  modalFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  modalResetBtn: {
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalResetText: {
+    fontSize: 12.5,
+    fontFamily: fontFamily.bold,
+    color: '#64748B',
+  },
+  modalApplyBtn: {
+    paddingVertical: 9,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  selectedCheckText: {
-    color: colors.white,
-    fontSize: 12,
+  modalApplyText: {
+    fontSize: 12.5,
     fontFamily: fontFamily.bold,
+    color: colors.white,
   },
 
-  /* ── Brand Wise Filter Dual Controls (State + Date) ── */
+  /* ── Brand Wise Filter Controls Row (Single Filter Button + Date Picker) ── */
   brandFilterControlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: marginHorizontal.small,
     marginBottom: spaceVertical.small,
+    gap: 8,
   },
-  brandStateDropdownBtn: {
+  brandFilterDropdownBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -693,12 +869,43 @@ center: {
     borderColor: '#E2E8F0',
     paddingHorizontal: 12,
     height: 42,
-    marginRight: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
     elevation: 2,
+  },
+  brandFilterDropdownBtnActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#CBD5E1',
+    shadowOpacity: 0.12,
+  },
+  filterBtnLeftIcon: {
+    width: 14,
+    height: 14,
+    tintColor: '#64748B',
+    marginRight: 6,
+  },
+  filterBtnLeftIconActive: {
+    tintColor: '#000000',
+  },
+  brandFilterDropdownText: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    color: '#000000',
+    flex: 1,
+    marginRight: 6,
+  },
+  brandFilterDropdownTextActive: {
+    color: '#000000',
+  },
+  brandFilterDropdownIcon: {
+    width: 11,
+    height: 11,
+    tintColor: '#000000',
+  },
+  brandFilterDropdownIconActive: {
+    tintColor: '#000000',
   },
   datePickerBtn: {
     flex: 1,
@@ -708,7 +915,7 @@ center: {
     borderRadius: 12,
     borderWidth: 1.5,
     borderColor: '#BBF7D0',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     height: 42,
   },
   datePickerBtnActive: {
@@ -721,18 +928,18 @@ center: {
     elevation: 3,
   },
   datePickerText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fontFamily.bold,
     color: '#059669',
     flex: 1,
-    marginLeft: 6,
+    marginLeft: 4,
   },
   datePickerTextActive: {
     color: colors.white,
   },
   datePickerIcon: {
-    width: 14,
-    height: 14,
+    width: 13,
+    height: 13,
     tintColor: '#059669',
   },
   datePickerIconActive: {

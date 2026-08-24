@@ -1,6 +1,9 @@
 import React, { useEffect } from 'react';
-import { StatusBar, StyleSheet, View } from 'react-native';
+import { StatusBar, StyleSheet, View, LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+// Ignore warning banners on real devices
+LogBox.ignoreAllLogs(true);
 import { NavigationContainer } from '@react-navigation/native';
 import { CaptureProtection } from 'react-native-capture-protection';
 import { AuthProvider } from './src/context/AuthContext';

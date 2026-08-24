@@ -23,6 +23,9 @@ export const fetchVariationsAllApi = async (token?: string | null): Promise<Vari
   }
 
   const json = await response.json();
+ 
+  
+  
 
   if (Array.isArray(json)) return json;
   if (json?.data && Array.isArray(json.data)) return json.data;
@@ -96,29 +99,22 @@ export const fetchPriceListStockInfoApi = async (
   sync: boolean = true
 ): Promise<any> => {
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const query = `?modelGroup=${encodeURIComponent(modelGroup)}&sync=${sync ? 'true' : 'false'}`;
+    const query = `?modelGroup=${encodeURIComponent(modelGroup)}&model_group=${encodeURIComponent(modelGroup)}&sync=${sync ? 'true' : 'false'}`;
     const url = `${API_ENDPOINTS.REPORTS.PRICE_LIST_STOCK_INFO}${query}`;
     console.log('[Stock Info API] Request URL:', url);
 
-    const response = await fetch(url, {
+    const response = await fetchWithAuth(url, {
       method: 'GET',
-      headers,
     });
 
     if (!response.ok) {
-      console.warn('[Stock Info API] Response not OK:', response.status);
+      const errText = await response.text().catch(() => '');
+      console.warn('[Stock Info API] Response not OK:', response.status, errText);
       return null;
     }
 
     const json = await response.json();
+    console.log('[Stock Info API] Received JSON:', json);
     return json;
   } catch (error) {
     console.warn('[Stock Info API] Fetch error:', error);

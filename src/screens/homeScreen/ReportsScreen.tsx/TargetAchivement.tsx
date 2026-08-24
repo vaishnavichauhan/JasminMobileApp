@@ -43,6 +43,9 @@ const getBranchName = (item: TvaItem): string =>
 const getAbmName = (item: TvaItem): string =>
   item.abm_name || '—';
 
+const getZoneName = (item: TvaItem): string =>
+  item.zone || item.zone_name || item.zoneName || item.zone_title || '';
+
 /* ── Row helper ── */
 interface RowProps { label: string; value: string; sub?: string }
 const InfoRow: React.FC<RowProps> = ({ label, value, sub }) => (
@@ -221,14 +224,7 @@ const TvaCard: React.FC<{ item: TvaItem; index: number }> = ({ item, index }) =>
                 {fmtPct(gQty)}
               </Text>
             </View>
-            
-          </View>
-        </View>
-        {/*  */}
-         <View style={[styles.metricBoxCompact, styles.growthBoxGrid]}>
-          <Text style={[styles.boxTitle, styles.growthTitleGrid]}>GROWTH</Text>
-          <View style={styles.boxRow}>
-        <View style={[styles.boxColDivider, styles.growthDividerGrid]} />
+            <View style={[styles.boxColDivider, styles.growthDividerGrid]} />
             <View style={styles.boxCol}>
               <Text style={[styles.boxSubLabel, styles.growthSubLabelGrid]}>VAL</Text>
               <Text
@@ -241,8 +237,8 @@ const TvaCard: React.FC<{ item: TvaItem; index: number }> = ({ item, index }) =>
                 {fmtPct(gValue)}
               </Text>
             </View>
-      </View>
-      </View>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -257,11 +253,15 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [error, setError]           = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // State multi-select filter
+  // Unified State & Zone multi-select filter
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
+  const [selectedZones, setSelectedZones]   = useState<string[]>([]);
   const [tempSelectedStates, setTempSelectedStates] = useState<string[]>([]);
-  const [isStateModalOpen, setIsStateModalOpen] = useState(false);
-  const [stateSearchText, setStateSearchText] = useState('');
+  const [tempSelectedZones, setTempSelectedZones]   = useState<string[]>([]);
+  const [isFilterModalOpen, setIsFilterModalOpen]   = useState(false);
+  const [filterModalTab, setFilterModalTab]         = useState<'STATE' | 'ZONE'>('STATE');
+  const [stateSearchText, setStateSearchText]       = useState('');
+  const [zoneSearchText, setZoneSearchText]         = useState('');
   const [apiStates, setApiStates] = useState<string[]>([]);
 
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
@@ -325,6 +325,27 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
     return availableStates.filter((s) => s.toLowerCase().includes(q));
   }, [availableStates, stateSearchText]);
 
+  // Extract unique zone names dynamically from API data (key = "zone")
+  const availableZones = useMemo(() => {
+    const set = new Set<string>();
+    if (Array.isArray(data)) {
+      data.forEach((item) => {
+        const name = getZoneName(item);
+        if (name && name !== '—' && name.trim().length > 0) {
+          set.add(name.trim());
+        }
+      });
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [data]);
+
+  // Filter zones inside modal by search query
+  const filteredModalZones = useMemo(() => {
+    if (!zoneSearchText.trim()) return availableZones;
+    const q = zoneSearchText.toLowerCase().trim();
+    return availableZones.filter((z) => z.toLowerCase().includes(q));
+  }, [availableZones, zoneSearchText]);
+
   // Extract unique branch names dynamically from API data
   const availableBranches = useMemo(() => {
     const set = new Set<string>();
@@ -367,7 +388,7 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
     return availableABMs.filter((a) => a.toLowerCase().includes(q));
   }, [availableABMs, abmSearchText]);
 
-  // Filter main list by state multi-select ("state_name"), branch multi-select, ABM multi-select & search query
+  // Filter main list by state multi-select ("state_name"), zone multi-select ("zone"), branch multi-select, ABM multi-select & search query
   const filteredData = useMemo(() => {
     return data.filter(item => {
       // 1. State Multi-select Filter using "state_name"
@@ -384,7 +405,18 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
         }
       }
 
-      // 2. Branch Multi-select Filter
+      // 2. Zone Multi-select Filter using key "zone"
+      if (selectedZones.length > 0) {
+        const itemZone = getZoneName(item).trim().toLowerCase();
+        const matchesZone = selectedZones.some(
+          (sel) => sel.trim().toLowerCase() === itemZone
+        );
+        if (!matchesZone) {
+          return false;
+        }
+      }
+
+      // 3. Branch Multi-select Filter
       if (selectedBranches.length > 0) {
         const itemBranch = getBranchName(item).trim();
         if (!selectedBranches.includes(itemBranch)) {
@@ -392,7 +424,7 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
         }
       }
 
-      // 3. ABM Multi-select Filter
+      // 4. ABM Multi-select Filter
       if (selectedABMs.length > 0) {
         const itemAbm = getAbmName(item).trim();
         if (!selectedABMs.includes(itemAbm)) {
@@ -400,28 +432,31 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
         }
       }
 
-      // 4. Search Query Filter
+      // 5. Search Query Filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const branch = getBranchName(item).toLowerCase();
         const abm = getAbmName(item).toLowerCase();
-        if (!branch.includes(q) && !abm.includes(q)) {
+        const zone = getZoneName(item).toLowerCase();
+        if (!branch.includes(q) && !abm.includes(q) && !zone.includes(q)) {
           return false;
         }
       }
 
       return true;
     });
-  }, [data, searchQuery, selectedStates, selectedBranches, selectedABMs]);
+  }, [data, searchQuery, selectedStates, selectedZones, selectedBranches, selectedABMs]);
 
-  const isAllStatesSelected = tempSelectedStates.length === 0;
   const isAllBranchesSelected = selectedBranches.length === 0;
   const isAllABMsSelected = selectedABMs.length === 0;
 
-  const handleOpenStateModal = () => {
+  const handleOpenFilterModal = (initialTab: 'STATE' | 'ZONE' = 'STATE') => {
     setTempSelectedStates([...selectedStates]);
+    setTempSelectedZones([...selectedZones]);
+    setFilterModalTab(initialTab);
     setStateSearchText('');
-    setIsStateModalOpen(true);
+    setZoneSearchText('');
+    setIsFilterModalOpen(true);
   };
 
   const handleSelectAllStates = () => {
@@ -429,24 +464,33 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
   };
 
   const handleToggleState = (st: string) => {
-    setTempSelectedStates((prev) => {
-      if (prev.includes(st)) {
-        return prev.filter((s) => s !== st);
-      } else {
-        return [...prev, st];
-      }
-    });
+    setTempSelectedStates((prev) =>
+      prev.includes(st) ? prev.filter((s) => s !== st) : [...prev, st]
+    );
   };
 
-  const handleApplyStateFilter = () => {
+  const handleSelectAllZones = () => {
+    setTempSelectedZones([]);
+  };
+
+  const handleToggleZone = (zn: string) => {
+    setTempSelectedZones((prev) =>
+      prev.includes(zn) ? prev.filter((z) => z !== zn) : [...prev, zn]
+    );
+  };
+
+  const handleApplyFilterModal = () => {
     setSelectedStates(tempSelectedStates);
-    setIsStateModalOpen(false);
+    setSelectedZones(tempSelectedZones);
+    setIsFilterModalOpen(false);
   };
 
-  const handleResetStateFilter = () => {
+  const handleResetFilterModal = () => {
     setTempSelectedStates([]);
+    setTempSelectedZones([]);
     setSelectedStates([]);
-    setIsStateModalOpen(false);
+    setSelectedZones([]);
+    setIsFilterModalOpen(false);
   };
 
   const handleSelectAllBranches = () => {
@@ -602,105 +646,127 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Dropdowns Row (State, Branches & ABMs) */}
+        {/* Dropdowns Row (State, Zone, Branches & ABMs) */}
         <View style={styles.dropdownsRow}>
-          {/* State Dropdown Button */}
-          <TouchableOpacity
-            style={[
-              styles.dropdownBtn,
-              selectedStates.length > 0 && styles.dropdownBtnActive,
-            ]}
-            activeOpacity={0.8}
-            onPress={handleOpenStateModal}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.dropdownsScrollContent}
           >
-            <Text
+            {/* Unified State & Zone Filter Dropdown Button */}
+            <TouchableOpacity
               style={[
-                styles.dropdownBtnText,
-                selectedStates.length > 0 && styles.dropdownBtnTextActive,
+                styles.dropdownBtn,
+                (selectedStates.length > 0 || selectedZones.length > 0) &&
+                  styles.dropdownBtnActive,
               ]}
-              numberOfLines={1}
+              activeOpacity={0.8}
+              onPress={() => handleOpenFilterModal('STATE')}
             >
-              {selectedStates.length === 0
-                ? 'All States'
-                : selectedStates.length === 1
-                ? selectedStates[0]
-                : selectedStates.length === 2
-                ? `${selectedStates[0]}, ${selectedStates[1]}`
-                : `${selectedStates.length} States`}
-            </Text>
-            <Image
-              source={Images.down}
-              style={[
-                styles.dropdownBtnIcon,
-                selectedStates.length > 0 && styles.dropdownBtnIconActive,
-              ]}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
+              <Image
+                source={Images.filter}
+                style={[
+                  styles.filterBtnLeftIcon,
+                  (selectedStates.length > 0 || selectedZones.length > 0) &&
+                    styles.filterBtnLeftIconActive,
+                ]}
+                resizeMode="contain"
+              />
+              <Text
+                style={[
+                  styles.dropdownBtnText,
+                  (selectedStates.length > 0 || selectedZones.length > 0) &&
+                    styles.dropdownBtnTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                {selectedStates.length === 0 && selectedZones.length === 0
+                  ? 'State/Zone'
+                  : selectedStates.length > 0 && selectedZones.length === 0
+                  ? selectedStates.length === 1
+                    ? selectedStates[0]
+                    : `${selectedStates.length} States`
+                  : selectedStates.length === 0 && selectedZones.length > 0
+                  ? selectedZones.length === 1
+                    ? selectedZones[0]
+                    : `${selectedZones.length} Zones`
+                  : `${selectedStates.length + selectedZones.length} Filters`}
+              </Text>
+              <Image
+                source={Images.down}
+                style={[
+                  styles.dropdownBtnIcon,
+                  (selectedStates.length > 0 || selectedZones.length > 0) &&
+                    styles.dropdownBtnIconActive,
+                ]}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
 
-          {/* All Branches Dropdown Button */}
-          <TouchableOpacity
-            style={[
-              styles.dropdownBtn,
-              selectedBranches.length > 0 && styles.dropdownBtnActive,
-            ]}
-            activeOpacity={0.8}
-            onPress={() => setIsBranchModalOpen(true)}
-          >
-            <Text
+            {/* All Branches Dropdown Button */}
+            <TouchableOpacity
               style={[
-                styles.dropdownBtnText,
-                selectedBranches.length > 0 && styles.dropdownBtnTextActive,
+                styles.dropdownBtn,
+                selectedBranches.length > 0 && styles.dropdownBtnActive,
               ]}
-              numberOfLines={1}
+              activeOpacity={0.8}
+              onPress={() => setIsBranchModalOpen(true)}
             >
-              {selectedBranches.length === 0
-                ? 'All Branches'
-                : selectedBranches.length === 1
-                ? selectedBranches[0]
-                : `${selectedBranches.length} Branches`}
-            </Text>
-            <Image
-              source={Images.down}
-              style={[
-                styles.dropdownBtnIcon,
-                selectedBranches.length > 0 && styles.dropdownBtnIconActive,
-              ]}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.dropdownBtnText,
+                  selectedBranches.length > 0 && styles.dropdownBtnTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                {selectedBranches.length === 0
+                  ? 'All Branches'
+                  : selectedBranches.length === 1
+                  ? selectedBranches[0]
+                  : `${selectedBranches.length} Branches`}
+              </Text>
+              <Image
+                source={Images.down}
+                style={[
+                  styles.dropdownBtnIcon,
+                  selectedBranches.length > 0 && styles.dropdownBtnIconActive,
+                ]}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
 
-          {/* All ABMs Dropdown Button */}
-          <TouchableOpacity
-            style={[
-              styles.dropdownBtn,
-              selectedABMs.length > 0 && styles.dropdownBtnActive,
-            ]}
-            activeOpacity={0.8}
-            onPress={() => setIsAbmModalOpen(true)}
-          >
-            <Text
+            {/* All ABMs Dropdown Button */}
+            <TouchableOpacity
               style={[
-                styles.dropdownBtnText,
-                selectedABMs.length > 0 && styles.dropdownBtnTextActive,
+                styles.dropdownBtn,
+                selectedABMs.length > 0 && styles.dropdownBtnActive,
               ]}
-              numberOfLines={1}
+              activeOpacity={0.8}
+              onPress={() => setIsAbmModalOpen(true)}
             >
-              {selectedABMs.length === 0
-                ? 'All ABMs'
-                : selectedABMs.length === 1
-                ? selectedABMs[0]
-                : `${selectedABMs.length} ABMs`}
-            </Text>
-            <Image
-              source={Images.down}
-              style={[
-                styles.dropdownBtnIcon,
-                selectedABMs.length > 0 && styles.dropdownBtnIconActive,
-              ]}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.dropdownBtnText,
+                  selectedABMs.length > 0 && styles.dropdownBtnTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                {selectedABMs.length === 0
+                  ? 'All ABMs'
+                  : selectedABMs.length === 1
+                  ? selectedABMs[0]
+                  : `${selectedABMs.length} ABMs`}
+              </Text>
+              <Image
+                source={Images.down}
+                style={[
+                  styles.dropdownBtnIcon,
+                  selectedABMs.length > 0 && styles.dropdownBtnIconActive,
+                ]}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          </ScrollView>
         </View>
 
         {/* Card list */}
@@ -733,38 +799,117 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
         />
       </View>
 
-      {/* ── State Selection Modal Dropdown (Multi-select) ── */}
+      {/* ── Unified State & Zone Selection Modal Dropdown (Multi-select) ── */}
       <Modal
-        visible={isStateModalOpen}
+        visible={isFilterModalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsStateModalOpen(false)}
+        onRequestClose={() => setIsFilterModalOpen(false)}
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => setIsStateModalOpen(false)}
+          onPress={() => setIsFilterModalOpen(false)}
         >
           <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
             {/* Modal Header */}
             <View style={styles.modalHeaderRow}>
               <View style={styles.modalTitleWrap}>
-                <Text style={styles.modalTitle}>Select States</Text>
-                {tempSelectedStates.length > 0 && (
+                <Text style={styles.modalTitle}>
+                  {filterModalTab === 'STATE' ? 'Select States' : 'Select Zones'}
+                </Text>
+                {(filterModalTab === 'STATE'
+                  ? tempSelectedStates.length > 0
+                  : tempSelectedZones.length > 0) && (
                   <View style={styles.selectedCountBadge}>
                     <Text style={styles.selectedCountText}>
-                      {tempSelectedStates.length} selected
+                      {filterModalTab === 'STATE'
+                        ? `${tempSelectedStates.length} selected`
+                        : `${tempSelectedZones.length} selected`}
                     </Text>
                   </View>
                 )}
               </View>
               <TouchableOpacity
-                onPress={() => setIsStateModalOpen(false)}
+                onPress={() => setIsFilterModalOpen(false)}
                 style={styles.modalCloseBtn}
                 activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Segmented Switcher: States / Zones Tabs */}
+            <View style={styles.modalTabsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.modalTabBtn,
+                  filterModalTab === 'STATE' && styles.modalTabBtnActive,
+                ]}
+                activeOpacity={0.8}
+                onPress={() => setFilterModalTab('STATE')}
+              >
+                <Text
+                  style={[
+                    styles.modalTabText,
+                    filterModalTab === 'STATE' && styles.modalTabTextActive,
+                  ]}
+                >
+                  States
+                </Text>
+                {tempSelectedStates.length > 0 && (
+                  <View
+                    style={[
+                      styles.modalTabBadge,
+                      filterModalTab === 'STATE' && styles.modalTabBadgeActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modalTabBadgeText,
+                        filterModalTab === 'STATE' && styles.modalTabBadgeTextActive,
+                      ]}
+                    >
+                      {tempSelectedStates.length}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalTabBtn,
+                  filterModalTab === 'ZONE' && styles.modalTabBtnActive,
+                ]}
+                activeOpacity={0.8}
+                onPress={() => setFilterModalTab('ZONE')}
+              >
+                <Text
+                  style={[
+                    styles.modalTabText,
+                    filterModalTab === 'ZONE' && styles.modalTabTextActive,
+                  ]}
+                >
+                  Zones
+                </Text>
+                {tempSelectedZones.length > 0 && (
+                  <View
+                    style={[
+                      styles.modalTabBadge,
+                      filterModalTab === 'ZONE' && styles.modalTabBadgeActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modalTabBadgeText,
+                        filterModalTab === 'ZONE' && styles.modalTabBadgeTextActive,
+                      ]}
+                    >
+                      {tempSelectedZones.length}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
 
@@ -777,16 +922,30 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
               />
               <TextInput
                 style={styles.modalSearchInput}
-                placeholder="Search state name..."
+                placeholder={
+                  filterModalTab === 'STATE'
+                    ? 'Search state name...'
+                    : 'Search zone name...'
+                }
                 placeholderTextColor="#94A3B8"
-                value={stateSearchText}
-                onChangeText={setStateSearchText}
+                value={
+                  filterModalTab === 'STATE' ? stateSearchText : zoneSearchText
+                }
+                onChangeText={
+                  filterModalTab === 'STATE'
+                    ? setStateSearchText
+                    : setZoneSearchText
+                }
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-              {stateSearchText.length > 0 && (
+              {((filterModalTab === 'STATE' && stateSearchText.length > 0) ||
+                (filterModalTab === 'ZONE' && zoneSearchText.length > 0)) && (
                 <TouchableOpacity
-                  onPress={() => setStateSearchText('')}
+                  onPress={() => {
+                    if (filterModalTab === 'STATE') setStateSearchText('');
+                    else setZoneSearchText('');
+                  }}
                   style={styles.modalClearSearchBtn}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
@@ -795,99 +954,191 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
               )}
             </View>
 
-            {/* List of States with Multi-Select Checkboxes */}
+            {/* List of Options (Multi-select Checkboxes) */}
             <ScrollView
               showsVerticalScrollIndicator={true}
               style={styles.modalScrollView}
               keyboardShouldPersistTaps="handled"
             >
-              {/* "All States" Option */}
-              <TouchableOpacity
-                style={[
-                  styles.branchOptionItem,
-                  isAllStatesSelected && styles.branchOptionItemActive,
-                ]}
-                onPress={handleSelectAllStates}
-                activeOpacity={0.7}
-              >
-                <View style={styles.optionLeft}>
-                  <View
-                    style={[
-                      styles.checkboxBox,
-                      isAllStatesSelected && styles.checkboxBoxActive,
-                    ]}
-                  >
-                    {isAllStatesSelected && (
-                      <Text style={styles.checkmarkIcon}>✓</Text>
-                    )}
-                  </View>
-                  <Text
-                    style={[
-                      styles.branchOptionText,
-                      isAllStatesSelected && styles.branchOptionTextActive,
-                    ]}
-                  >
-                    All States
-                  </Text>
-                </View>
-                {isAllStatesSelected && (
-                  <View style={styles.allBadge}>
-                    <Text style={styles.allBadgeText}>Default</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Individual State Options */}
-              {filteredModalStates.map((st) => {
-                const isSelected = tempSelectedStates.includes(st);
-                return (
+              {filterModalTab === 'STATE' ? (
+                <>
+                  {/* "All States" Option */}
                   <TouchableOpacity
-                    key={st}
                     style={[
                       styles.branchOptionItem,
-                      isSelected && styles.branchOptionItemActive,
+                      tempSelectedStates.length === 0 && styles.branchOptionItemActive,
                     ]}
-                    onPress={() => handleToggleState(st)}
+                    onPress={handleSelectAllStates}
                     activeOpacity={0.7}
                   >
                     <View style={styles.optionLeft}>
                       <View
                         style={[
                           styles.checkboxBox,
-                          isSelected && styles.checkboxBoxActive,
+                          tempSelectedStates.length === 0 && styles.checkboxBoxActive,
                         ]}
                       >
-                        {isSelected && (
+                        {tempSelectedStates.length === 0 && (
                           <Text style={styles.checkmarkIcon}>✓</Text>
                         )}
                       </View>
                       <Text
                         style={[
                           styles.branchOptionText,
-                          isSelected && styles.branchOptionTextActive,
+                          tempSelectedStates.length === 0 && styles.branchOptionTextActive,
+                          { fontFamily: fontFamily.bold },
                         ]}
-                        numberOfLines={1}
                       >
-                        {st}
+                        All States
                       </Text>
                     </View>
+                    {tempSelectedStates.length === 0 && (
+                      <View style={styles.allBadge}>
+                        <Text style={styles.allBadgeText}>ALL</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
-                );
-              })}
 
-              {filteredModalStates.length === 0 && (
-                <View style={styles.modalEmptyContainer}>
-                  <Text style={styles.modalEmptyText}>No states found</Text>
-                </View>
+                  {/* Individual State Options */}
+                  {filteredModalStates.map((st) => {
+                    const isSelected = tempSelectedStates.includes(st);
+                    return (
+                      <TouchableOpacity
+                        key={st}
+                        style={[
+                          styles.branchOptionItem,
+                          isSelected && styles.branchOptionItemActive,
+                        ]}
+                        onPress={() => handleToggleState(st)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.optionLeft}>
+                          <View
+                            style={[
+                              styles.checkboxBox,
+                              isSelected && styles.checkboxBoxActive,
+                            ]}
+                          >
+                            {isSelected && (
+                              <Text style={styles.checkmarkIcon}>✓</Text>
+                            )}
+                          </View>
+                          <Text
+                            style={[
+                              styles.branchOptionText,
+                              isSelected && styles.branchOptionTextActive,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {st}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  {filteredModalStates.length === 0 && (
+                    <View style={styles.modalEmptyContainer}>
+                      <Text style={styles.modalEmptyText}>No states found</Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* "All Zones" Option */}
+                  <TouchableOpacity
+                    style={[
+                      styles.branchOptionItem,
+                      tempSelectedZones.length === 0 && styles.branchOptionItemActive,
+                    ]}
+                    onPress={handleSelectAllZones}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.optionLeft}>
+                      <View
+                        style={[
+                          styles.checkboxBox,
+                          tempSelectedZones.length === 0 && styles.checkboxBoxActive,
+                        ]}
+                      >
+                        {tempSelectedZones.length === 0 && (
+                          <Text style={styles.checkmarkIcon}>✓</Text>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.branchOptionText,
+                          tempSelectedZones.length === 0 && styles.branchOptionTextActive,
+                          { fontFamily: fontFamily.bold },
+                        ]}
+                      >
+                        All Zones
+                      </Text>
+                    </View>
+                    {tempSelectedZones.length === 0 && (
+                      <View style={styles.allBadge}>
+                        <Text style={styles.allBadgeText}>ALL</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Individual Zone Items */}
+                  {filteredModalZones.map((zone) => {
+                    const isSelected = tempSelectedZones.includes(zone);
+
+                    return (
+                      <TouchableOpacity
+                        key={zone}
+                        style={[
+                          styles.branchOptionItem,
+                          isSelected && styles.branchOptionItemActive,
+                        ]}
+                        onPress={() => handleToggleZone(zone)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.optionLeft}>
+                          <View
+                            style={[
+                              styles.checkboxBox,
+                              isSelected && styles.checkboxBoxActive,
+                            ]}
+                          >
+                            {isSelected && (
+                              <Text style={styles.checkboxCheckmark}>✓</Text>
+                            )}
+                          </View>
+                          <Text
+                            style={[
+                              styles.branchOptionText,
+                              isSelected && styles.branchOptionTextActive,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {zone}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  {filteredModalZones.length === 0 && (
+                    <View style={styles.modalEmptyContainer}>
+                      <Text style={styles.modalEmptyText}>No zones found</Text>
+                    </View>
+                  )}
+                </>
               )}
             </ScrollView>
 
             {/* Modal Bottom Actions */}
             <View style={styles.modalFooterRow}>
-              {(tempSelectedStates.length > 0 || selectedStates.length > 0) && (
+              {(tempSelectedStates.length > 0 ||
+                tempSelectedZones.length > 0 ||
+                selectedStates.length > 0 ||
+                selectedZones.length > 0) && (
                 <TouchableOpacity
                   style={styles.modalResetBtn}
-                  onPress={handleResetStateFilter}
+                  onPress={handleResetFilterModal}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.modalResetText}>Reset</Text>
@@ -895,13 +1146,13 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
               )}
               <TouchableOpacity
                 style={styles.modalApplyBtn}
-                onPress={handleApplyStateFilter}
+                onPress={handleApplyFilterModal}
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalApplyText}>
-                  {tempSelectedStates.length === 0
+                  {tempSelectedStates.length === 0 && tempSelectedZones.length === 0
                     ? 'Show All'
-                    : `Apply (${tempSelectedStates.length})`}
+                    : `Apply (${tempSelectedStates.length + tempSelectedZones.length})`}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1334,23 +1585,25 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
   },
 
-  /* Dropdowns Row (Branches & ABMs) */
+  /* Dropdowns Row (State & Zone Filter, Branches & ABMs) */
   dropdownsRow: {
+    marginBottom: 10,
+  },
+  dropdownsScrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    marginBottom: 10,
     gap: 8,
   },
   dropdownBtn: {
-    flex: 1,
+    minWidth: 105,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FAF5FF',
     borderRadius: 12,
     borderWidth: 1.5,
     borderColor: '#DDD6FE',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     height: 40,
   },
   dropdownBtnActive: {
@@ -1379,6 +1632,68 @@ const styles = StyleSheet.create({
   },
   dropdownBtnIconActive: {
     tintColor: colors.white,
+  },
+  filterBtnLeftIcon: {
+    width: 13,
+    height: 13,
+    tintColor: colors.primary,
+    marginRight: 5,
+  },
+  filterBtnLeftIconActive: {
+    tintColor: colors.white,
+  },
+
+  /* Modal Tabs Segmented Switcher */
+  modalTabsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 12,
+  },
+  modalTabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+  },
+  modalTabBtnActive: {
+    backgroundColor: colors.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  modalTabText: {
+    fontSize: 12.5,
+    fontFamily: fontFamily.medium,
+    color: '#64748B',
+  },
+  modalTabTextActive: {
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+  },
+  modalTabBadge: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
+  },
+  modalTabBadgeActive: {
+    backgroundColor: '#F3E8FF',
+  },
+  modalTabBadgeText: {
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    color: '#64748B',
+  },
+  modalTabBadgeTextActive: {
+    color: colors.primary,
   },
   emptyContainer: {
     flex: 1,

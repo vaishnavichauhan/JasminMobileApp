@@ -12,6 +12,7 @@ import {
   Modal,
   ScrollView,
   TextInput,
+  Dimensions,
 } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
 import { usePriceListStore } from '../../../store';
@@ -21,6 +22,476 @@ import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
 import AccessDenied from '../../../components/AccessDenied/AccessDenied';
 import { isAccessDeniedError } from '../../../utils/authUtils';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const OFFER_CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.78, 300);
+const OFFER_SNAP_INTERVAL = OFFER_CARD_WIDTH + 14;
+
+export interface NormalizedOffer {
+  id: string | number;
+  title: string;
+  offerType?: string;
+  discount?: string;
+  description?: string;
+  terms?: string;
+  validFrom?: string;
+  validTo?: string;
+  couponCode?: string;
+  brand?: string;
+  state?: string;
+  // Transaction fields
+  offerTypeValue?: string;
+  offerText?: string;
+  transactionType?: string;
+  uptoValue?: string;
+  valueType?: string;
+  raw?: any;
+}
+
+export const parseItemOffers = (raw: any): NormalizedOffer[] => {
+  if (!raw) return [];
+
+  // Helper to extract transaction fields from an object
+  const extractTxFields = (obj: any) => {
+    if (!obj || typeof obj !== 'object') return {};
+    const offerTypeValue =
+      obj.offer_type_value ??
+      obj.offerTypeValue ??
+      obj.offer_value ??
+      obj.offerValue ??
+      obj.type_value ??
+      undefined;
+    const offerText =
+      obj.offer_text ??
+      obj.offerText ??
+      obj.text ??
+      obj.offer_title ??
+      obj.offerTitle ??
+      obj.title ??
+      undefined;
+    const transactionType =
+      obj.transction_type ??
+      obj.transaction_type ??
+      obj.transctionType ??
+      obj.transactionType ??
+      obj.txn_type ??
+      obj.type ??
+      undefined;
+    const uptoValue =
+      obj.upto_value ??
+      obj.uptoValue ??
+      obj.upto ??
+      obj.up_to_value ??
+      obj.up_to ??
+      obj.max_value ??
+      obj.max_discount ??
+      undefined;
+    const valueType =
+      obj.value_type ??
+      obj.valueType ??
+      obj.val_type ??
+      obj.discount_type ??
+      undefined;
+
+    return {
+      offerTypeValue: offerTypeValue !== undefined && offerTypeValue !== null ? String(offerTypeValue) : undefined,
+      offerText: offerText !== undefined && offerText !== null ? String(offerText) : undefined,
+      transactionType: transactionType !== undefined && transactionType !== null ? String(transactionType) : undefined,
+      uptoValue: uptoValue !== undefined && uptoValue !== null ? String(uptoValue) : undefined,
+      valueType: valueType !== undefined && valueType !== null ? String(valueType) : undefined,
+    };
+  };
+
+  // Helper to extract transactions/transctions array
+  const getSubTransactions = (obj: any): any[] => {
+    if (!obj || typeof obj !== 'object') return [];
+    const t =
+      obj.transctions ??
+      obj.transactions ??
+      obj.Transctions ??
+      obj.Transactions ??
+      obj.transction ??
+      obj.transaction ??
+      obj.txns ??
+      obj.tx;
+    if (Array.isArray(t)) return t;
+    if (t && typeof t === 'object') return [t];
+    return [];
+  };
+
+  // Handle case where raw is stringified JSON or plain text
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed === '—' || trimmed === '-' || trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'undefined') {
+      return [];
+    }
+    if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return parseItemOffers(parsed);
+      } catch (e) {
+        // Not valid JSON, proceed as string
+      }
+    }
+
+    // Split by newlines, pipes, or semicolons if multiple
+    const lines = trimmed
+      .split(/\r?\n|;|\|/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && s !== '—');
+
+    if (lines.length > 1) {
+      return lines.map((line, idx) => ({
+        id: `offer-str-${idx}`,
+        title: line,
+        offerText: line,
+      }));
+    }
+
+    return [
+      {
+        id: 'offer-str-0',
+        title: trimmed,
+        offerText: trimmed,
+      },
+    ];
+  }
+
+  // Handle case where raw is an Array
+  if (Array.isArray(raw)) {
+    if (raw.length === 0) return [];
+    const list: NormalizedOffer[] = [];
+
+    raw.forEach((item, index) => {
+      if (!item) return;
+
+      if (typeof item === 'string') {
+        const t = item.trim();
+        if (t && t !== '—') {
+          list.push({
+            id: `offer-arr-${index}`,
+            title: t,
+            offerText: t,
+          });
+        }
+        return;
+      }
+
+      if (typeof item === 'object') {
+        const subTxns = getSubTransactions(item);
+
+        if (subTxns.length > 0) {
+          // Flatten sub-transactions into dedicated cards
+          subTxns.forEach((tx, txIdx) => {
+            const txFields = extractTxFields(tx);
+            const parentTxFields = extractTxFields(item);
+
+            const offerTypeValue = txFields.offerTypeValue || parentTxFields.offerTypeValue;
+            const offerText = txFields.offerText || parentTxFields.offerText || item.title || item.offer_name || item.name || '';
+            const transactionType = txFields.transactionType || parentTxFields.transactionType || item.offer_type || item.offerType || '';
+            const uptoValue = txFields.uptoValue || parentTxFields.uptoValue;
+            const valueType = txFields.valueType || parentTxFields.valueType;
+
+            const title = offerText || item.title || item.offer_title || item.offer_name || item.name || '';
+
+            list.push({
+              id: `${item.id || item._id || index}-tx-${txIdx}`,
+              title: String(title),
+              offerText: offerText ? String(offerText) : undefined,
+              offerTypeValue: offerTypeValue ? String(offerTypeValue) : undefined,
+              transactionType: transactionType ? String(transactionType) : undefined,
+              uptoValue: uptoValue ? String(uptoValue) : undefined,
+              valueType: valueType ? String(valueType) : undefined,
+              offerType: transactionType ? String(transactionType) : (item.offer_type || item.offerType ? String(item.offer_type || item.offerType) : undefined),
+              discount: offerTypeValue
+                ? `${offerTypeValue}${valueType ? ` (${valueType})` : ''}`
+                : (item.discount || item.discount_amount ? String(item.discount || item.discount_amount) : undefined),
+              description: item.description || item.desc || item.details || undefined,
+              terms: item.terms || item.terms_and_conditions || item.conditions || undefined,
+              validFrom: item.from_date || item.fromDate || item.start_date || undefined,
+              validTo: item.to_date || item.toDate || item.end_date || item.expiry_date || undefined,
+              couponCode: item.coupon_code || item.couponCode || item.code || undefined,
+              brand: item.brand || item.brand_name || undefined,
+              state: item.state || item.state_name || undefined,
+              raw: { ...item, ...tx },
+            });
+          });
+        } else {
+          // Direct fields on item
+          const txFields = extractTxFields(item);
+          const title =
+            txFields.offerText ||
+            item.title ||
+            item.offer_title ||
+            item.offerTitle ||
+            item.offer_name ||
+            item.offerName ||
+            item.name ||
+            item.scheme_name ||
+            item.schemeName ||
+            item.heading ||
+            item.offer ||
+            item.label ||
+            item.description ||
+            '';
+
+          const offerType =
+            txFields.transactionType ||
+            item.offer_type ||
+            item.offerType ||
+            item.type ||
+            item.scheme_type ||
+            item.category ||
+            '';
+
+          const discount =
+            txFields.offerTypeValue
+              ? `${txFields.offerTypeValue}${txFields.valueType ? ` (${txFields.valueType})` : ''}`
+              : (item.discount ||
+                item.discount_amount ||
+                item.discountAmount ||
+                item.discount_percentage ||
+                item.discountPercentage ||
+                item.cashback ||
+                item.amount ||
+                item.value ||
+                '');
+
+          const description =
+            item.description ||
+            item.desc ||
+            item.details ||
+            item.summary ||
+            item.offer_details ||
+            '';
+
+          const terms =
+            item.terms ||
+            item.terms_and_conditions ||
+            item.termsAndConditions ||
+            item.conditions ||
+            item.t_and_c ||
+            '';
+
+          const validFrom =
+            item.from_date ||
+            item.fromDate ||
+            item.start_date ||
+            item.startDate ||
+            item.valid_from ||
+            item.validFrom ||
+            '';
+
+          const validTo =
+            item.to_date ||
+            item.toDate ||
+            item.end_date ||
+            item.endDate ||
+            item.valid_to ||
+            item.validTo ||
+            item.valid_till ||
+            item.validTill ||
+            item.expiry_date ||
+            '';
+
+          const couponCode =
+            item.coupon_code ||
+            item.couponCode ||
+            item.promo_code ||
+            item.promoCode ||
+            item.code ||
+            '';
+
+          const brand =
+            item.brand ||
+            item.brand_name ||
+            item.brandName ||
+            '';
+
+          const state =
+            item.state ||
+            item.state_name ||
+            item.stateName ||
+            '';
+
+          list.push({
+            id: item.id || item._id || `offer-${index}`,
+            title: String(title),
+            offerText: txFields.offerText,
+            offerTypeValue: txFields.offerTypeValue,
+            transactionType: txFields.transactionType,
+            uptoValue: txFields.uptoValue,
+            valueType: txFields.valueType,
+            offerType: offerType ? String(offerType) : undefined,
+            discount: discount ? String(discount) : undefined,
+            description: description ? String(description) : undefined,
+            terms: terms ? String(terms) : undefined,
+            validFrom: validFrom ? String(validFrom) : undefined,
+            validTo: validTo ? String(validTo) : undefined,
+            couponCode: couponCode ? String(couponCode) : undefined,
+            brand: brand ? String(brand) : undefined,
+            state: state ? String(state) : undefined,
+            raw: item,
+          });
+        }
+      }
+    });
+
+    return list;
+  }
+
+  // Handle case where raw is a single Object
+  if (typeof raw === 'object') {
+    const subTxns = getSubTransactions(raw);
+
+    if (subTxns.length > 0) {
+      return subTxns.map((tx, txIdx) => {
+        const txFields = extractTxFields(tx);
+        const parentTxFields = extractTxFields(raw);
+
+        const offerTypeValue = txFields.offerTypeValue || parentTxFields.offerTypeValue;
+        const offerText = txFields.offerText || parentTxFields.offerText || raw.title || raw.offer_name || raw.name || '';
+        const transactionType = txFields.transactionType || parentTxFields.transactionType || raw.offer_type || raw.offerType || '';
+        const uptoValue = txFields.uptoValue || parentTxFields.uptoValue;
+        const valueType = txFields.valueType || parentTxFields.valueType;
+
+        const title = offerText || raw.title || raw.offer_title || raw.offer_name || raw.name || '';
+
+        return {
+          id: `${raw.id || raw._id || 'offer'}-tx-${txIdx}`,
+          title: String(title),
+          offerText: offerText ? String(offerText) : undefined,
+          offerTypeValue: offerTypeValue ? String(offerTypeValue) : undefined,
+          transactionType: transactionType ? String(transactionType) : undefined,
+          uptoValue: uptoValue ? String(uptoValue) : undefined,
+          valueType: valueType ? String(valueType) : undefined,
+          offerType: transactionType ? String(transactionType) : (raw.offer_type || raw.offerType ? String(raw.offer_type || raw.offerType) : undefined),
+          discount: offerTypeValue ? `${offerTypeValue}${valueType ? ` (${valueType})` : ''}` : (raw.discount ? String(raw.discount) : undefined),
+          description: raw.description || raw.desc || undefined,
+          terms: raw.terms || raw.terms_and_conditions || undefined,
+          validFrom: raw.from_date || raw.fromDate || undefined,
+          validTo: raw.to_date || raw.toDate || undefined,
+          couponCode: raw.coupon_code || raw.couponCode || undefined,
+          brand: raw.brand || raw.brand_name || undefined,
+          state: raw.state || raw.state_name || undefined,
+          raw: { ...raw, ...tx },
+        };
+      });
+    }
+
+    const txFields = extractTxFields(raw);
+    const title =
+      txFields.offerText ||
+      raw.title ||
+      raw.offer_title ||
+      raw.offerTitle ||
+      raw.offer_name ||
+      raw.offerName ||
+      raw.name ||
+      raw.scheme_name ||
+      raw.heading ||
+      raw.offer ||
+      '';
+
+    const offerType =
+      txFields.transactionType ||
+      raw.offer_type ||
+      raw.offerType ||
+      raw.type ||
+      raw.scheme_type ||
+      raw.category ||
+      '';
+
+    const discount =
+      txFields.offerTypeValue
+        ? `${txFields.offerTypeValue}${txFields.valueType ? ` (${txFields.valueType})` : ''}`
+        : (raw.discount ||
+          raw.discount_amount ||
+          raw.discount_percentage ||
+          raw.cashback ||
+          raw.amount ||
+          raw.value ||
+          '');
+
+    const description =
+      raw.description ||
+      raw.desc ||
+      raw.details ||
+      raw.summary ||
+      '';
+
+    const terms =
+      raw.terms ||
+      raw.terms_and_conditions ||
+      raw.termsAndConditions ||
+      raw.conditions ||
+      '';
+
+    const validFrom =
+      raw.from_date ||
+      raw.fromDate ||
+      raw.start_date ||
+      raw.startDate ||
+      raw.valid_from ||
+      '';
+
+    const validTo =
+      raw.to_date ||
+      raw.toDate ||
+      raw.end_date ||
+      raw.endDate ||
+      raw.valid_to ||
+      raw.valid_till ||
+      '';
+
+    const couponCode =
+      raw.coupon_code ||
+      raw.couponCode ||
+      raw.promo_code ||
+      raw.code ||
+      '';
+
+    return [
+      {
+        id: raw.id || raw._id || 'offer-single-0',
+        title: String(title),
+        offerText: txFields.offerText,
+        offerTypeValue: txFields.offerTypeValue,
+        transactionType: txFields.transactionType,
+        uptoValue: txFields.uptoValue,
+        valueType: txFields.valueType,
+        offerType: offerType ? String(offerType) : undefined,
+        discount: discount ? String(discount) : undefined,
+        description: description ? String(description) : undefined,
+        terms: terms ? String(terms) : undefined,
+        validFrom: validFrom ? String(validFrom) : undefined,
+        validTo: validTo ? String(validTo) : undefined,
+        couponCode: couponCode ? String(couponCode) : undefined,
+        brand: raw.brand || raw.brand_name ? String(raw.brand || raw.brand_name) : undefined,
+        state: raw.state || raw.state_name ? String(raw.state || raw.state_name) : undefined,
+        raw,
+      },
+    ];
+  }
+
+  return [];
+};
+
+const formatOfferDate = (dateStr: any): string => {
+  if (!dateStr) return '';
+  const str = String(dateStr).trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str;
+  if (str.includes('-') || str.includes('T')) {
+    const parts = str.split('T')[0].split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      if (year.length === 4) {
+        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+      }
+    }
+  }
+  return str;
+};
 
 const renderStringValue = (val: any): string => {
   if (val === null || val === undefined || val === '') return '—';
@@ -92,6 +563,17 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
   const [stockInfoData, setStockInfoData] = useState<any>(null);
   const [stockSearchQuery, setStockSearchQuery] = useState('');
 
+  // Offer modal states
+  const [selectedOfferItem, setSelectedOfferItem] = useState<any>(null);
+  const [selectedOffersList, setSelectedOffersList] = useState<NormalizedOffer[]>([]);
+  const [activeOfferCardIndex, setActiveOfferCardIndex] = useState(0);
+
+  const handleOpenOfferModal = (item: any, offers: NormalizedOffer[]) => {
+    setSelectedOfferItem(item);
+    setSelectedOffersList(offers);
+    setActiveOfferCardIndex(0);
+  };
+
   const [isDateModalOpen, setIsDateModalOpen] = useState(false);
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
@@ -111,7 +593,7 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
 
   // Debounce search query to provide smooth typing and loading indicator
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    if (!searchQuery.replace(/\*/g, ' ').trim()) {
       setDebouncedSearchQuery('');
       setIsSearching(false);
       return;
@@ -135,8 +617,13 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
     setStockLoading(true);
     setStockError(null);
 
-    // Robust extraction of Model Group from item keys (e.g. 'Model Group', 'model_group_name', etc.)
+    // Robust extraction of Model Group from item keys
     const modelGroup =
+      item['GeneralmodelGroup'] ||
+      item['General Model Group'] ||
+      item['GeneralModelGroup'] ||
+      item['general_model_group'] ||
+      item['generalModelGroup'] ||
       item['Model Group'] ||
       item['model_group_name'] ||
       item['modelGroupName'] ||
@@ -150,35 +637,89 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
       item['Product Name'] ||
       item['product_name'] ||
       item['productName'] ||
+      item['ProductName'] ||
       item['Item Name'] ||
       item['item_name'] ||
       item['model_name'] ||
       item['modelName'] ||
       '';
 
-    
+    console.log('[handleFetchStockInfo] Triggered for item:', item);
+    console.log('[handleFetchStockInfo] Extracted modelGroup:', modelGroup);
 
     try {
       const res = await fetchPriceListStockInfoApi(token, modelGroup, sync);
       console.log('[PriceListDetailScreen] Stock API Response:', res);
       setStockInfoData(res);
+      if (!res) {
+        setStockError('No response from stock API. Please try again.');
+      }
     } catch (err: any) {
       console.warn('[PriceListDetailScreen] Stock API Error:', err);
-      setStockError('Failed to fetch live stock information');
+      setStockError(err?.message || 'Failed to fetch live stock information');
     } finally {
       setStockLoading(false);
     }
   };
 
+  // Helper to extract numeric stock value from any object
+  const getObjectStockValue = (obj: any): number => {
+    if (!obj || typeof obj !== 'object') return 0;
+    const val =
+      obj.SALEABLE_STOCK ??
+      obj.SALABLE_STOCK ??
+      obj['Saleable Stock'] ??
+      obj['Salable Stock'] ??
+      obj.saleable_stock ??
+      obj.salable_stock ??
+      obj.saleableStock ??
+      obj.salableStock ??
+      obj.AVAILABLE_STOCK ??
+      obj.available_stock ??
+      obj.availableStock ??
+      obj.TOTAL_STOCK ??
+      obj.total_stock ??
+      obj.totalStock ??
+      obj.CURRENT_STOCK ??
+      obj.current_stock ??
+      obj.currentStock ??
+      obj.stock ??
+      obj.STOCK ??
+      obj.qty ??
+      obj.QTY ??
+      obj.quantity ??
+      obj.QUANTITY ??
+      obj.balance_stock ??
+      obj.balance ??
+      obj.count ??
+      undefined;
+
+    if (val !== undefined && val !== null) {
+      const num = Number(val);
+      if (!isNaN(num)) return num;
+    }
+
+    // Check sub-items if present
+    const subList = obj.items || obj.products || obj.devices || obj.records;
+    if (Array.isArray(subList) && subList.length > 0) {
+      return subList.reduce((acc, sub) => acc + getObjectStockValue(sub), 0);
+    }
+
+    return 0;
+  };
+
   // Normalized location list from stock API
   const rawLocations: any[] = useMemo(() => {
     if (!stockInfoData) return [];
+    if (Array.isArray(stockInfoData)) return stockInfoData;
     if (Array.isArray(stockInfoData.data?.locations)) return stockInfoData.data.locations;
     if (Array.isArray(stockInfoData.locations)) return stockInfoData.locations;
     if (Array.isArray(stockInfoData.data?.branches)) return stockInfoData.data.branches;
     if (Array.isArray(stockInfoData.branches)) return stockInfoData.branches;
     if (Array.isArray(stockInfoData.data?.stockDetails)) return stockInfoData.data.stockDetails;
     if (Array.isArray(stockInfoData.stockDetails)) return stockInfoData.stockDetails;
+    if (Array.isArray(stockInfoData.data?.stock_details)) return stockInfoData.data.stock_details;
+    if (Array.isArray(stockInfoData.stock_details)) return stockInfoData.stock_details;
     if (Array.isArray(stockInfoData.data?.rows)) return stockInfoData.data.rows;
     if (Array.isArray(stockInfoData.rows)) return stockInfoData.rows;
     if (Array.isArray(stockInfoData.data?.items)) return stockInfoData.data.items;
@@ -189,63 +730,44 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
     if (Array.isArray(stockInfoData.records)) return stockInfoData.records;
     if (Array.isArray(stockInfoData.data?.stock_info)) return stockInfoData.data.stock_info;
     if (Array.isArray(stockInfoData.stock_info)) return stockInfoData.stock_info;
+    if (Array.isArray(stockInfoData.data?.data)) return stockInfoData.data.data;
+    if (Array.isArray(stockInfoData.data?.results)) return stockInfoData.data.results;
     if (Array.isArray(stockInfoData.data)) return stockInfoData.data;
     if (Array.isArray(stockInfoData.results)) return stockInfoData.results;
-    if (Array.isArray(stockInfoData)) return stockInfoData;
     return [];
   }, [stockInfoData]);
 
   // Total saleable stock calculation
   const totalStockCount = useMemo(() => {
-    if (stockInfoData?.data?.SALEABLE_STOCK !== undefined) return stockInfoData.data.SALEABLE_STOCK;
-    if (stockInfoData?.data?.totalStock !== undefined) return stockInfoData.data.totalStock;
-    if (stockInfoData?.data?.totalSaleableStock !== undefined) return stockInfoData.data.totalSaleableStock;
-    if (stockInfoData?.data?.total_saleable_stock !== undefined) return stockInfoData.data.total_saleable_stock;
-    if (stockInfoData?.data?.total_stock !== undefined) return stockInfoData.data.total_stock;
-    if (stockInfoData?.SALEABLE_STOCK !== undefined) return stockInfoData.SALEABLE_STOCK;
-    if (stockInfoData?.totalStock !== undefined) return stockInfoData.totalStock;
-    if (stockInfoData?.totalSaleableStock !== undefined) return stockInfoData.totalSaleableStock;
-    if (stockInfoData?.total_saleable_stock !== undefined) return stockInfoData.total_saleable_stock;
+    if (stockInfoData?.data?.SALEABLE_STOCK !== undefined) return Number(stockInfoData.data.SALEABLE_STOCK);
+    if (stockInfoData?.data?.totalStock !== undefined) return Number(stockInfoData.data.totalStock);
+    if (stockInfoData?.data?.totalSaleableStock !== undefined) return Number(stockInfoData.data.totalSaleableStock);
+    if (stockInfoData?.data?.total_saleable_stock !== undefined) return Number(stockInfoData.data.total_saleable_stock);
+    if (stockInfoData?.data?.total_stock !== undefined) return Number(stockInfoData.data.total_stock);
+    if (stockInfoData?.SALEABLE_STOCK !== undefined) return Number(stockInfoData.SALEABLE_STOCK);
+    if (stockInfoData?.totalStock !== undefined) return Number(stockInfoData.totalStock);
+    if (stockInfoData?.totalSaleableStock !== undefined) return Number(stockInfoData.totalSaleableStock);
+    if (stockInfoData?.total_saleable_stock !== undefined) return Number(stockInfoData.total_saleable_stock);
 
-    return rawLocations.reduce((acc, loc) => {
-      const val = Number(
-        loc.SALEABLE_STOCK ??
-        loc['Saleable Stock'] ??
-        loc.saleable_stock ??
-        loc.saleableStock ??
-        loc.AVAILABLE_STOCK ??
-        loc.available_stock ??
-        loc.availableStock ??
-        loc.total_stock ??
-        loc.stock ??
-        loc.qty ??
-        0
-      );
-      return acc + (isNaN(val) ? 0 : val);
-    }, 0);
+    return rawLocations.reduce((acc, loc) => acc + getObjectStockValue(loc), 0);
   }, [stockInfoData, rawLocations]);
 
-  // Filtered locations inside the stock modal (only show if SALEABLE_STOCK > 0)
+  // Filtered locations inside the stock modal
   const filteredStockLocations = useMemo(() => {
-    const list = (rawLocations || []).filter((loc) => {
-      // Location must have saleable stock > 0
-      const stock = Number(
-        loc.SALEABLE_STOCK ??
-        loc['Saleable Stock'] ??
-        loc.saleable_stock ??
-        loc.saleableStock ??
-        loc.AVAILABLE_STOCK ??
-        loc.available_stock ??
-        loc.availableStock ??
-        loc.stock ??
-        loc.qty ??
-        0
-      );
+    // Attempt filtering for stock > 0
+    let list = (rawLocations || []).filter((loc) => {
+      const stock = getObjectStockValue(loc);
       return stock > 0;
     });
 
-    if (!stockSearchQuery.trim()) return list;
-    const q = stockSearchQuery.toLowerCase().trim();
+    // If filtering by stock > 0 yielded nothing but rawLocations has items, fallback to rawLocations
+    if (list.length === 0 && rawLocations.length > 0) {
+      list = rawLocations;
+    }
+
+    const cleanedStockQuery = stockSearchQuery.replace(/\*/g, ' ');
+    if (!cleanedStockQuery.trim()) return list;
+    const q = cleanedStockQuery.toLowerCase().trim();
 
     return list.filter((loc) => {
       const branchName = String(
@@ -267,8 +789,9 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
 
       if (matchesHeader) return true;
 
-      if (Array.isArray(loc.items)) {
-        return loc.items.some((sub: any) => {
+      const subList = loc.items || loc.products || loc.devices;
+      if (Array.isArray(subList)) {
+        return subList.some((sub: any) => {
           const subName = String(sub.PRODUCT_NAME || sub['Product Name'] || sub.product_name || sub.productName || sub.item_name || sub.itemName || '').toLowerCase();
           const subCode = String(sub.ITEM_CODE || sub['Item Code'] || sub.item_code || sub.itemCode || sub.code || '').toLowerCase();
           return subName.includes(q) || subCode.includes(q);
@@ -353,14 +876,16 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
   }, [reportDetails?.data]);
 
   const filteredAvailableBrands = useMemo(() => {
-    if (!brandSearchQuery.trim()) return availableBrands;
-    const q = brandSearchQuery.toLowerCase().trim();
+    const cleaned = brandSearchQuery.replace(/\*/g, ' ');
+    if (!cleaned.trim()) return availableBrands;
+    const q = cleaned.toLowerCase().trim();
     return availableBrands.filter((b) => b.toLowerCase().includes(q));
   }, [availableBrands, brandSearchQuery]);
 
   const filteredAvailableProducts = useMemo(() => {
-    if (!productSearchQuery.trim()) return availableProducts;
-    const q = productSearchQuery.toLowerCase().trim();
+    const cleaned = productSearchQuery.replace(/\*/g, ' ');
+    if (!cleaned.trim()) return availableProducts;
+    const q = cleaned.toLowerCase().trim();
     return availableProducts.filter((p) => p.toLowerCase().includes(q));
   }, [availableProducts, productSearchQuery]);
 
@@ -424,10 +949,12 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
   const filteredData = useMemo(() => {
     if (!reportDetails?.data) return [];
 
-    const query = debouncedSearchQuery.trim().toLowerCase();
+    // Consider '*' as space so searches like "iphone*15" match "iphone 15"
+    const cleanedQuery = debouncedSearchQuery.replace(/\*/g, ' ');
+    const query = cleanedQuery.trim().toLowerCase();
     const normalizedQuery = query.replace(/[^a-z0-9]/g, '');
     const queryTokens = query
-      .split(/[\s\-_()+/,.]+/)
+      .split(/[\s\-_()+/,.*]+/)
       .map((t) => t.trim().toLowerCase())
       .filter((t) => t.length > 0);
 
@@ -475,14 +1002,13 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
         item['Item Name']
       );
 
-      // 4. Search Query Check
+      // 4. Search Query Check (Search strictly only Model Group, Brand, and Product Category / Product Name)
       if (query.length > 0) {
-        // Collect all text from all properties in item
-        const itemValues = Object.values(item)
-          .map((v) => (typeof v === 'object' && v !== null ? Object.values(v).join(' ') : String(v || '')))
-          .join(' ');
+        const brandText = brand !== '—' ? brand : '';
+        const categoryText = productCategory !== '—' ? productCategory : '';
+        const modelGroupText = modelGroup !== '—' ? modelGroup : '';
 
-        const searchableText = `${brand} ${productCategory} ${modelGroup} ${itemValues}`.toLowerCase();
+        const searchableText = `${brandText} ${categoryText} ${modelGroupText}`.toLowerCase().trim();
         const normalizedSearchable = searchableText.replace(/[^a-z0-9]/g, '');
 
         // A: Direct substring match
@@ -491,7 +1017,7 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
         // B: Normalized match (strips hyphens, brackets, spaces, pluses, etc.)
         const normalizedMatch =
           normalizedQuery.length > 0 &&
-          (normalizedSearchable.includes(normalizedQuery) || normalizedQuery.includes(normalizedSearchable));
+          normalizedSearchable.includes(normalizedQuery);
 
         // C: All tokens match
         const tokenMatch =
@@ -541,6 +1067,7 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
     isReportDetail: boolean;
     visibleColumns: any[];
     onFetchStockInfo: (item: any) => void;
+    onOpenOfferModal: (item: any, offers: NormalizedOffer[]) => void;
   }> = ({
     item,
     isExpanded,
@@ -548,6 +1075,7 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
     isReportDetail,
     visibleColumns,
     onFetchStockInfo,
+    onOpenOfferModal,
   }) => {
     // Standard keys safely rendered
     const brand = renderStringValue(
@@ -578,16 +1106,22 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
       '';
     const formattedDateTime = formatTimestamp(rawTimestamp);
 
-    const activeOffers = renderStringValue(
+    const rawOffers =
       item.active_offers ??
       item.activeOffers ??
       item.Active_Offers ??
       item['Active Offers'] ??
-      item.offer ??
+      item['active_offers'] ??
+      item['active_offer'] ??
+      item.active_offer ??
+      item.activeOffer ??
       item.offers ??
-      item.Offer ??
-      item.Offers
-    );
+      item.Offers ??
+      item.offer ??
+      item.Offer;
+
+    const parsedOffers = useMemo(() => parseItemOffers(rawOffers), [rawOffers]);
+    const hasOffers = parsedOffers.length > 0;
 
     // Hide "View Stock" button when GeneralmodelGroup is "*General"
     const generalModelGroupVal = String(
@@ -788,25 +1322,28 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
             </View>
           </View>
 
-          {/* 4) Offer */}
+          {/* 4) Offer (View Offer button if available, else '—') */}
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Offer</Text>
-            <View
-              style={[
-                styles.offerBadgeWrapper,
-                (!activeOffers || activeOffers === '—') && styles.offerBadgeEmpty,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.activeOffersText,
-                  (!activeOffers || activeOffers === '—') && styles.activeOffersTextEmpty,
-                ]}
-                numberOfLines={2}
+            {hasOffers ? (
+              <TouchableOpacity
+                style={styles.viewOfferRowBadge}
+                activeOpacity={0.7}
+                onPress={() => onOpenOfferModal(item, parsedOffers)}
               >
-                {activeOffers || '—'}
-              </Text>
-            </View>
+                <Image source={Images.offer} style={styles.viewOfferRowIcon} resizeMode="contain" />
+                <Text style={styles.viewOfferRowText}>
+                  {parsedOffers.length > 1 ? `View ${parsedOffers.length} Offers` : 'View Offer'}
+                </Text>
+                <Text style={styles.viewOfferArrow}>›</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.offerBadgeWrapper, styles.offerBadgeEmpty]}>
+                <Text style={[styles.activeOffersText, styles.activeOffersTextEmpty]}>
+                  —
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* 5) Other data - First 3 items always visible */}
@@ -882,6 +1419,7 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
         isReportDetail={isReportDetail}
         visibleColumns={visibleColumns}
         onFetchStockInfo={(it) => handleFetchStockInfo(it, true)}
+        onOpenOfferModal={handleOpenOfferModal}
       />
     );
   };
@@ -965,6 +1503,30 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
     stockInfoData?.data?.modelGroup ||
     stockInfoData?.modelGroup ||
     'Stock Details';
+
+  const offerModalBrand =
+    selectedOfferItem?.['Brand Name'] ||
+    selectedOfferItem?.['Brand'] ||
+    selectedOfferItem?.brand ||
+    selectedOfferItem?.Brand ||
+    selectedOfferItem?.brand_name ||
+    selectedOfferItem?.brandName ||
+    selectedOfferItem?.Mobile_Brand ||
+    '';
+
+  const offerModalTitle =
+    selectedOfferItem?.['Model Group'] ||
+    selectedOfferItem?.['model_group_name'] ||
+    selectedOfferItem?.['modelGroupName'] ||
+    selectedOfferItem?.model_group_name ||
+    selectedOfferItem?.modelGroupName ||
+    selectedOfferItem?.model_group ||
+    selectedOfferItem?.ModelGroup ||
+    selectedOfferItem?.['MODEL GROUP'] ||
+    selectedOfferItem?.['Product Name'] ||
+    selectedOfferItem?.product_name ||
+    selectedOfferItem?.model_name ||
+    'Offer Details';
 
   return (
     <View style={styles.container}>
@@ -1726,20 +2288,7 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
                       loc.CODE ||
                       loc.code ||
                       '';
-                    const availableStock =
-                      loc.SALEABLE_STOCK ??
-                      loc['Saleable Stock'] ??
-                      loc.saleable_stock ??
-                      loc.saleableStock ??
-                      loc.AVAILABLE_STOCK ??
-                      loc.available_stock ??
-                      loc.availableStock ??
-                      loc.total_stock ??
-                      loc.totalStock ??
-                      loc.stock ??
-                      loc.qty ??
-                      loc.quantity ??
-                      0;
+                    const availableStock = getObjectStockValue(loc);
 
                     const subItems: any[] =
                       Array.isArray(loc.items) && loc.items.length > 0
@@ -1773,17 +2322,8 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
                                 loc.CODE ||
                                 loc.code ||
                                 loc.id ||
-                                '12448',
-                              saleable_stock:
-                                loc.SALEABLE_STOCK ??
-                                loc['Saleable Stock'] ??
-                                loc.saleable_stock ??
-                                loc.saleableStock ??
-                                loc.AVAILABLE_STOCK ??
-                                loc.available_stock ??
-                                loc.availableStock ??
-                                loc.stock ??
-                                availableStock,
+                                '',
+                              saleable_stock: availableStock,
                             },
                           ];
 
@@ -1813,17 +2353,9 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
                         <View style={styles.locationSubItemsContainer}>
                           {subItems
                             .filter((device) => {
-                              const devStock = Number(
-                                device.SALEABLE_STOCK ??
-                                device['Saleable Stock'] ??
-                                device.saleable_stock ??
-                                device.saleableStock ??
-                                device.AVAILABLE_STOCK ??
-                                device.available_stock ??
-                                device.stock ??
-                                availableStock
-                              );
-                              return devStock > 0;
+                              if (subItems.length === 1) return true;
+                              const devStock = getObjectStockValue(device);
+                              return devStock > 0 || availableStock > 0;
                             })
                             .map((device, devIdx) => {
                             const devName =
@@ -1845,15 +2377,7 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
                               device.CODE ||
                               device.code ||
                               '';
-                            const devStock =
-                              device.SALEABLE_STOCK ??
-                              device['Saleable Stock'] ??
-                              device.saleable_stock ??
-                              device.saleableStock ??
-                              device.AVAILABLE_STOCK ??
-                              device.available_stock ??
-                              device.stock ??
-                              availableStock;
+                            const devStock = getObjectStockValue(device) || availableStock;
 
                             return (
                               <View key={devIdx} style={styles.deviceRow}>
@@ -1893,6 +2417,250 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
                 activeOpacity={0.8}
               >
                 <Text style={styles.stockModalCloseBtnBottomText}>Close Stock View</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Active Offers Horizontal Scroll Modal ── */}
+      <Modal
+        visible={selectedOfferItem !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedOfferItem(null)}
+      >
+        <View style={styles.offerModalOverlay}>
+          {/* Backdrop Tap to Close */}
+          <TouchableOpacity
+            style={styles.offerModalBackdrop}
+            activeOpacity={1}
+            onPress={() => setSelectedOfferItem(null)}
+          />
+
+          <View style={styles.offerModalCard}>
+            {/* Modal Header */}
+            <View style={styles.offerModalHeader}>
+              <View style={styles.offerModalTitleRow}>
+                <View style={styles.offerIconCircle}>
+                  <Image source={Images.offer} style={styles.offerModalHeaderIcon} resizeMode="contain" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                    <Text style={styles.offerModalTitle} numberOfLines={1}>
+                      {offerModalTitle}
+                    </Text>
+                    {!!offerModalBrand && (
+                      <View style={styles.offerCategoryPill}>
+                        <Text style={styles.offerCategoryText}>{offerModalBrand}</Text>
+                      </View>
+                    )}
+                    <View style={styles.offerCountPill}>
+                      <Text style={styles.offerCountPillText}>
+                        {selectedOffersList.length} {selectedOffersList.length === 1 ? 'Offer' : 'Offers'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.offerModalSubText}>
+                    Active promotional schemes & discounts
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setSelectedOfferItem(null)}
+                style={styles.offerModalCloseBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.offerModalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Modal Body: Horizontal Scroll Cards */}
+            <View style={styles.offerListFlexContainer}>
+              <FlatList
+                data={selectedOffersList}
+                keyExtractor={(off, idx) => String(off.id || idx)}
+                horizontal={true}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.offerCardsListContent}
+                snapToInterval={OFFER_SNAP_INTERVAL}
+                decelerationRate="fast"
+                snapToAlignment="start"
+                pagingEnabled={false}
+                nestedScrollEnabled={true}
+                onMomentumScrollEnd={(e) => {
+                  const offset = e.nativeEvent.contentOffset.x;
+                  const idx = Math.round(offset / OFFER_SNAP_INTERVAL);
+                  setActiveOfferCardIndex(Math.max(0, Math.min(idx, selectedOffersList.length - 1)));
+                }}
+                renderItem={({ item: offer, index: offIdx }) => {
+                  const formattedFrom = formatOfferDate(offer.validFrom);
+                  const formattedTo = formatOfferDate(offer.validTo);
+                  const validityText =
+                    formattedFrom && formattedTo
+                      ? `${formattedFrom} – ${formattedTo}`
+                      : formattedTo
+                      ? `Valid till ${formattedTo}`
+                      : formattedFrom
+                      ? `From ${formattedFrom}`
+                      : '';
+
+                  return (
+                    <View style={[styles.offerCardItem, { width: OFFER_CARD_WIDTH }]}>
+                      <ScrollView
+                        style={styles.offerCardInnerScroll}
+                        showsVerticalScrollIndicator={false}
+                        nestedScrollEnabled={true}
+                      >
+                        {/* Top Badges */}
+                        <View style={styles.offerCardTopRow}>
+                          {!!(offer.transactionType || offer.offerType) ? (
+                            <View style={styles.offerTypeBadge}>
+                              <Image source={Images.tag} style={styles.offerTypeTagIcon} resizeMode="contain" />
+                              <Text style={styles.offerTypeBadgeText}>
+                                {offer.transactionType || offer.offerType}
+                              </Text>
+                            </View>
+                          ) : (
+                            <View />
+                          )}
+                          {selectedOffersList.length > 1 && (
+                            <View style={styles.offerIndexBadge}>
+                              <Text style={styles.offerIndexBadgeText}>
+                                {offIdx + 1} of {selectedOffersList.length}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+
+                        {/* ── Date on Top ── */}
+                        {!!validityText && (
+                          <View style={styles.validityRowTop}>
+                            <Image source={Images.calendar} style={styles.validityCalendarIcon} resizeMode="contain" />
+                            <Text style={styles.validityText}>{validityText}</Text>
+                          </View>
+                        )}
+
+                        {/* ── Transaction Keys Section (Offer Type Value, Value Type, Upto Value, Transaction Type) ── */}
+                        {(!!offer.offerTypeValue || !!offer.transactionType || !!offer.uptoValue || !!offer.valueType) && (
+                          <View style={styles.txnDetailsCard}>
+                            {/* Offer Type Value */}
+                            {!!offer.offerTypeValue && (
+                              <View style={styles.txnDetailRow}>
+                                <Text style={styles.txnDetailLabel}>Offer Type Value</Text>
+                                <View style={styles.txnValuePill}>
+                                  <Text style={styles.txnValuePillText}>{offer.offerTypeValue}</Text>
+                                </View>
+                              </View>
+                            )}
+
+                            {/* Value Type */}
+                            {!!offer.valueType && (
+                              <View style={styles.txnDetailRow}>
+                                <Text style={styles.txnDetailLabel}>Value Type</Text>
+                                <Text style={styles.txnDetailValue}>{offer.valueType}</Text>
+                              </View>
+                            )}
+
+                            {/* Upto Value */}
+                            {!!offer.uptoValue && (
+                              <View style={styles.txnDetailRow}>
+                                <Text style={styles.txnDetailLabel}>Upto Value</Text>
+                                <Text style={styles.txnDetailValueHighlight}>{offer.uptoValue}</Text>
+                              </View>
+                            )}
+
+                            {/* Transaction Type */}
+                            {!!offer.transactionType && (
+                              <View style={styles.txnDetailRow}>
+                                <Text style={styles.txnDetailLabel}>Transaction Type</Text>
+                                <Text style={styles.txnDetailValue}>{offer.transactionType}</Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
+
+                        {/* Discount / Benefit Highlight Banner (if separate discount value available) */}
+                        {!!offer.discount && !offer.offerTypeValue && (
+                          <View style={styles.discountBannerBox}>
+                            <Text style={styles.discountBannerEmoji}>🎁</Text>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.discountBannerLabel}>Discount / Benefit</Text>
+                              <Text style={styles.discountBannerValue}>{offer.discount}</Text>
+                            </View>
+                          </View>
+                        )}
+
+                        {/* Coupon / Promo Code Box */}
+                        {!!offer.couponCode && (
+                          <View style={styles.couponCodeBox}>
+                            <Text style={styles.couponCodeLabel}>COUPON / SCHEME CODE</Text>
+                            <Text style={styles.couponCodeValue}>{offer.couponCode}</Text>
+                          </View>
+                        )}
+
+                        {/* ── Offer Text at Bottom ── */}
+                        {!!(offer.offerText || offer.title) && (
+                          <View style={styles.offerTextBox}>
+                            <Text style={styles.offerTextHeader}>Offer Text</Text>
+                            <Text style={styles.offerItemTitleBottom}>{offer.offerText || offer.title}</Text>
+                          </View>
+                        )}
+
+                        {/* Description Details */}
+                        {!!offer.description && (
+                          <View style={styles.offerDescriptionBox}>
+                            <Text style={styles.offerSectionHeader}>Offer Details</Text>
+                            <Text style={styles.offerDescriptionText}>{offer.description}</Text>
+                          </View>
+                        )}
+
+                        {/* Terms & Conditions */}
+                        {!!offer.terms && (
+                          <View style={styles.offerTermsBox}>
+                            <Text style={styles.offerTermsHeader}>Terms & Conditions</Text>
+                            <Text style={styles.offerTermsText}>{offer.terms}</Text>
+                          </View>
+                        )}
+                      </ScrollView>
+                    </View>
+                  );
+                }}
+              />
+
+              {/* Pagination Dots (if multiple offers) */}
+              {selectedOffersList.length > 1 && (
+                <View style={styles.offerPaginationContainer}>
+                  <View style={styles.offerDotsRow}>
+                    {selectedOffersList.map((_, dotIdx) => (
+                      <View
+                        key={dotIdx}
+                        style={[
+                          styles.offerDot,
+                          activeOfferCardIndex === dotIdx && styles.offerDotActive,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                  <Text style={styles.offerSwipeHint}>
+                    Swipe for more offers ({activeOfferCardIndex + 1}/{selectedOffersList.length})
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Modal Bottom Footer */}
+            <View style={styles.offerModalFooter}>
+              <Text style={styles.offerModalSourceText}>
+                {selectedOffersList.length} Active {selectedOffersList.length === 1 ? 'Scheme' : 'Schemes'} Available
+              </Text>
+              <TouchableOpacity
+                style={styles.offerModalCloseBtnBottom}
+                onPress={() => setSelectedOfferItem(null)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.offerModalCloseBtnBottomText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2052,6 +2820,34 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontFamily: fontFamily.regular,
   },
+  viewOfferRowBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 5,
+    alignSelf: 'flex-end',
+  },
+  viewOfferRowIcon: {
+    width: 13,
+    height: 13,
+    tintColor: colors.primary,
+  },
+  viewOfferRowText: {
+    fontSize: 11.5,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+  },
+  viewOfferArrow: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+    marginTop: -1,
+  },
   productNameValue: {
     fontSize: 13,
     fontFamily: fontFamily.bold,
@@ -2131,6 +2927,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  offerBtnBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#7C3AED',
+    borderWidth: 1,
+    borderColor: '#6D28D9',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 5,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 1.5,
+  },
+  offerBtnIcon: {
+    width: 13,
+    height: 13,
+    tintColor: '#FFFFFF',
+  },
+  offerBtnText: {
+    fontSize: fontSize.small,
+    fontFamily: fontFamily.bold,
+    color: '#FFFFFF',
   },
   stockBtnBottom: {
     flexDirection: 'row',
@@ -3030,6 +3854,429 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fontFamily.bold,
     color: '#475569',
+  },
+
+  /* ── Active Offers Modal Styles ── */
+  offerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 20,
+  },
+  offerModalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  offerModalCard: {
+    width: '100%',
+    maxHeight: '85%',
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  offerModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    backgroundColor: colors.white,
+  },
+  offerModalTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginRight: 8,
+  },
+  offerIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  offerModalHeaderIcon: {
+    width: 20,
+    height: 20,
+    tintColor: colors.primary,
+  },
+  offerModalTitle: {
+    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    color: '#0F172A',
+  },
+  offerCategoryPill: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  offerCategoryText: {
+    fontSize: 10.5,
+    fontFamily: fontFamily.bold,
+    color: '#475569',
+    textTransform: 'uppercase',
+  },
+  offerCountPill: {
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  offerCountPillText: {
+    fontSize: 10.5,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+  },
+  offerModalSubText: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    color: '#94A3B8',
+    marginTop: 3,
+  },
+  offerModalCloseBtn: {
+    padding: 6,
+  },
+  offerModalCloseText: {
+    fontSize: 16,
+    color: '#94A3B8',
+    fontFamily: fontFamily.bold,
+  },
+
+  /* Offer Cards List Container */
+  offerListFlexContainer: {
+    paddingVertical: 14,
+    backgroundColor: '#F8FAFC',
+  },
+  offerCardsListContent: {
+    paddingHorizontal: 16,
+    gap: 14,
+    alignItems: 'stretch',
+  },
+  offerCardItem: {
+    backgroundColor: colors.white,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    maxHeight: 380,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  offerCardInnerScroll: {
+    flexGrow: 0,
+  },
+  offerCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  offerTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+  },
+  offerTypeTagIcon: {
+    width: 10,
+    height: 10,
+    tintColor: colors.primary,
+  },
+  offerTypeBadgeText: {
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+    textTransform: 'uppercase',
+  },
+  offerIndexBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  offerIndexBadgeText: {
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    color: '#64748B',
+  },
+  offerItemTitle: {
+    fontSize: 14.5,
+    fontFamily: fontFamily.bold,
+    color: '#0F172A',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  /* Transaction Details Card in Offer Card */
+  txnDetailsCard: {
+    backgroundColor: '#FAF5FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EDE9FE',
+    padding: 10,
+    marginBottom: 8,
+    gap: 7,
+  },
+  txnDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+    gap: 8,
+  },
+  txnDetailLabel: {
+    fontSize: 11.5,
+    fontFamily: fontFamily.regular,
+    color: '#64748B',
+  },
+  txnDetailValue: {
+    fontSize: 12,
+    fontFamily: fontFamily.bold,
+    color: '#1E293B',
+    textAlign: 'right',
+    flex: 1,
+  },
+  txnDetailValueHighlight: {
+    fontSize: 12.5,
+    fontFamily: fontFamily.bold,
+    color: '#059669',
+    textAlign: 'right',
+    flex: 1,
+  },
+  txnValuePill: {
+    backgroundColor: colors.primary,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    alignSelf: 'flex-end',
+  },
+  txnValuePillText: {
+    fontSize: 11.5,
+    fontFamily: fontFamily.bold,
+    color: '#FFFFFF',
+  },
+  discountBannerBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 10,
+    padding: 10,
+    gap: 8,
+    marginBottom: 8,
+  },
+  discountBannerEmoji: {
+    fontSize: 18,
+  },
+  discountBannerLabel: {
+    fontSize: 10.5,
+    fontFamily: fontFamily.medium,
+    color: '#065F46',
+  },
+  discountBannerValue: {
+    fontSize: 13.5,
+    fontFamily: fontFamily.bold,
+    color: '#047857',
+    marginTop: 1,
+  },
+  couponCodeBox: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#FCD34D',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  couponCodeLabel: {
+    fontSize: 9.5,
+    fontFamily: fontFamily.bold,
+    color: '#B45309',
+    letterSpacing: 0.5,
+  },
+  couponCodeValue: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: '#92400E',
+    marginTop: 2,
+  },
+  validityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    gap: 6,
+    marginBottom: 8,
+  },
+  validityRowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    gap: 6,
+    marginBottom: 10,
+  },
+  validityCalendarIcon: {
+    width: 11,
+    height: 11,
+    tintColor: '#64748B',
+  },
+  validityText: {
+    fontSize: 11,
+    fontFamily: fontFamily.medium,
+    color: '#475569',
+  },
+  offerTextBox: {
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#EDE9FE',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 8,
+  },
+  offerTextHeader: {
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+    marginBottom: 3,
+    textTransform: 'uppercase',
+  },
+  offerItemTitleBottom: {
+    fontSize: 13,
+    fontFamily: fontFamily.medium,
+    color: '#1E293B',
+    lineHeight: 18,
+  },
+  offerDescriptionBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    padding: 9,
+    marginBottom: 6,
+  },
+  offerSectionHeader: {
+    fontSize: 10.5,
+    fontFamily: fontFamily.bold,
+    color: '#64748B',
+    marginBottom: 3,
+    textTransform: 'uppercase',
+  },
+  offerDescriptionText: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    color: '#334155',
+    lineHeight: 17,
+  },
+  offerTermsBox: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 2,
+  },
+  offerTermsHeader: {
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    color: '#64748B',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+  },
+  offerTermsText: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    color: '#64748B',
+    lineHeight: 15,
+  },
+
+  /* Pagination Dots */
+  offerPaginationContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    gap: 4,
+  },
+  offerDotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  offerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#CBD5E1',
+  },
+  offerDotActive: {
+    width: 18,
+    backgroundColor: colors.primary,
+    borderRadius: 4,
+  },
+  offerSwipeHint: {
+    fontSize: 10.5,
+    fontFamily: fontFamily.regular,
+    color: '#94A3B8',
+  },
+
+  /* Modal Footer */
+  offerModalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    backgroundColor: colors.white,
+  },
+  offerModalSourceText: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    color: '#94A3B8',
+  },
+  offerModalCloseBtnBottom: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  offerModalCloseBtnBottomText: {
+    fontSize: 12.5,
+    fontFamily: fontFamily.bold,
+    color: '#FFFFFF',
   },
 });
 

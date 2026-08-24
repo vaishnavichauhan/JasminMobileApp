@@ -273,7 +273,8 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
     brandSalesList,
     brandSalesTotals,
     selectedState,
-    isStateModalOpen,
+    selectedStates,
+    selectedZones,
     abmSearchQuery,
     brandSearchQuery,
     selectedDate,
@@ -281,9 +282,11 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
     calendarYear,
     calendarMonth,
     apiStatesList,
+    apiZonesList,
     setActiveTab,
     setSelectedState,
-    setIsStateModalOpen,
+    setSelectedStates,
+    setSelectedZones,
     setAbmSearchQuery,
     setBrandSearchQuery,
     setSelectedDate,
@@ -302,39 +305,80 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
   const abmInputRef = useRef<TextInput>(null);
   const brandInputRef = useRef<TextInput>(null);
 
+  // Local Filter Modal States
+  const [isFilterModalOpen, setIsFilterModalOpen] = React.useState(false);
+  const [filterModalTab, setFilterModalTab] = React.useState<'STATE' | 'ZONE'>('STATE');
+  const [stateSearchText, setStateSearchText] = React.useState('');
+  const [zoneSearchText, setZoneSearchText] = React.useState('');
+  const [tempSelectedStates, setTempSelectedStates] = React.useState<string[]>([]);
+  const [tempSelectedZones, setTempSelectedZones] = React.useState<string[]>([]);
+
   // Initial load: Fetch states list and data on screen focus
   useFocusEffect(
     React.useCallback(() => {
       loadStatesDropdown(token);
-      loadCashDepositData(token, false, 'All States');
+      loadCashDepositData(token, false, []);
     }, [token, resetFilters, loadCashDepositData])
   );
 
   // Extract unique state names strictly from authorized API states
   const availableStates = React.useMemo(() => {
     const set = new Set<string>();
-    set.add('All States');
     if (Array.isArray(apiStatesList) && apiStatesList.length > 0) {
-      apiStatesList.forEach((st) => set.add(st));
+      apiStatesList.forEach((st) => {
+        if (st && st.trim() && st !== 'All States') set.add(st.trim());
+      });
     }
-    return Array.from(set);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [apiStatesList]);
 
-  // Filtered ABM List based on search query and selected state
+  // Extract unique zone names from API and data
+  const availableZones = React.useMemo(() => {
+    const set = new Set<string>();
+    if (Array.isArray(apiZonesList) && apiZonesList.length > 0) {
+      apiZonesList.forEach((zn) => {
+        if (zn && zn.trim() && zn !== 'All Zones') set.add(zn.trim());
+      });
+    }
+    if (Array.isArray(brandSalesList)) {
+      brandSalesList.forEach((item: any) => {
+        const z = item.zone || item.zone_name || item.zoneName;
+        if (z && typeof z === 'string' && z.trim() && z !== 'All Zones') {
+          set.add(z.trim());
+        }
+      });
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [apiZonesList, brandSalesList]);
+
+  // Filter states inside modal by search query
+  const filteredModalStates = React.useMemo(() => {
+    if (!stateSearchText.trim()) return availableStates;
+    const q = stateSearchText.toLowerCase().trim();
+    return availableStates.filter((s) => s.toLowerCase().includes(q));
+  }, [availableStates, stateSearchText]);
+
+  // Filter zones inside modal by search query
+  const filteredModalZones = React.useMemo(() => {
+    if (!zoneSearchText.trim()) return availableZones;
+    const q = zoneSearchText.toLowerCase().trim();
+    return availableZones.filter((z) => z.toLowerCase().includes(q));
+  }, [availableZones, zoneSearchText]);
+
+  // Filtered ABM List based on search query and selected states
   const filteredCashDepositList = React.useMemo(() => {
     return cashDepositList.filter((item) => {
       const nameMatch =
         !abmSearchQuery.trim() ||
         item.abmName.toLowerCase().includes(abmSearchQuery.toLowerCase().trim());
-      const itemState = item.stateName || item.state_name || item.state || '';
+      const itemState = (item.stateName || item.state_name || item.state || '').trim();
       const stateMatch =
-        selectedState === 'All States' ||
-        !itemState ||
-        itemState.toLowerCase().trim() === selectedState.toLowerCase().trim();
+        selectedStates.length === 0 ||
+        selectedStates.includes(itemState);
 
       return nameMatch && stateMatch;
     });
-  }, [cashDepositList, abmSearchQuery, selectedState]);
+  }, [cashDepositList, abmSearchQuery, selectedStates]);
 
   // Filtered Brand Sales List based on search query for brand_name
   const filteredBrandSalesList = React.useMemo(() => {
@@ -360,14 +404,85 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
     user?.role || user?.user_role || user?.designation || user?.type || 'Member';
   const avatarLetter = userName.trim().charAt(0).toUpperCase();
 
+  // Handlers for Opening Filter Modal
+  const handleOpenStateFilter = () => {
+    setTempSelectedStates(selectedStates);
+    setTempSelectedZones(selectedZones);
+    setFilterModalTab('STATE');
+    setStateSearchText('');
+    setIsFilterModalOpen(true);
+  };
+
+  const handleOpenZoneFilter = () => {
+    setTempSelectedStates(selectedStates);
+    setTempSelectedZones(selectedZones);
+    setFilterModalTab('ZONE');
+    setZoneSearchText('');
+    setIsFilterModalOpen(true);
+  };
+
+  const handleToggleTempState = (st: string) => {
+    setTempSelectedStates((prev) =>
+      prev.includes(st) ? prev.filter((s) => s !== st) : [...prev, st]
+    );
+  };
+
+  const handleToggleTempZone = (zn: string) => {
+    setTempSelectedZones((prev) =>
+      prev.includes(zn) ? prev.filter((z) => z !== zn) : [...prev, zn]
+    );
+  };
+
+  const handleResetModalFilter = () => {
+    if (filterModalTab === 'STATE') {
+      setTempSelectedStates([]);
+    } else {
+      setTempSelectedZones([]);
+    }
+  };
+
+  const handleApplyModalFilter = () => {
+    setSelectedStates(tempSelectedStates);
+    setSelectedZones(tempSelectedZones);
+    setIsFilterModalOpen(false);
+
+    if (activeTab === 'CASH_DEPOSIT') {
+      loadCashDepositData(token, false, tempSelectedStates);
+    } else {
+      loadBrandSalesData(
+        token,
+        false,
+        tempSelectedStates,
+        tempSelectedZones,
+        selectedDate,
+        brandSearchQuery
+      );
+    }
+  };
+
   // Load tab data on dependency changes
   useEffect(() => {
     if (activeTab === 'CASH_DEPOSIT') {
-      loadCashDepositData(token, false, selectedState);
+      loadCashDepositData(token, false, selectedStates);
     } else {
-      loadBrandSalesData(token, false, selectedState, selectedDate, brandSearchQuery);
+      loadBrandSalesData(
+        token,
+        false,
+        selectedStates,
+        selectedZones,
+        selectedDate,
+        brandSearchQuery
+      );
     }
-  }, [activeTab, selectedState, selectedDate, token, loadCashDepositData, loadBrandSalesData]);
+  }, [
+    activeTab,
+    selectedStates,
+    selectedZones,
+    selectedDate,
+    token,
+    loadCashDepositData,
+    loadBrandSalesData,
+  ]);
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -626,25 +741,29 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
               <TouchableOpacity
                 style={[
                   styles.stateDropdownBtn,
-                  selectedState !== 'All States' && styles.stateDropdownBtnActive,
+                  selectedStates.length > 0 && styles.stateDropdownBtnActive,
                 ]}
                 activeOpacity={0.8}
-                onPress={() => setIsStateModalOpen(true)}
+                onPress={handleOpenStateFilter}
               >
                 <Text
                   style={[
                     styles.stateDropdownText,
-                    selectedState !== 'All States' && styles.stateDropdownTextActive,
+                    selectedStates.length > 0 && styles.stateDropdownTextActive,
                   ]}
                   numberOfLines={1}
                 >
-                  {selectedState}
+                  {selectedStates.length === 0
+                    ? 'All States'
+                    : selectedStates.length === 1
+                    ? selectedStates[0]
+                    : `${selectedStates.length} States`}
                 </Text>
                 <Image
                   source={Images.down}
                   style={[
                     styles.stateDropdownIcon,
-                    selectedState !== 'All States' && styles.stateDropdownIconActive,
+                    selectedStates.length > 0 && styles.stateDropdownIconActive,
                   ]}
                   resizeMode="contain"
                 />
@@ -674,12 +793,9 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
               ) : error && isAccessDeniedError(error) ? (
                 <AccessDenied
                   message={error}
-                  onRetry={() => loadCashDepositData(token, true, selectedState)}
+                  onRetry={() => loadCashDepositData(token, true, selectedStates)}
                 />
               ) : filteredCashDepositList.length === 0 ? (
-                // <View style={styles.emptyContainer}>
-                //   <Text style={styles.emptyText}>No Data found</Text>
-                // </View>
                  <View style={styles.center}>
                           <Text style={styles.stateIcon}>📊</Text>
                           <Text style={styles.stateText}>No data found</Text>
@@ -803,37 +919,59 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
               </TouchableOpacity>
             </View>
 
-            {/* ── Dual Controls Row: State Dropdown + Date Calendar Picker ── */}
+            {/* ── Brand Wise Controls Row: Filter Dropdown (State & Zone) + Date Calendar Picker ── */}
             <View style={styles.brandFilterControlsRow}>
-              {/* 1. State Filter Button */}
+              {/* Single Filter Dropdown Button with Down Arrow (State & Zone list inside) */}
               <TouchableOpacity
                 style={[
-                  styles.brandStateDropdownBtn,
-                  selectedState !== 'All States' && styles.stateDropdownBtnActive,
+                  styles.brandFilterDropdownBtn,
+                  (selectedStates.length > 0 || selectedZones.length > 0) &&
+                    styles.brandFilterDropdownBtnActive,
                 ]}
                 activeOpacity={0.8}
-                onPress={() => setIsStateModalOpen(true)}
+                onPress={() => handleOpenStateFilter()}
               >
+                <Image
+                  source={Images.filter}
+                  style={[
+                    styles.filterBtnLeftIcon,
+                    (selectedStates.length > 0 || selectedZones.length > 0) &&
+                      styles.filterBtnLeftIconActive,
+                  ]}
+                  resizeMode="contain"
+                />
                 <Text
                   style={[
-                    styles.stateDropdownText,
-                    selectedState !== 'All States' && styles.stateDropdownTextActive,
+                    styles.brandFilterDropdownText,
+                    (selectedStates.length > 0 || selectedZones.length > 0) &&
+                      styles.brandFilterDropdownTextActive,
                   ]}
                   numberOfLines={1}
                 >
-                  {selectedState}
+                  {selectedStates.length === 0 && selectedZones.length === 0
+                    ? 'State/Zone'
+                    : selectedStates.length > 0 && selectedZones.length === 0
+                    ? selectedStates.length === 1
+                      ? selectedStates[0]
+                      : `${selectedStates.length} States`
+                    : selectedStates.length === 0 && selectedZones.length > 0
+                    ? selectedZones.length === 1
+                      ? selectedZones[0]
+                      : `${selectedZones.length} Zones`
+                    : `${selectedStates.length + selectedZones.length} Filters`}
                 </Text>
                 <Image
                   source={Images.down}
                   style={[
-                    styles.stateDropdownIcon,
-                    selectedState !== 'All States' && styles.stateDropdownIconActive,
+                    styles.brandFilterDropdownIcon,
+                    (selectedStates.length > 0 || selectedZones.length > 0) &&
+                      styles.brandFilterDropdownIconActive,
                   ]}
                   resizeMode="contain"
                 />
               </TouchableOpacity>
 
-              {/* 2. Date Calendar Picker Button */}
+              {/* Date Calendar Picker Button */}
               <TouchableOpacity
                 style={[
                   styles.datePickerBtn,
@@ -879,7 +1017,7 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
               {loading && !refreshing ? (
                 <View style={styles.centerLoading}>
                   <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={styles.loadingText}>Loading brand sales...</Text>
+                  <Text style={styles.loadingText}>Loading brand sales cards...</Text>
                 </View>
               ) : error && isAccessDeniedError(error) ? (
                 <AccessDenied
@@ -888,17 +1026,23 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                     loadBrandSalesData(
                       token,
                       true,
-                      selectedState,
+                      selectedStates,
+                      selectedZones,
                       selectedDate,
                       brandSearchQuery
                     )
                   }
                 />
+              ) : filteredBrandSalesList.length === 0 && !brandSalesTotals ? (
+                <View style={styles.center}>
+                  <Text style={styles.stateIcon}>📊</Text>
+                  <Text style={styles.stateText}>No data found</Text>
+                </View>
               ) : (
                 <>
-                  {/* ── Total All Data Summary Card ── */}
+                  {/* ── CARD 1: TOTAL BRAND SALES CARD (Purple Theme) ── */}
                   {brandSalesTotals && (
-                    <View style={styles.totalBrandCard}>
+                    <View style={[styles.brandCard, styles.totalBrandCard]}>
                       {/* Total Card Header */}
                       <View style={styles.totalBrandCardHeader}>
                         <View style={styles.totalBrandHeaderLeft}>
@@ -911,29 +1055,30 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                           </View>
                           <View>
                             <Text style={styles.totalBrandTitle}>
-                              {brandSalesTotals.brandName || 'Total'}
+                              {brandSalesTotals.brandName || 'Total Brand Sales'}
                             </Text>
                             <Text style={styles.totalBrandSubtitle}>
-                              Total All Data
+                              Cumulative Summary
                             </Text>
                           </View>
                         </View>
+
                         <View style={styles.totalBadge}>
-                          <Text style={styles.totalBadgeText}>TOTALS</Text>
+                          <Text style={styles.totalBadgeText}>SUMMARY</Text>
                         </View>
                       </View>
 
-                      {/* 2x2 Grid for Total FTD, LMFTD, MTD, LMTD */}
+                      {/* 4-Box Metrics Grid for Totals */}
                       <View style={styles.brandStatsGrid}>
-                        {/* 1. Total FTD */}
+                        {/* 1. FTD */}
                         <View style={[styles.brandBox, styles.totalBox]}>
                           <View style={styles.brandBoxHeader}>
                             <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
-                              Total FTD
+                              FTD
                             </Text>
                             <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
                               <Text style={styles.brandBoxQtyText}>
-                                Qty: {formatQuantity(brandSalesTotals.ftdQty)}
+                                {formatQuantity(brandSalesTotals.ftdQty)}
                               </Text>
                             </View>
                           </View>
@@ -942,15 +1087,15 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                           </Text>
                         </View>
 
-                        {/* 2. Total LMFTD */}
+                        {/* 2. LMFTD */}
                         <View style={[styles.brandBox, styles.totalBox]}>
                           <View style={styles.brandBoxHeader}>
                             <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
-                              Total LMFTD
+                              LMFTD
                             </Text>
                             <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
                               <Text style={styles.brandBoxQtyText}>
-                                Qty: {formatQuantity(brandSalesTotals.lmftdQty)}
+                                {formatQuantity(brandSalesTotals.lmftdQty)}
                               </Text>
                             </View>
                           </View>
@@ -959,37 +1104,32 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                           </Text>
                         </View>
 
-                        {/* 3. Total MTD */}
-                        <View style={[styles.brandBox, styles.totalBox]}>
+                        {/* 3. MTD (Highlighted in Purple) */}
+                        <View style={[styles.brandBox, styles.totalBoxMtd]}>
                           <View style={styles.brandBoxHeader}>
-                            <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
-                              Total MTD
+                            <Text style={[styles.brandBoxTitle, styles.totalBoxTitleMtd]}>
+                              MTD
                             </Text>
-                            <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
-                              <Text
-                                style={[
-                                  styles.brandBoxQtyText,
-                                 
-                                ]}
-                              >
-                                Qty: {formatQuantity(brandSalesTotals.mtdQty)}
+                            <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadgeMtd]}>
+                              <Text style={[styles.brandBoxQtyText, styles.brandBoxQtyTextMtd]}>
+                                {formatQuantity(brandSalesTotals.mtdQty)}
                               </Text>
                             </View>
                           </View>
-                          <Text style={[styles.brandBoxValueText, styles.totalBoxValueText]}>
+                          <Text style={[styles.brandBoxValueText, styles.totalBoxValueTextMtd]}>
                             {formatCurrency(brandSalesTotals.mtdValue)}
                           </Text>
                         </View>
 
-                        {/* 4. Total LMTD */}
+                        {/* 4. LMTD */}
                         <View style={[styles.brandBox, styles.totalBox]}>
                           <View style={styles.brandBoxHeader}>
                             <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
-                              Total LMTD
+                              LMTD
                             </Text>
                             <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
                               <Text style={styles.brandBoxQtyText}>
-                                Qty: {formatQuantity(brandSalesTotals.lmtdQty)}
+                                {formatQuantity(brandSalesTotals.lmtdQty)}
                               </Text>
                             </View>
                           </View>
@@ -999,73 +1139,73 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                         </View>
                       </View>
 
-                      {/* Growth Metrics Footer */}
+                      {/* Growth Row for Totals */}
                       <View style={styles.brandGrowthRow}>
-                        {/* 5. Total Growth Qty */}
+                        {/* Growth Qty % */}
                         <View
                           style={[
                             styles.brandGrowthBox,
-                            (Number(brandSalesTotals.growthQtyPercentage) || 0) < 0
-                              ? styles.growthRedBox
-                              : styles.growthGreenBox,
+                            (brandSalesTotals.growthQtyPercentage ?? 0) >= 0
+                              ? styles.growthGreenBox
+                              : styles.growthRedBox,
                           ]}
                         >
                           <Text
                             style={[
                               styles.brandGrowthLabel,
-                              (Number(brandSalesTotals.growthQtyPercentage) || 0) < 0
-                                ? styles.growthRedText
-                                : styles.growthGreenText,
+                              (brandSalesTotals.growthQtyPercentage ?? 0) >= 0
+                                ? styles.growthGreenText
+                                : styles.growthRedText,
                             ]}
                           >
-                            Total Growth Qty
+                            Growth Qty %
                           </Text>
                           <Text
                             style={[
                               styles.brandGrowthValue,
-                              (Number(brandSalesTotals.growthQtyPercentage) || 0) < 0
-                                ? styles.growthRedText
-                                : styles.growthGreenText,
+                              (brandSalesTotals.growthQtyPercentage ?? 0) >= 0
+                                ? styles.growthGreenText
+                                : styles.growthRedText,
                             ]}
                           >
-                            {(Number(brandSalesTotals.growthQtyPercentage) || 0) > 0
+                            {(brandSalesTotals.growthQtyPercentage ?? 0) > 0
                               ? `▲ +${formatPercent(brandSalesTotals.growthQtyPercentage)}`
-                              : (Number(brandSalesTotals.growthQtyPercentage) || 0) < 0
+                              : (brandSalesTotals.growthQtyPercentage ?? 0) < 0
                               ? `▼ ${formatPercent(brandSalesTotals.growthQtyPercentage)}`
                               : formatPercent(brandSalesTotals.growthQtyPercentage)}
                           </Text>
                         </View>
 
-                        {/* 6. Total Growth Value */}
+                        {/* Growth Value % */}
                         <View
                           style={[
                             styles.brandGrowthBox,
-                            (Number(brandSalesTotals.growthValuePercentage) || 0) < 0
-                              ? styles.growthRedBox
-                              : styles.growthGreenBox,
+                            (brandSalesTotals.growthValuePercentage ?? 0) >= 0
+                              ? styles.growthGreenBox
+                              : styles.growthRedBox,
                           ]}
                         >
                           <Text
                             style={[
                               styles.brandGrowthLabel,
-                              (Number(brandSalesTotals.growthValuePercentage) || 0) < 0
-                                ? styles.growthRedText
-                                : styles.growthGreenText,
+                              (brandSalesTotals.growthValuePercentage ?? 0) >= 0
+                                ? styles.growthGreenText
+                                : styles.growthRedText,
                             ]}
                           >
-                            Total Growth Val
+                            Growth Value %
                           </Text>
                           <Text
                             style={[
                               styles.brandGrowthValue,
-                              (Number(brandSalesTotals.growthValuePercentage) || 0) < 0
-                                ? styles.growthRedText
-                                : styles.growthGreenText,
+                              (brandSalesTotals.growthValuePercentage ?? 0) >= 0
+                                ? styles.growthGreenText
+                                : styles.growthRedText,
                             ]}
                           >
-                            {(Number(brandSalesTotals.growthValuePercentage) || 0) > 0
+                            {(brandSalesTotals.growthValuePercentage ?? 0) > 0
                               ? `▲ +${formatPercent(brandSalesTotals.growthValuePercentage)}`
-                              : (Number(brandSalesTotals.growthValuePercentage) || 0) < 0
+                              : (brandSalesTotals.growthValuePercentage ?? 0) < 0
                               ? `▼ ${formatPercent(brandSalesTotals.growthValuePercentage)}`
                               : formatPercent(brandSalesTotals.growthValuePercentage)}
                           </Text>
@@ -1074,175 +1214,169 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                     </View>
                   )}
 
+                  {/* ── Individual Brand Cards List ── */}
                   {filteredBrandSalesList.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                      <Text style={styles.emptyText}>
-                        {brandSearchQuery.trim()
-                          ? `No brand matching "${brandSearchQuery}" found`
-                          : 'No brand sales records found'}
-                      </Text>
+                    <View style={styles.center}>
+                      <Text style={styles.stateIcon}>📊</Text>
+                      <Text style={styles.stateText}>No brands matching your search</Text>
                     </View>
                   ) : (
                     filteredBrandSalesList.map((item, index) => {
-                  const growthQtyRaw =
-                    item.growth_qty_percentage ?? item.growthQtyPercentage ?? 0;
-                  const growthValueRaw =
-                    item.growth_value_percentage ?? item.growthValuePercentage ?? 0;
-                  const growthQtyNum = Number(growthQtyRaw) || 0;
-                  const growthValueNum = Number(growthValueRaw) || 0;
+                      const growthQtyNum = Number(item.growthQtyPercentage) || 0;
+                      const growthValueNum = Number(item.growthValuePercentage) || 0;
 
-                  return (
-                    <View key={item.id || index} style={styles.brandCard}>
-                      {/* Brand Card Header (Product Icon + Brand Name) */}
-                      <View style={styles.brandCardHeader}>
-                        <View style={styles.brandHeaderLeft}>
-                          <View style={styles.brandIconWrapper}>
-                            <Image
-                              source={Images.product}
-                              style={styles.brandProductIcon}
-                              resizeMode="contain"
-                            />
+                      return (
+                        <View key={item.id || index} style={styles.brandCard}>
+                          {/* Card Header: Brand Name + Sr No Badge */}
+                          <View style={styles.brandCardHeader}>
+                            <View style={styles.brandHeaderLeft}>
+                              <View style={styles.brandIconWrapper}>
+                                <Image
+                                  source={Images.product}
+                                  style={styles.brandProductIcon}
+                                  resizeMode="contain"
+                                />
+                              </View>
+                              <View style={styles.brandHeaderTitleWrap}>
+                                <Text style={styles.brandNameText} numberOfLines={1}>
+                                  {item.brandName}
+                                </Text>
+                                <Text style={styles.brandIndexBadge}>
+                                  #{item.srNo ?? (index + 1)}
+                                </Text>
+                              </View>
+                            </View>
                           </View>
-                          <View style={styles.brandHeaderTitleWrap}>
-                            <Text style={styles.brandNameText} numberOfLines={1}>
-                              {item.brandName}
-                            </Text>
-                            <Text style={styles.brandIndexBadge}>
-                              #{item.srNo || index + 1}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
 
-                      {/* 2x2 Grid for FTD, LMFTD, MTD, LMTD */}
-                      <View style={styles.brandStatsGrid}>
-                        {/* 1. FTD */}
-                        <View style={styles.brandBox}>
-                          <View style={styles.brandBoxHeader}>
-                            <Text style={styles.brandBoxTitle}>FTD</Text>
-                            <View style={styles.brandBoxQtyBadge}>
-                              <Text style={styles.brandBoxQtyText}>
-                                Qty: {formatQuantity(item.ftdQty)}
+                          {/* 4-Box Metric Grid (FTD, LMFTD, MTD, LMTD) */}
+                          <View style={styles.brandStatsGrid}>
+                            {/* 1. FTD */}
+                            <View style={styles.brandBox}>
+                              <View style={styles.brandBoxHeader}>
+                                <Text style={styles.brandBoxTitle}>FTD</Text>
+                                <View style={styles.brandBoxQtyBadge}>
+                                  <Text style={styles.brandBoxQtyText}>
+                                    {formatQuantity(item.ftdQty)}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Text style={styles.brandBoxValueText}>
+                                {formatCurrency(item.ftdValue)}
+                              </Text>
+                            </View>
+
+                            {/* 2. LMFTD */}
+                            <View style={styles.brandBox}>
+                              <View style={styles.brandBoxHeader}>
+                                <Text style={styles.brandBoxTitle}>LMFTD</Text>
+                                <View style={styles.brandBoxQtyBadge}>
+                                  <Text style={styles.brandBoxQtyText}>
+                                    {formatQuantity(item.lmftdQty)}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Text style={styles.brandBoxValueText}>
+                                {formatCurrency(item.lmftdValue)}
+                              </Text>
+                            </View>
+
+                            {/* 3. MTD (Highlighted in Purple) */}
+                            <View style={[styles.brandBox, styles.brandBoxMtd]}>
+                              <View style={styles.brandBoxHeader}>
+                                <Text style={[styles.brandBoxTitle, styles.brandBoxTitleMtd]}>
+                                  MTD
+                                </Text>
+                                <View style={[styles.brandBoxQtyBadge, styles.brandBoxQtyBadgeMtd]}>
+                                  <Text style={[styles.brandBoxQtyText, styles.brandBoxQtyTextMtd]}>
+                                    {formatQuantity(item.mtdQty)}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Text style={[styles.brandBoxValueText, styles.brandBoxValueTextMtd]}>
+                                {formatCurrency(item.mtdValue)}
+                              </Text>
+                            </View>
+
+                            {/* 4. LMTD */}
+                            <View style={styles.brandBox}>
+                              <View style={styles.brandBoxHeader}>
+                                <Text style={styles.brandBoxTitle}>LMTD</Text>
+                                <View style={styles.brandBoxQtyBadge}>
+                                  <Text style={styles.brandBoxQtyText}>
+                                    {formatQuantity(item.lmtdQty)}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Text style={styles.brandBoxValueText}>
+                                {formatCurrency(item.lmtdValue)}
                               </Text>
                             </View>
                           </View>
-                          <Text style={styles.brandBoxValueText}>
-                            {formatCurrency(item.ftdValue)}
-                          </Text>
-                        </View>
 
-                        {/* 2. LMFTD */}
-                        <View style={styles.brandBox}>
-                          <View style={styles.brandBoxHeader}>
-                            <Text style={styles.brandBoxTitle}>LMFTD</Text>
-                            <View style={styles.brandBoxQtyBadge}>
-                              <Text style={styles.brandBoxQtyText}>
-                                Qty: {formatQuantity(item.lmftdQty)}
+                          {/* Growth Row (Growth Qty % & Growth Value %) */}
+                          <View style={styles.brandGrowthRow}>
+                            {/* Growth Qty % */}
+                            <View
+                              style={[
+                                styles.brandGrowthBox,
+                                growthQtyNum >= 0 ? styles.growthGreenBox : styles.growthRedBox,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.brandGrowthLabel,
+                                  growthQtyNum >= 0 ? styles.growthGreenText : styles.growthRedText,
+                                ]}
+                              >
+                                Growth Qty %
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.brandGrowthValue,
+                                  growthQtyNum >= 0 ? styles.growthGreenText : styles.growthRedText,
+                                ]}
+                              >
+                                {growthQtyNum > 0
+                                  ? `▲ +${formatPercent(growthQtyNum)}`
+                                  : growthQtyNum < 0
+                                  ? `▼ ${formatPercent(growthQtyNum)}`
+                                  : formatPercent(growthQtyNum)}
+                              </Text>
+                            </View>
+
+                            {/* Growth Value % */}
+                            <View
+                              style={[
+                                styles.brandGrowthBox,
+                                growthValueNum >= 0 ? styles.growthGreenBox : styles.growthRedBox,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.brandGrowthLabel,
+                                  growthValueNum >= 0 ? styles.growthGreenText : styles.growthRedText,
+                                ]}
+                              >
+                                Growth Value %
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.brandGrowthValue,
+                                  growthValueNum >= 0 ? styles.growthGreenText : styles.growthRedText,
+                                ]}
+                              >
+                                {growthValueNum > 0
+                                  ? `▲ +${formatPercent(growthValueNum)}`
+                                  : growthValueNum < 0
+                                  ? `▼ ${formatPercent(growthValueNum)}`
+                                  : formatPercent(growthValueNum)}
                               </Text>
                             </View>
                           </View>
-                          <Text style={styles.brandBoxValueText}>
-                            {formatCurrency(item.lmftdValue)}
-                          </Text>
                         </View>
-
-                        {/* 3. MTD (Highlighted Primary Border) */}
-                        <View style={[styles.brandBox, styles.brandBoxMtd]}>
-                          <View style={styles.brandBoxHeader}>
-                            <Text style={[styles.brandBoxTitle, styles.brandBoxTitleMtd]}>
-                              MTD
-                            </Text>
-                            <View style={[styles.brandBoxQtyBadge, styles.brandBoxQtyBadgeMtd]}>
-                              <Text style={[styles.brandBoxQtyText, styles.brandBoxQtyTextMtd]}>
-                                Qty: {formatQuantity(item.mtdQty)}
-                              </Text>
-                            </View>
-                          </View>
-                          <Text style={[styles.brandBoxValueText, styles.brandBoxValueTextMtd]}>
-                            {formatCurrency(item.mtdValue)}
-                          </Text>
-                        </View>
-
-                        {/* 4. LMTD */}
-                        <View style={styles.brandBox}>
-                          <View style={styles.brandBoxHeader}>
-                            <Text style={styles.brandBoxTitle}>LMTD</Text>
-                            <View style={styles.brandBoxQtyBadge}>
-                              <Text style={styles.brandBoxQtyText}>
-                                Qty: {formatQuantity(item.lmtdQty)}
-                              </Text>
-                            </View>
-                          </View>
-                          <Text style={styles.brandBoxValueText}>
-                            {formatCurrency(item.lmtdValue)}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Growth Stats Row (Growth Qty% & Growth Value%) */}
-                      <View style={styles.brandGrowthRow}>
-                        {/* 5. Growth Qty (%) */}
-                        <View
-                          style={[
-                            styles.brandGrowthBox,
-                            growthQtyNum < 0 ? styles.growthRedBox : styles.growthGreenBox,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.brandGrowthLabel,
-                              growthQtyNum < 0 ? styles.growthRedText : styles.growthGreenText,
-                            ]}
-                          >
-                            Growth Qty
-                          </Text>
-                          <Text
-                            style={[
-                              styles.brandGrowthValue,
-                              growthQtyNum < 0 ? styles.growthRedText : styles.growthGreenText,
-                            ]}
-                          >
-                            {growthQtyNum > 0
-                              ? `▲ +${formatPercent(growthQtyNum)}`
-                              : growthQtyNum < 0
-                              ? `▼ ${formatPercent(growthQtyNum)}`
-                              : formatPercent(growthQtyNum)}
-                          </Text>
-                        </View>
-
-                        {/* 6. Growth Value (%) */}
-                        <View
-                          style={[
-                            styles.brandGrowthBox,
-                            growthValueNum < 0 ? styles.growthRedBox : styles.growthGreenBox,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.brandGrowthLabel,
-                              growthValueNum < 0 ? styles.growthRedText : styles.growthGreenText,
-                            ]}
-                          >
-                            Growth Value
-                          </Text>
-                          <Text
-                            style={[
-                              styles.brandGrowthValue,
-                              growthValueNum < 0 ? styles.growthRedText : styles.growthGreenText,
-                            ]}
-                          >
-                            {growthValueNum > 0
-                              ? `▲ +${formatPercent(growthValueNum)}`
-                              : growthValueNum < 0
-                              ? `▼ ${formatPercent(growthValueNum)}`
-                              : formatPercent(growthValueNum)}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })
-              )}
+                      );
+                    })
+                  )}
                 </>
               )}
             </ScrollView>
@@ -1250,23 +1384,39 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
         )}
       </View>
 
-      {/* ── State Selection Modal Dropdown ── */}
+      {/* ── State & Zone Selection Modal Dropdown (Multi-select) ── */}
       <Modal
-        visible={isStateModalOpen}
+        visible={isFilterModalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsStateModalOpen(false)}
+        onRequestClose={() => setIsFilterModalOpen(false)}
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => setIsStateModalOpen(false)}
+          onPress={() => setIsFilterModalOpen(false)}
         >
           <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
+            {/* Modal Header */}
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Select State</Text>
+              <View style={styles.modalTitleWrap}>
+                <Text style={styles.modalTitle}>
+                  {filterModalTab === 'STATE' ? 'Select States' : 'Select Zones'}
+                </Text>
+                {(filterModalTab === 'STATE'
+                  ? tempSelectedStates.length > 0
+                  : tempSelectedZones.length > 0) && (
+                  <View style={styles.selectedCountBadge}>
+                    <Text style={styles.selectedCountText}>
+                      {filterModalTab === 'STATE'
+                        ? `${tempSelectedStates.length} selected`
+                        : `${tempSelectedZones.length} selected`}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <TouchableOpacity
-                onPress={() => setIsStateModalOpen(false)}
+                onPress={() => setIsFilterModalOpen(false)}
                 style={styles.modalCloseBtn}
                 activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -1275,45 +1425,314 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {availableStates.map((st) => {
-                const isSelected =
-                  selectedState.toLowerCase().trim() === st.toLowerCase().trim();
-
-                return (
-                  <TouchableOpacity
-                    key={st}
+            {/* Segmented Filter Switcher (State / Zone Tabs) - shown for Brand Wise Sales */}
+            {activeTab === 'BRAND_WISE' && (
+              <View style={styles.modalTabsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.modalTabBtn,
+                    filterModalTab === 'STATE' && styles.modalTabBtnActive,
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => setFilterModalTab('STATE')}
+                >
+                  <Text
                     style={[
-                      styles.stateOptionItem,
-                      isSelected && styles.stateOptionItemActive,
+                      styles.modalTabText,
+                      filterModalTab === 'STATE' && styles.modalTabTextActive,
                     ]}
-                    onPress={() => {
-                      setSelectedState(st);
-                      setIsStateModalOpen(false);
-                      if (activeTab === 'CASH_DEPOSIT') {
-                        loadCashDepositData(token, false, st);
-                      } else {
-                        loadBrandSalesData(token, false, st, selectedDate, brandSearchQuery);
-                      }
-                    }}
                   >
-                    <Text
+                    States
+                  </Text>
+                  {tempSelectedStates.length > 0 && (
+                    <View
                       style={[
-                        styles.stateOptionText,
-                        isSelected && styles.stateOptionTextActive,
+                        styles.modalTabBadge,
+                        filterModalTab === 'STATE' && styles.modalTabBadgeActive,
                       ]}
                     >
-                      {st}
-                    </Text>
-                    {isSelected && (
-                      <View style={styles.selectedCheckBadge}>
-                        <Text style={styles.selectedCheckText}>✓</Text>
+                      <Text
+                        style={[
+                          styles.modalTabBadgeText,
+                          filterModalTab === 'STATE' && styles.modalTabBadgeTextActive,
+                        ]}
+                      >
+                        {tempSelectedStates.length}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.modalTabBtn,
+                    filterModalTab === 'ZONE' && styles.modalTabBtnActive,
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => setFilterModalTab('ZONE')}
+                >
+                  <Text
+                    style={[
+                      styles.modalTabText,
+                      filterModalTab === 'ZONE' && styles.modalTabTextActive,
+                    ]}
+                  >
+                    Zones
+                  </Text>
+                  {tempSelectedZones.length > 0 && (
+                    <View
+                      style={[
+                        styles.modalTabBadge,
+                        filterModalTab === 'ZONE' && styles.modalTabBadgeActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.modalTabBadgeText,
+                          filterModalTab === 'ZONE' && styles.modalTabBadgeTextActive,
+                        ]}
+                      >
+                        {tempSelectedZones.length}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* In-Modal Search Bar */}
+            <View style={styles.modalSearchContainer}>
+              <Image
+                source={Images.filter}
+                style={styles.modalSearchIcon}
+                resizeMode="contain"
+              />
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder={
+                  filterModalTab === 'STATE'
+                    ? 'Search state name...'
+                    : 'Search zone name...'
+                }
+                placeholderTextColor="#94A3B8"
+                value={
+                  filterModalTab === 'STATE'
+                    ? stateSearchText
+                    : zoneSearchText
+                }
+                onChangeText={
+                  filterModalTab === 'STATE'
+                    ? setStateSearchText
+                    : setZoneSearchText
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {((filterModalTab === 'STATE' && stateSearchText.length > 0) ||
+                (filterModalTab === 'ZONE' && zoneSearchText.length > 0)) && (
+                <TouchableOpacity
+                  onPress={() => {
+                    if (filterModalTab === 'STATE') setStateSearchText('');
+                    else setZoneSearchText('');
+                  }}
+                  style={styles.modalClearSearchBtn}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.modalClearSearchText}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* List of Options (Multi-select Checkboxes) */}
+            <ScrollView
+              style={styles.modalOptionsList}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {filterModalTab === 'STATE' ? (
+                <>
+                  {/* "All States" Option */}
+                  <TouchableOpacity
+                    style={[
+                      styles.stateOptionItem,
+                      tempSelectedStates.length === 0 && styles.stateOptionItemActive,
+                    ]}
+                    onPress={() => setTempSelectedStates([])}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.optionLeft}>
+                      <View
+                        style={[
+                          styles.checkboxBox,
+                          tempSelectedStates.length === 0 && styles.checkboxBoxActive,
+                        ]}
+                      >
+                        {tempSelectedStates.length === 0 && (
+                          <Text style={styles.checkmarkIcon}>✓</Text>
+                        )}
                       </View>
-                    )}
+                      <Text
+                        style={[
+                          styles.stateOptionText,
+                          tempSelectedStates.length === 0 && styles.stateOptionTextActive,
+                        ]}
+                      >
+                        All States
+                      </Text>
+                    </View>
                   </TouchableOpacity>
-                );
-              })}
+
+                  {/* Filtered State Items */}
+                  {filteredModalStates.map((st) => {
+                    const isSelected = tempSelectedStates.includes(st);
+                    return (
+                      <TouchableOpacity
+                        key={st}
+                        style={[
+                          styles.stateOptionItem,
+                          isSelected && styles.stateOptionItemActive,
+                        ]}
+                        onPress={() => handleToggleTempState(st)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.optionLeft}>
+                          <View
+                            style={[
+                              styles.checkboxBox,
+                              isSelected && styles.checkboxBoxActive,
+                            ]}
+                          >
+                            {isSelected && (
+                              <Text style={styles.checkmarkIcon}>✓</Text>
+                            )}
+                          </View>
+                          <Text
+                            style={[
+                              styles.stateOptionText,
+                              isSelected && styles.stateOptionTextActive,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {st}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  {filteredModalStates.length === 0 && (
+                    <View style={styles.modalEmptyContainer}>
+                      <Text style={styles.modalEmptyText}>No states found</Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* "All Zones" Option */}
+                  <TouchableOpacity
+                    style={[
+                      styles.stateOptionItem,
+                      tempSelectedZones.length === 0 && styles.stateOptionItemActive,
+                    ]}
+                    onPress={() => setTempSelectedZones([])}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.optionLeft}>
+                      <View
+                        style={[
+                          styles.checkboxBox,
+                          tempSelectedZones.length === 0 && styles.checkboxBoxActive,
+                        ]}
+                      >
+                        {tempSelectedZones.length === 0 && (
+                          <Text style={styles.checkmarkIcon}>✓</Text>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.stateOptionText,
+                          tempSelectedZones.length === 0 && styles.stateOptionTextActive,
+                        ]}
+                      >
+                        All Zones
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Filtered Zone Items */}
+                  {filteredModalZones.map((zn) => {
+                    const isSelected = tempSelectedZones.includes(zn);
+                    return (
+                      <TouchableOpacity
+                        key={zn}
+                        style={[
+                          styles.stateOptionItem,
+                          isSelected && styles.stateOptionItemActive,
+                        ]}
+                        onPress={() => handleToggleTempZone(zn)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.optionLeft}>
+                          <View
+                            style={[
+                              styles.checkboxBox,
+                              isSelected && styles.checkboxBoxActive,
+                            ]}
+                          >
+                            {isSelected && (
+                              <Text style={styles.checkmarkIcon}>✓</Text>
+                            )}
+                          </View>
+                          <Text
+                            style={[
+                              styles.stateOptionText,
+                              isSelected && styles.stateOptionTextActive,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {zn}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  {filteredModalZones.length === 0 && (
+                    <View style={styles.modalEmptyContainer}>
+                      <Text style={styles.modalEmptyText}>No zones found</Text>
+                    </View>
+                  )}
+                </>
+              )}
             </ScrollView>
+
+            {/* Modal Bottom Actions */}
+            <View style={styles.modalFooterRow}>
+              {(tempSelectedStates.length > 0 || tempSelectedZones.length > 0) && (
+                <TouchableOpacity
+                  style={styles.modalResetBtn}
+                  onPress={handleResetModalFilter}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalResetText}>Reset</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={styles.modalApplyBtn}
+                onPress={handleApplyModalFilter}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalApplyText}>
+                  {tempSelectedStates.length === 0 && tempSelectedZones.length === 0
+                    ? 'Show All'
+                    : `Apply (${
+                        tempSelectedStates.length +
+                        (activeTab === 'BRAND_WISE' ? tempSelectedZones.length : 0)
+                      })`}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -1411,7 +1830,14 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                       onPress={() => {
                         setSelectedDate(dayStr);
                         setIsDateModalOpen(false);
-                        loadBrandSalesData(token, false, selectedState, dayStr, brandSearchQuery);
+                        loadBrandSalesData(
+                          token,
+                          false,
+                          selectedStates,
+                          selectedZones,
+                          dayStr,
+                          brandSearchQuery
+                        );
                       }}
                     >
                       <Text
@@ -1439,7 +1865,14 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                 onPress={() => {
                   setSelectedDate('');
                   setIsDateModalOpen(false);
-                  loadBrandSalesData(token, false, selectedState, '', brandSearchQuery);
+                  loadBrandSalesData(
+                    token,
+                    false,
+                    selectedStates,
+                    selectedZones,
+                    '',
+                    brandSearchQuery
+                  );
                 }}
               >
                 <Text style={styles.calendarActionText}>Clear Date</Text>
@@ -1454,7 +1887,14 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                   setCalendarYear(new Date().getFullYear());
                   setCalendarMonth(new Date().getMonth());
                   setIsDateModalOpen(false);
-                  loadBrandSalesData(token, false, selectedState, todayStr, brandSearchQuery);
+                  loadBrandSalesData(
+                    token,
+                    false,
+                    selectedStates,
+                    selectedZones,
+                    todayStr,
+                    brandSearchQuery
+                  );
                 }}
               >
                 <Text style={styles.calendarActionTextPrimary}>

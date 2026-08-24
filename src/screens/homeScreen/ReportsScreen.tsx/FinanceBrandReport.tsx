@@ -43,194 +43,319 @@ const FinanceBrandCard: React.FC<CardProps> = ({
   machines,
   companies,
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Count active brand codes
+  const mappedBrandCount = useMemo(() => {
+    if (!item.brand_codes) return 0;
+    return Object.values(item.brand_codes).filter((v) => v && v !== '—' && v !== '-').length;
+  }, [item.brand_codes]);
+
   return (
-    <View style={styles.card}>
-      {/* Card Header: Sr. No & Branch Info */}
-      <View style={styles.cardHeader}>
-        <View style={styles.indexBadge}>
-          <Text style={styles.indexText}>{String(index + 1).padStart(2, '0')}</Text>
-        </View>
-        <View style={styles.headerInfo}>
-          <Text style={styles.branchNameText} numberOfLines={1}>
-            {item.branch_name || 'Unnamed Branch'}
-          </Text>
-          <View style={styles.subInfoRow}>
-            {!!item.state_name && (
-              <Text style={styles.subInfoText} numberOfLines={1}>
-                State: {item.state_name}
-              </Text>
-            )}
-            {!!item.branch_code && (
-              <Text style={styles.subInfoText} numberOfLines={1}>
-                {item.state_name ? ' • ' : ''}Code: {item.branch_code}
-              </Text>
-            )}
+    <View style={[styles.card, isExpanded && styles.cardActive]}>
+      {/* ── Card Main Header (Tappable to expand) ── */}
+      <TouchableOpacity
+        style={styles.cardHeader}
+        activeOpacity={0.7}
+        onPress={() => setIsExpanded((prev) => !prev)}
+      >
+        <View style={styles.cardHeaderLeft}>
+          {/* Index / Branch Icon Badge */}
+          <View style={styles.branchIconBadge}>
+            <Image
+              source={Images.brand}
+              style={styles.branchIconImg}
+              resizeMode="contain"
+            />
+            <View style={styles.indexMiniBadge}>
+              <Text style={styles.indexMiniText}>{String(index + 1).padStart(2, '0')}</Text>
+            </View>
+          </View>
+
+          {/* Branch Title & Meta Badges */}
+          <View style={styles.headerInfo}>
+            <Text style={styles.branchNameText} numberOfLines={1}>
+              {item.branch_name || 'Unnamed Branch'}
+            </Text>
+
+            <View style={styles.subMetaRow}>
+              {!!item.state_name && (
+                <View style={styles.statePill}>
+                  <Text style={styles.statePillText}>📍 {item.state_name}</Text>
+                </View>
+              )}
+              {!!item.branch_code && (
+                <View style={styles.codePill}>
+                  <Text style={styles.codePillText}>Code: {item.branch_code}</Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
+
+        {/* Expand / Collapse Action Button */}
+        <View
+          style={[
+            styles.expandArrowBtn,
+            isExpanded && styles.expandArrowBtnActive,
+          ]}
+        >
+          <Image
+            source={Images.down}
+            style={[
+              styles.expandArrowIcon,
+              isExpanded && styles.expandArrowIconRotated,
+            ]}
+            resizeMode="contain"
+          />
+        </View>
+      </TouchableOpacity>
+
+      {/* ── Quick Summary Chips Row ── */}
+      <View style={styles.cardSummaryRow}>
+        <View style={styles.summaryChip}>
+          <Text style={styles.summaryChipIcon}>🏷️</Text>
+          <Text style={styles.summaryChipText}>
+            <Text style={styles.summaryChipBold}>{mappedBrandCount || brands.length}</Text> Brands
+          </Text>
+        </View>
+
+        {machines.length > 0 && (
+          <View style={styles.summaryChip}>
+            <Text style={styles.summaryChipIcon}>🖥️</Text>
+            <Text style={styles.summaryChipText}>
+              <Text style={styles.summaryChipBold}>{machines.length}</Text> Machines
+            </Text>
+          </View>
+        )}
+
+        {companies.length > 0 && (
+          <View style={styles.summaryChip}>
+            <Text style={styles.summaryChipIcon}>🏦</Text>
+            <Text style={styles.summaryChipText}>
+              <Text style={styles.summaryChipBold}>{companies.length}</Text> Companies
+            </Text>
+          </View>
+        )}
       </View>
 
-      {/* QR Code ID / Password & Remarks */}
-      {(!!item.qr_code_id_password || !!item.remarks) && (
-        <View style={styles.qrRemarksContainer}>
-          {!!item.qr_code_id_password && (
-            <View style={styles.infoRowBox}>
-              <Text style={styles.infoLabel}>QR CODE ID & PASSWORD:</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>
-                {item.qr_code_id_password}
-              </Text>
+      {/* ── Expandable Details Section ── */}
+      {isExpanded && (
+        <View style={styles.expandedContent}>
+          {/* QR Code ID & Password / Remarks */}
+          {(!!item.qr_code_id_password || !!item.remarks) && (
+            <View style={styles.qrRemarksCard}>
+              {!!item.qr_code_id_password && (
+                <View style={styles.qrInfoRow}>
+                  <View style={styles.qrIconCircle}>
+                    <Text style={{ fontSize: 13 }}>📱</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.qrLabelText}>QR CODE ID & PASSWORD</Text>
+                    <Text style={styles.qrValueText} numberOfLines={1}>
+                      {item.qr_code_id_password}
+                    </Text>
+                  </View>
+                </View>
+              )}
+              {!!item.remarks && (
+                <View style={[styles.qrInfoRow, !!item.qr_code_id_password && { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E2E8F0' }]}>
+                  <View style={styles.qrIconCircle}>
+                    <Text style={{ fontSize: 13 }}>📝</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.qrLabelText}>REMARKS</Text>
+                    <Text style={styles.qrValueText} numberOfLines={2}>
+                      {item.remarks}
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
           )}
-          {!!item.remarks && (
-            <View style={styles.infoRowBox}>
-              <Text style={styles.infoLabel}>REMARKS:</Text>
-              <Text style={styles.infoValue} numberOfLines={2}>
-                {item.remarks}
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
 
-      {/* Mobile Brands Section */}
-      {brands.length > 0 && (
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.sectionPill}>
-              <Text style={styles.sectionPillText}>BRAND CODES</Text>
-            </View>
-          </View>
-          <View style={styles.gridContainer}>
-            {brands.map((brand) => {
-              const brandVal =
-                item.brand_codes?.[String(brand.id)] ??
-                item.brand_codes?.[Number(brand.id)] ??
-                '—';
-
-              return (
-                <View key={String(brand.id)} style={styles.brandBox}>
-                  <Text style={styles.brandNameText} numberOfLines={1}>
-                    {brand.mobile_brand}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.brandValueText,
-                      brandVal !== '—' && styles.brandValueTextActive,
-                    ]}
-                  >
-                    {String(brandVal)}
-                  </Text>
+          {/* Mobile Brands Section (Brand Codes) */}
+          {brands.length > 0 && (
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionPill}>
+                  <Text style={styles.sectionPillText}>🏷️ BRAND CODES</Text>
                 </View>
-              );
-            })}
-          </View>
-        </View>
-      )}
-
-      {/* Machine Details Section */}
-      {machines.length > 0 && (
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={[styles.sectionPill, { backgroundColor: '#EDE9FE' }]}>
-              <Text style={[styles.sectionPillText, { color: colors.primary }]}>
-                MACHINE DETAILS
-              </Text>
-            </View>
-          </View>
-
-          {machines.map((machine) => {
-            const detail =
-              item.machine_details?.[String(machine.id)] ||
-              item.machine_details?.[Number(machine.id)] ||
-              {};
-
-            const tidVal = detail.tid !== undefined && detail.tid !== '' ? String(detail.tid) : '—';
-            const posVal = detail.pos_id !== undefined && detail.pos_id !== '' ? String(detail.pos_id) : '—';
-            const serialVal = detail.serial_no !== undefined && detail.serial_no !== '' ? String(detail.serial_no) : '—';
-
-            return (
-              <View key={String(machine.id)} style={styles.machineCard}>
-                <View style={styles.machineTitleRow}>
-                  <Text style={styles.machineNameText} numberOfLines={1}>
-                    {machine.machine_name}
-                  </Text>
-                </View>
-                <View style={styles.machineMetricsRow}>
-                  <View style={styles.machineMetricCol}>
-                    <Text style={styles.machineMetricLabel}>TID</Text>
-                    <Text
-                      style={[
-                        styles.machineMetricValue,
-                        tidVal !== '—' && styles.machineMetricValueActive,
-                      ]}
-                    >
-                      {tidVal}
-                    </Text>
-                  </View>
-                  <View style={styles.machineMetricDivider} />
-                  <View style={styles.machineMetricCol}>
-                    <Text style={styles.machineMetricLabel}>POS ID</Text>
-                    <Text
-                      style={[
-                        styles.machineMetricValue,
-                        posVal !== '—' && styles.machineMetricValueActive,
-                      ]}
-                    >
-                      {posVal}
-                    </Text>
-                  </View>
-                  <View style={styles.machineMetricDivider} />
-                  <View style={styles.machineMetricCol}>
-                    <Text style={styles.machineMetricLabel}>SERIAL NO</Text>
-                    <Text
-                      style={[
-                        styles.machineMetricValue,
-                        serialVal !== '—' && styles.machineMetricValueActive,
-                      ]}
-                    >
-                      {serialVal}
-                    </Text>
-                  </View>
-                </View>
+                <Text style={styles.sectionItemCountText}>
+                  {brands.length} {brands.length === 1 ? 'Brand' : 'Brands'}
+                </Text>
               </View>
-            );
-          })}
-        </View>
-      )}
 
-      {/* Companies Section (if available) */}
-      {companies.length > 0 && (
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={[styles.sectionPill, { backgroundColor: '#FEF3C7' }]}>
-              <Text style={[styles.sectionPillText, { color: '#B45309' }]}>
-                BANK / COMPANY CODES
-              </Text>
+              <View style={styles.gridContainer}>
+                {brands.map((brand) => {
+                  const brandVal =
+                    item.brand_codes?.[String(brand.id)] ??
+                    item.brand_codes?.[Number(brand.id)] ??
+                    '—';
+                  const hasValue = brandVal !== '—' && brandVal !== '' && brandVal !== null;
+
+                  return (
+                    <View
+                      key={String(brand.id)}
+                      style={[
+                        styles.brandBox,
+                        hasValue && styles.brandBoxActive,
+                      ]}
+                    >
+                      <Text style={styles.brandNameText} numberOfLines={1}>
+                        {brand.mobile_brand}
+                      </Text>
+                      <View
+                        style={[
+                          styles.brandValuePill,
+                          hasValue && styles.brandValuePillActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.brandValueText,
+                            hasValue && styles.brandValueTextActive,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {String(brandVal)}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
             </View>
-          </View>
-          <View style={styles.gridContainer}>
-            {companies.map((comp) => {
-              const compVal =
-                item.company_codes?.[String(comp.id)] ??
-                item.company_codes?.[Number(comp.id)] ??
-                '—';
+          )}
 
-              return (
-                <View key={String(comp.id)} style={styles.companyBox}>
-                  <Text style={styles.companyNameText} numberOfLines={1}>
-                    {comp.bank_card_name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.companyValueText,
-                      compVal !== '—' && styles.companyValueTextActive,
-                    ]}
-                  >
-                    {String(compVal)}
+          {/* Machine Details Section */}
+          {machines.length > 0 && (
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={[styles.sectionPill, { backgroundColor: '#EDE9FE' }]}>
+                  <Text style={[styles.sectionPillText, { color: colors.primary }]}>
+                    🖥️ MACHINE DETAILS
                   </Text>
                 </View>
-              );
-            })}
-          </View>
+                <Text style={styles.sectionItemCountText}>
+                  {machines.length} {machines.length === 1 ? 'Machine' : 'Machines'}
+                </Text>
+              </View>
+
+              {machines.map((machine) => {
+                const detail =
+                  item.machine_details?.[String(machine.id)] ||
+                  item.machine_details?.[Number(machine.id)] ||
+                  {};
+
+                const tidVal = detail.tid !== undefined && detail.tid !== '' ? String(detail.tid) : '—';
+                const posVal = detail.pos_id !== undefined && detail.pos_id !== '' ? String(detail.pos_id) : '—';
+                const serialVal = detail.serial_no !== undefined && detail.serial_no !== '' ? String(detail.serial_no) : '—';
+
+                return (
+                  <View key={String(machine.id)} style={styles.machineCard}>
+                    <View style={styles.machineTitleRow}>
+                      <Text style={styles.machineNameText} numberOfLines={1}>
+                        {machine.machine_name}
+                      </Text>
+                    </View>
+                    <View style={styles.machineMetricsRow}>
+                      <View style={styles.machineMetricCol}>
+                        <Text style={styles.machineMetricLabel}>TID</Text>
+                        <Text
+                          style={[
+                            styles.machineMetricValue,
+                            tidVal !== '—' && styles.machineMetricValueActive,
+                          ]}
+                        >
+                          {tidVal}
+                        </Text>
+                      </View>
+                      <View style={styles.machineMetricDivider} />
+                      <View style={styles.machineMetricCol}>
+                        <Text style={styles.machineMetricLabel}>POS ID</Text>
+                        <Text
+                          style={[
+                            styles.machineMetricValue,
+                            posVal !== '—' && styles.machineMetricValueActive,
+                          ]}
+                        >
+                          {posVal}
+                        </Text>
+                      </View>
+                      <View style={styles.machineMetricDivider} />
+                      <View style={styles.machineMetricCol}>
+                        <Text style={styles.machineMetricLabel}>SERIAL NO</Text>
+                        <Text
+                          style={[
+                            styles.machineMetricValue,
+                            serialVal !== '—' && styles.machineMetricValueActive,
+                          ]}
+                        >
+                          {serialVal}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Companies Section */}
+          {companies.length > 0 && (
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={[styles.sectionPill, { backgroundColor: '#FEF3C7' }]}>
+                  <Text style={[styles.sectionPillText, { color: '#B45309' }]}>
+                    🏦 BANK / COMPANY CODES
+                  </Text>
+                </View>
+                <Text style={styles.sectionItemCountText}>
+                  {companies.length} {companies.length === 1 ? 'Company' : 'Companies'}
+                </Text>
+              </View>
+              <View style={styles.gridContainer}>
+                {companies.map((comp) => {
+                  const compVal =
+                    item.company_codes?.[String(comp.id)] ??
+                    item.company_codes?.[Number(comp.id)] ??
+                    '—';
+                  const hasCompVal = compVal !== '—' && compVal !== '' && compVal !== null;
+
+                  return (
+                    <View
+                      key={String(comp.id)}
+                      style={[
+                        styles.companyBox,
+                        hasCompVal && styles.companyBoxActive,
+                      ]}
+                    >
+                      <Text style={styles.companyNameText} numberOfLines={1}>
+                        {comp.bank_card_name}
+                      </Text>
+                      <View
+                        style={[
+                          styles.companyValuePill,
+                          hasCompVal && styles.companyValuePillActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.companyValueText,
+                            hasCompVal && styles.companyValueTextActive,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {String(compVal)}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -754,110 +879,237 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 14,
     marginBottom: 14,
-    borderWidth: 1,
+    borderWidth: 1.2,
     borderColor: '#EDE9FE',
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
+    borderLeftWidth: 4.5,
+    borderLeftColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
     elevation: 3,
+  },
+  cardActive: {
+    borderColor: colors.primary,
+    borderLeftWidth: 5,
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
   },
 
   /* Card Header */
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    gap: 10,
+    justifyContent: 'space-between',
+    paddingBottom: 10,
   },
-  indexBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.22)',
+  cardHeaderLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginRight: 8,
+  },
+  branchIconBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: '#F3E8FF',
+    borderWidth: 1.2,
+    borderColor: '#DDD6FE',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    position: 'relative',
   },
-  indexText: {
-    fontSize: 13,
+  branchIconImg: {
+    width: 20,
+    height: 20,
+    tintColor: colors.primary,
+  },
+  indexMiniBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderColor: colors.white,
+  },
+  indexMiniText: {
+    fontSize: 8.5,
     fontFamily: fontFamily.bold,
-    color: '#fff',
+    color: colors.white,
   },
   headerInfo: {
     flex: 1,
   },
   branchNameText: {
-    fontSize: 14,
+    fontSize: 14.5,
     fontFamily: fontFamily.bold,
-    color: '#fff',
+    color: '#0F172A',
+    lineHeight: 19,
+    marginBottom: 4,
   },
-  subInfoRow: {
+  subMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    flexWrap: 'wrap',
+    gap: 5,
   },
-  subInfoText: {
-    fontSize: 11,
-    fontFamily: fontFamily.regular,
-    color: 'rgba(255,255,255,0.9)',
+  statePill: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
   },
-
-  /* QR & Remarks */
-  qrRemarksContainer: {
+  statePillText: {
+    fontSize: 10.5,
+    fontFamily: fontFamily.medium,
+    color: '#475569',
+  },
+  codePill: {
+    backgroundColor: '#FAF5FF',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#EDE9FE',
+  },
+  codePillText: {
+    fontSize: 10.5,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+  },
+  expandArrowBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     backgroundColor: '#F8FAFC',
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 10,
-    marginBottom: 10,
-    gap: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  infoRowBox: {
+  expandArrowBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  expandArrowIcon: {
+    width: 14,
+    height: 14,
+    tintColor: '#64748B',
+  },
+  expandArrowIconRotated: {
+    tintColor: colors.white,
+    transform: [{ rotate: '180deg' }],
+  },
+
+  /* Quick Summary Chips Row */
+  cardSummaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
-  infoLabel: {
-    fontSize: 10,
-    fontFamily: fontFamily.bold,
+  summaryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  summaryChipIcon: {
+    fontSize: 11,
+  },
+  summaryChipText: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
     color: '#64748B',
+  },
+  summaryChipBold: {
+    fontFamily: fontFamily.bold,
+    color: '#1E293B',
+  },
+
+  /* Expandable Content Container */
+  expandedContent: {
+    paddingTop: 10,
+  },
+
+  /* QR & Remarks Card */
+  qrRemarksCard: {
+    backgroundColor: '#FAF5FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EDE9FE',
+    padding: 10,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  qrInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  qrIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#EDE9FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrLabelText: {
+    fontSize: 9.5,
+    fontFamily: fontFamily.bold,
+    color: '#6B21A8',
     letterSpacing: 0.3,
   },
-  infoValue: {
+  qrValueText: {
     fontSize: 12,
     fontFamily: fontFamily.bold,
     color: '#0F172A',
+    marginTop: 1,
   },
 
-  /* Sections */
+  /* Section Containers */
   sectionContainer: {
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
   },
   sectionPill: {
     backgroundColor: '#F3E8FF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   sectionPillText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontFamily: fontFamily.bold,
     color: colors.primary,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
+  },
+  sectionItemCountText: {
+    fontSize: 11,
+    fontFamily: fontFamily.medium,
+    color: '#94A3B8',
   },
 
   /* Grid for Brands & Companies */
@@ -869,30 +1121,43 @@ const styles = StyleSheet.create({
   },
   brandBox: {
     width: '48%',
-    backgroundColor: '#FAF5FF',
-    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 11,
     borderWidth: 1,
-    borderColor: '#E9D5FF',
+    borderColor: '#E2E8F0',
     paddingHorizontal: 10,
     paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  brandBoxActive: {
+    backgroundColor: '#FAF5FF',
+    borderColor: '#DDD6FE',
+  },
   brandNameText: {
     fontSize: 12,
-    fontFamily: fontFamily.medium,
-    color: '#6B21A8',
+    fontFamily: fontFamily.bold,
+    color: '#334155',
     flex: 1,
     marginRight: 4,
   },
+  brandValuePill: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+  },
+  brandValuePillActive: {
+    backgroundColor: colors.primary,
+  },
   brandValueText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fontFamily.bold,
     color: '#94A3B8',
   },
   brandValueTextActive: {
-    color: colors.primary,
+    color: colors.white,
   },
 
   /* Machine Cards */
@@ -910,9 +1175,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   machineNameText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontFamily: fontFamily.bold,
-    color: '#334155',
+    color: '#1E293B',
     textTransform: 'capitalize',
   },
   machineMetricsRow: {
@@ -953,31 +1218,44 @@ const styles = StyleSheet.create({
   /* Companies */
   companyBox: {
     width: '48%',
-    backgroundColor: '#FFFBEB',
-    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 11,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#E2E8F0',
     paddingHorizontal: 10,
     paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  companyBoxActive: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
   companyNameText: {
-    fontSize: 12,
-    fontFamily: fontFamily.medium,
-    color: '#92400E',
+    fontSize: 11.5,
+    fontFamily: fontFamily.bold,
+    color: '#334155',
     flex: 1,
     marginRight: 4,
     textTransform: 'uppercase',
   },
+  companyValuePill: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+  },
+  companyValuePillActive: {
+    backgroundColor: '#D97706',
+  },
   companyValueText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fontFamily.bold,
     color: '#94A3B8',
   },
   companyValueTextActive: {
-    color: '#B45309',
+    color: colors.white,
   },
 
   /* States, Center, Loading, Empty */
