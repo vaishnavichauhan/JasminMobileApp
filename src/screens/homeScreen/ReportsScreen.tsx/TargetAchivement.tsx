@@ -59,7 +59,7 @@ const InfoRow: React.FC<RowProps> = ({ label, value, sub }) => (
 );
 
 /* ── Card component ── */
-const TvaCard: React.FC<{ item: TvaItem; index: number }> = ({ item, index }) => {
+const TvaCard = React.memo<{ item: TvaItem; index: number }>(({ item, index }) => {
   const gQty   = item.growth_qty_percentage   ?? item.growth_qty   ?? null;
   const gValue = item.growth_value_percentage ?? item.growth_value ?? null;
   const gQtyN   = Number(gQty);
@@ -242,7 +242,7 @@ const TvaCard: React.FC<{ item: TvaItem; index: number }> = ({ item, index }) =>
       </View>
     </View>
   );
-};
+});
 
 /* ── Main Screen ── */
 const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
@@ -779,6 +779,11 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
             filteredData.length === 0 && styles.listContentEmpty,
           ]}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          updateCellsBatchingPeriod={50}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.stateIcon}>🔍</Text>

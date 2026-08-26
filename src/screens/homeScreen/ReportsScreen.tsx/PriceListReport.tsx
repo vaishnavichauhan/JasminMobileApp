@@ -9,6 +9,7 @@ import {
   StatusBar,
   RefreshControl,
   Image,
+  Platform,
 } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
 import { VariationItem } from '../../../api/priceListApi';
@@ -135,6 +136,11 @@ const PriceListReport: React.FC<{ navigation?: any }> = ({ navigation }) => {
             data.length === 0 && styles.listContentEmpty,
           ]}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          updateCellsBatchingPeriod={50}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.stateIcon}>📊</Text>

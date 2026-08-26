@@ -12,6 +12,7 @@ import {
   Image,
   Modal,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
 import { AbmWiseTvaItem } from '../../../api/targetVsAchievementApi';
@@ -41,7 +42,7 @@ const getAbmName = (item: AbmWiseTvaItem): string =>
   item.abm_name || item.abmName || item.abm || item.name || '—';
 
 /* ── Card Component ── */
-const AbmCard: React.FC<{ item: AbmWiseTvaItem; index: number }> = ({ item, index }) => {
+const AbmCard = React.memo<{ item: AbmWiseTvaItem; index: number }>(({ item, index }) => {
   const mtdQtyPct   = item.mtd_qty_percentage_ach ?? item.mtd_qty_pct_ach ?? item.mtd_qty_ach_pct ?? item.mtd_qty_percentage ?? item.mtd_qty_pct ?? null;
   const mtdValPct   = item.mtd_value_percentage_ach ?? item.mtd_value_pct_ach ?? item.mtd_value_ach_pct ?? item.mtd_value_percentage ?? item.mtd_value_pct ?? null;
   
@@ -229,7 +230,7 @@ const AbmCard: React.FC<{ item: AbmWiseTvaItem; index: number }> = ({ item, inde
       </View>
     </View>
   );
-};
+});
 
 /* ── Main Screen Component ── */
 const AbmWiseReportScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
@@ -431,6 +432,11 @@ const AbmWiseReportScreen: React.FC<{ navigation?: any }> = ({ navigation }) => 
             filteredData.length === 0 && styles.listContentEmpty,
           ]}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          updateCellsBatchingPeriod={50}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.stateIcon}>📊</Text>

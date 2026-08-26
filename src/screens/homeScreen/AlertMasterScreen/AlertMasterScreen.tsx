@@ -10,6 +10,7 @@ import {
   FlatList,
   RefreshControl,
   Modal,
+  Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import styles from './AlertMasterStyles';
@@ -302,6 +303,10 @@ const AlertMasterScreen: React.FC<AlertMasterScreenProps> = ({ navigation }) => 
             columnWrapperStyle={styles.columnWrapper}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            removeClippedSubviews={Platform.OS === 'android'}
             keyboardShouldPersistTaps="handled"
             refreshControl={
               <RefreshControl

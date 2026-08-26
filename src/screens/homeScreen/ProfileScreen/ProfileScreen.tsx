@@ -62,6 +62,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const email = user?.email || '-';
   const mobile = user?.mob_no || user?.mobile || user?.phone || '-';
   const role = user?.role || '-';
+  const userID= user?.id || '-';
   const userId = String(user?.id ?? '-');
 
   const handleBack = () => {
@@ -118,12 +119,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         <View style={styles.avatarWrapper}>
           <Text style={styles.avatarInitial}>{firstLetter}</Text>
         </View>
-
+{/* 
         <View style={styles.heroBadgesRow}>
           <View style={styles.roleBadge}>
             <Text style={styles.roleBadgeText}>Name: {name !== '-' ? name : username}</Text>
           </View>
-        </View>
+        </View> */}
       </View>
 
       {/* Main Content Area */}
@@ -258,23 +259,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
             <View style={styles.cardBody}>
               {/* User ID */}
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 style={styles.itemRow}
                 activeOpacity={0.7}
                 onPress={handleCopyUserId}
-              >
-                <View style={styles.itemLabelWrap}>
+              > */}
+              <View style={styles.itemRow}>
+              <View style={styles.itemLabelWrap}>
                   <Text style={styles.itemLabel}>User ID</Text>
                 </View>
-                <View style={styles.idWrap}>
-                  <Text style={styles.itemValue}>{userId}</Text>
-                  <View style={[styles.idBadge, copiedId && styles.idBadgeCopied]}>
-                    <Text style={[styles.idBadgeText, copiedId && styles.idBadgeTextCopied]}>
-                      {copiedId ? 'Copied' : 'ID'}
-                    </Text>
-                  </View>
+             
+                  <View style={styles.rolePill}>
+                  <Text style={styles.rolePillText}>{userID}</Text>
                 </View>
-              </TouchableOpacity>
+              </View>
+               
+              {/* </TouchableOpacity> */}
 
               <View style={styles.divider} />
 
@@ -315,7 +315,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           </TouchableOpacity>
            {/* App Info Footer */}
           <View style={styles.appInfoContainer}>
-            <Text style={styles.appInfoText}>Jasmin Mobile App • v1.22.08</Text>
+            <Text style={styles.appInfoText}>Jasmin Mobile App • v1.26.08</Text>
           </View>
         </ScrollView>
       </View>

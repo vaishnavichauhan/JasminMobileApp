@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -13,10 +13,15 @@ import {
   ScrollView,
   TextInput,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
 import { usePriceListStore } from '../../../store';
-import { fetchPriceListStockInfoApi } from '../../../api/priceListApi';
+import {
+  fetchPriceListStockInfoApi,
+  fetchMobileBrandsAllApi,
+  fetchItemCategoriesAllApi,
+} from '../../../api/priceListApi';
 import { colors, fontFamily, borderRadius, fontSize } from '../../../styles/variables';
 import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
@@ -542,6 +547,355 @@ const getTodayDateString = (): string => {
   return `${year}-${month}-${day}`;
 };
 
+export interface PriceListItemCardProps {
+  item: any;
+  index: number;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  isReportDetail: boolean;
+  visibleColumns: any[];
+  timestamp?: string | null;
+  onFetchStockInfo: (item: any) => void;
+  onOpenOfferModal: (item: any, offers: NormalizedOffer[]) => void;
+}
+
+export const PriceListItemCard = React.memo<PriceListItemCardProps>(({
+  item,
+  isExpanded,
+  onToggleExpand,
+  isReportDetail,
+  visibleColumns,
+  timestamp,
+  onFetchStockInfo,
+  onOpenOfferModal,
+}) => {
+  // Standard keys safely rendered
+  const brand = renderStringValue(
+    item.Brand ||
+    item.brand ||
+    item.brand_name ||
+    item.brandName ||
+    item.Mobile_Brand
+  );
+  const productName = renderStringValue(
+    item.product_name ||
+    item.productName ||
+    item.model_name ||
+    item.modelName ||
+    item.item_name ||
+    item.name ||
+    item.model
+  );
+  const modelGroup = renderStringValue(item.model_group_name || item.modelGroupName);
+  const rawTimestamp =
+    item.timestamp ??
+    item.Timestamp ??
+    item.TIMESTAMP ??
+    item.time_stamp ??
+    item.created_at ??
+    item.createdAt ??
+    timestamp ??
+    '';
+  const formattedDateTime = formatTimestamp(rawTimestamp);
+
+  const rawOffers =
+    item.active_offers ??
+    item.activeOffers ??
+    item.Active_Offers ??
+    item['Active Offers'] ??
+    item['active_offers'] ??
+    item['active_offer'] ??
+    item.active_offer ??
+    item.activeOffer ??
+    item.offers ??
+    item.Offers ??
+    item.offer ??
+    item.Offer;
+
+  const parsedOffers = useMemo(() => parseItemOffers(rawOffers), [rawOffers]);
+  const hasOffers = parsedOffers.length > 0;
+
+  // Hide "View Stock" button when GeneralmodelGroup is "*General"
+  const generalModelGroupVal = String(
+    item.GeneralmodelGroup ??
+    item['GeneralmodelGroup'] ??
+    item['General Model Group'] ??
+    item.general_model_group ??
+    item.generalModelGroup ??
+    item['General_model_group'] ??
+    item.model_group_name ??
+    item.modelGroupName ??
+    item['Model Group'] ??
+    ''
+  ).trim();
+
+  const isGeneral =
+    generalModelGroupVal === '*General' ||
+    generalModelGroupVal.toLowerCase() === '*general' ||
+    generalModelGroupVal.toLowerCase().includes('*general') ||
+    generalModelGroupVal === '* General' ||
+    generalModelGroupVal.toLowerCase() === '* general';
+
+  const showViewStock = !isReportDetail && !isGeneral;
+
+  const productCategory = renderStringValue(
+    item.ProductName ||
+    item['Product Name'] ||
+    item['ProductName'] ||
+    item.product_name ||
+    item.productName ||
+    item.product_category ||
+    item.productCategory ||
+    item['Product Category'] ||
+    item.category ||
+    item.Category ||
+    item.model_name ||
+    item.modelName ||
+    item.item_name ||
+    item.name ||
+    item.model
+  );
+
+  // Filter other dynamic columns: exclude date/timestamp, model group, brand, product category, offer, and internal IDs
+  const otherColumns = useMemo(() => {
+    const candidateKeys: string[] =
+      visibleColumns && visibleColumns.length > 0
+        ? visibleColumns.map((col) => col.column_name)
+        : Object.keys(item);
+
+    return candidateKeys.filter((key) => {
+      if (!key) return false;
+      const normalized = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      // 1) Exclude Date / Timestamp / CreatedAt (shown in Header)
+      if (
+        normalized === 'timestamp' ||
+        normalized === 'createdat' ||
+        normalized === 'lastupdateddate' ||
+        normalized === 'updatedat' ||
+        normalized === 'time' ||
+        normalized === 'date'
+      ) {
+        return false;
+      }
+
+      // 2) Exclude Model Group (shown as field #1)
+      if (
+        normalized === 'modelgroup' ||
+        normalized === 'modelgroupname' ||
+        normalized === 'generalmodelgroup' ||
+        normalized === 'generalmodelgroupname'
+      ) {
+        return false;
+      }
+
+      // 3) Exclude Brand (shown as field #2)
+      if (
+        normalized === 'brand' ||
+        normalized === 'brandname' ||
+        normalized === 'mobilebrand' ||
+        normalized === 'itembrand'
+      ) {
+        return false;
+      }
+
+      // 4) Exclude Product Category (shown as field #3)
+      if (
+        normalized === 'productname' ||
+        normalized === 'productcategory' ||
+        normalized === 'category'
+      ) {
+        return false;
+      }
+
+      // 5) Exclude Offer (shown as field #4)
+      if (
+        normalized === 'activeoffers' ||
+        normalized === 'activeoffer' ||
+        normalized === 'offer' ||
+        normalized === 'offers'
+      ) {
+        return false;
+      }
+
+      // 6) Exclude internal IDs / indices
+      if (
+        normalized === 'id' ||
+        normalized === '_id' ||
+        normalized === 'variationid' ||
+        normalized === 'variation_id' ||
+        normalized === 'srno' ||
+        normalized === 'sr_no' ||
+        normalized === 'sno' ||
+        normalized === 'index' ||
+        normalized === 'key'
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [visibleColumns, item]);
+
+  const firstThreeOtherColumns = otherColumns.slice(0, 3);
+  const remainingOtherColumns = otherColumns.slice(3);
+  const hasMoreData = remainingOtherColumns.length > 0;
+
+  return (
+    <View style={styles.card}>
+      {/* 1) Top Header: Last Updated date (Left) + Down Arrow (Right) */}
+      <View style={styles.cardHeader}>
+        <View style={styles.cardTopMetaRow}>
+          {formattedDateTime !== '—' ? (
+            <View style={styles.dateBadge}>
+              <Image
+                source={Images.calendar}
+                style={styles.cardCalendarIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.dateLabel}>Last Updated: </Text>
+              <Text style={styles.dateText}>{formattedDateTime}</Text>
+            </View>
+          ) : (
+            <View />
+          )}
+
+          {/* Down Arrow / Expand Toggle Button for remaining data */}
+          {hasMoreData && (
+            <TouchableOpacity
+              style={[
+                styles.expandToggleBtn,
+                isExpanded && styles.expandToggleBtnActive,
+              ]}
+              onPress={onToggleExpand}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Image
+                source={Images.down}
+                style={[
+                  styles.expandToggleIcon,
+                  isExpanded && styles.expandToggleIconRotated,
+                ]}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* Details List */}
+      <View style={styles.detailsContent}>
+        {/* 1) Model Group (Highlighted) */}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Model Group</Text>
+          <View style={styles.modelGroupBadgeWrapper}>
+            <Text style={styles.modelGroupValue} numberOfLines={2}>
+              {modelGroup || '—'}
+            </Text>
+          </View>
+        </View>
+
+        {/* 2) Brand */}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Brand</Text>
+          <View style={styles.brandBadgeWrapper}>
+            <Text style={styles.brandBadgeText}>{brand || '—'}</Text>
+          </View>
+        </View>
+
+        {/* 3) Product Category (Highlighted) */}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Product Category</Text>
+          <View style={styles.productCategoryBadgeWrapper}>
+            <Text style={styles.productCategoryBadgeText} numberOfLines={2}>
+              {productCategory || '—'}
+            </Text>
+          </View>
+        </View>
+
+        {/* 4) Offer (View Offer button if available, else '—') */}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Offer</Text>
+          {hasOffers ? (
+            <TouchableOpacity
+              style={styles.viewOfferRowBadge}
+              activeOpacity={0.7}
+              onPress={() => onOpenOfferModal(item, parsedOffers)}
+            >
+              <Image source={Images.offer} style={styles.viewOfferRowIcon} resizeMode="contain" />
+              <Text style={styles.viewOfferRowText}>
+                {parsedOffers.length > 1 ? `View ${parsedOffers.length} Offers` : 'View Offer'}
+              </Text>
+              <Text style={styles.viewOfferArrow}>›</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.offerBadgeWrapper, styles.offerBadgeEmpty]}>
+              <Text style={[styles.activeOffersText, styles.activeOffersTextEmpty]}>
+                —
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* 5) Other data - First 3 items always visible */}
+        {firstThreeOtherColumns.map((colKey) => {
+          const val = item[colKey];
+          return (
+            <View key={colKey} style={styles.infoRow}>
+              <Text style={styles.infoLabel}>{colKey}</Text>
+              <Text
+                style={styles.infoValue}
+                numberOfLines={2}
+              >
+                {renderStringValue(val)}
+              </Text>
+            </View>
+          );
+        })}
+
+        {/* Other data - Remaining items hidden with down arrow */}
+        {isExpanded && hasMoreData && (
+          <View style={styles.expandedDetailsSection}>
+            {remainingOtherColumns.map((colKey) => {
+              const val = item[colKey];
+              return (
+                <View key={colKey} style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>{colKey}</Text>
+                  <Text
+                    style={styles.infoValue}
+                    numberOfLines={2}
+                  >
+                    {renderStringValue(val)}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      {/* Bottom Footer: View Stock Button */}
+      {showViewStock && (
+        <View style={styles.cardFooter}>
+          <TouchableOpacity
+            style={styles.stockBtnBottom}
+            onPress={() => onFetchStockInfo(item)}
+            activeOpacity={0.7}
+          >
+            <Image
+              source={Images.product}
+              style={styles.stockBtnIcon}
+              resizeMode="contain"
+            />
+            <Text style={styles.stockBtnText}>View Stock</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+});
+
 export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> = ({
   route,
   navigation,
@@ -578,6 +932,40 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
 
+  // API Mobile Brands
+  const [apiBrands, setApiBrands] = useState<string[]>([]);
+  const [brandsLoading, setBrandsLoading] = useState(true);
+
+  // API Item Categories
+  const [apiCategories, setApiCategories] = useState<string[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  useEffect(() => {
+    setBrandsLoading(true);
+    fetchMobileBrandsAllApi(token)
+      .then((brands) => {
+        if (Array.isArray(brands) && brands.length > 0) {
+          setApiBrands(brands);
+        }
+      })
+      .finally(() => {
+        setBrandsLoading(false);
+      });
+
+    setCategoriesLoading(true);
+    fetchItemCategoriesAllApi(token)
+      .then((cats) => {
+        if (Array.isArray(cats) && cats.length > 0) {
+          setApiCategories(cats);
+        }
+      })
+      .finally(() => {
+        setCategoriesLoading(false);
+      });
+  }, [token]);
+
+
+
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -611,7 +999,7 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
 
   console.log("reportDetails",reportDetails);
   
-  const handleFetchStockInfo = async (item: any, sync: boolean = true) => {
+  const handleFetchStockInfo = async (item: any, sync: boolean = false) => {
     setSelectedStockItem(item);
     setStockSearchQuery('');
     setStockLoading(true);
@@ -737,22 +1125,51 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
     return [];
   }, [stockInfoData]);
 
-  // Total saleable stock calculation
+  // Total saleable stock calculation (from API totalStock or locations sum)
   const totalStockCount = useMemo(() => {
+    if (stockInfoData?.totalStock !== undefined && stockInfoData.totalStock !== null) {
+      const n = Number(stockInfoData.totalStock);
+      if (!isNaN(n)) return n;
+    }
+    if (stockInfoData?.data?.totalStock !== undefined && stockInfoData.data.totalStock !== null) {
+      const n = Number(stockInfoData.data.totalStock);
+      if (!isNaN(n)) return n;
+    }
+    if (stockInfoData?.data?.total_stock !== undefined && stockInfoData.data.total_stock !== null) {
+      const n = Number(stockInfoData.data.total_stock);
+      if (!isNaN(n)) return n;
+    }
     if (stockInfoData?.data?.SALEABLE_STOCK !== undefined) return Number(stockInfoData.data.SALEABLE_STOCK);
-    if (stockInfoData?.data?.totalStock !== undefined) return Number(stockInfoData.data.totalStock);
     if (stockInfoData?.data?.totalSaleableStock !== undefined) return Number(stockInfoData.data.totalSaleableStock);
     if (stockInfoData?.data?.total_saleable_stock !== undefined) return Number(stockInfoData.data.total_saleable_stock);
-    if (stockInfoData?.data?.total_stock !== undefined) return Number(stockInfoData.data.total_stock);
     if (stockInfoData?.SALEABLE_STOCK !== undefined) return Number(stockInfoData.SALEABLE_STOCK);
-    if (stockInfoData?.totalStock !== undefined) return Number(stockInfoData.totalStock);
     if (stockInfoData?.totalSaleableStock !== undefined) return Number(stockInfoData.totalSaleableStock);
     if (stockInfoData?.total_saleable_stock !== undefined) return Number(stockInfoData.total_saleable_stock);
 
     return rawLocations.reduce((acc, loc) => acc + getObjectStockValue(loc), 0);
   }, [stockInfoData, rawLocations]);
 
-  // Filtered locations inside the stock modal
+  // Helper to extract branch name from any location object
+  const getBranchNameFromLoc = (loc: any): string => {
+    if (!loc || typeof loc !== 'object') return '';
+    return String(
+      loc.BRANCH_NAME ||
+      loc['Branch Name'] ||
+      loc.branch_name ||
+      loc.branchName ||
+      loc.BRANCH ||
+      loc.branch ||
+      loc.location_name ||
+      loc.locationName ||
+      loc.location ||
+      loc.place ||
+      loc.store_name ||
+      loc.name ||
+      ''
+    ).trim();
+  };
+
+  // Filtered and sorted (A-Z sequence by branch name) locations inside the stock modal
   const filteredStockLocations = useMemo(() => {
     // Attempt filtering for stock > 0
     let list = (rawLocations || []).filter((loc) => {
@@ -766,46 +1183,81 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
     }
 
     const cleanedStockQuery = stockSearchQuery.replace(/\*/g, ' ');
-    if (!cleanedStockQuery.trim()) return list;
-    const q = cleanedStockQuery.toLowerCase().trim();
+    if (cleanedStockQuery.trim()) {
+      const q = cleanedStockQuery.toLowerCase().trim();
+      list = list.filter((loc) => {
+        const branchName = getBranchNameFromLoc(loc).toLowerCase();
+        const branchCode = String(
+          loc.BRANCH_CODE || loc['Branch Code'] || loc.branch_code || loc.branchCode || loc.location_code || loc.locationCode || loc.code || ''
+        ).toLowerCase();
+        const prodName = String(
+          loc.PRODUCT_NAME || loc['Product Name'] || loc.product_name || loc.productName || loc.item_name || loc.itemName || ''
+        ).toLowerCase();
+        const itemCode = String(loc.ITEM_CODE || loc['Item Code'] || loc.item_code || loc.itemCode || loc.code || '').toLowerCase();
 
-    return list.filter((loc) => {
-      const branchName = String(
-        loc.BRANCH_NAME || loc['Branch Name'] || loc.branch_name || loc.branchName || loc.location_name || loc.locationName || loc.branch || loc.location || ''
-      ).toLowerCase();
-      const branchCode = String(
-        loc.BRANCH_CODE || loc['Branch Code'] || loc.branch_code || loc.branchCode || loc.location_code || loc.locationCode || loc.code || ''
-      ).toLowerCase();
-      const prodName = String(
-        loc.PRODUCT_NAME || loc['Product Name'] || loc.product_name || loc.productName || loc.item_name || loc.itemName || ''
-      ).toLowerCase();
-      const itemCode = String(loc.ITEM_CODE || loc['Item Code'] || loc.item_code || loc.itemCode || loc.code || '').toLowerCase();
+        const matchesHeader =
+          branchName.includes(q) ||
+          branchCode.includes(q) ||
+          prodName.includes(q) ||
+          itemCode.includes(q);
 
-      const matchesHeader =
-        branchName.includes(q) ||
-        branchCode.includes(q) ||
-        prodName.includes(q) ||
-        itemCode.includes(q);
+        if (matchesHeader) return true;
 
-      if (matchesHeader) return true;
+        const subList = loc.items || loc.products || loc.devices;
+        if (Array.isArray(subList)) {
+          return subList.some((sub: any) => {
+            const subName = String(sub.PRODUCT_NAME || sub['Product Name'] || sub.product_name || sub.productName || sub.item_name || sub.itemName || '').toLowerCase();
+            const subCode = String(sub.ITEM_CODE || sub['Item Code'] || sub.item_code || sub.itemCode || sub.code || '').toLowerCase();
+            return subName.includes(q) || subCode.includes(q);
+          });
+        }
 
-      const subList = loc.items || loc.products || loc.devices;
-      if (Array.isArray(subList)) {
-        return subList.some((sub: any) => {
-          const subName = String(sub.PRODUCT_NAME || sub['Product Name'] || sub.product_name || sub.productName || sub.item_name || sub.itemName || '').toLowerCase();
-          const subCode = String(sub.ITEM_CODE || sub['Item Code'] || sub.item_code || sub.itemCode || sub.code || '').toLowerCase();
-          return subName.includes(q) || subCode.includes(q);
-        });
-      }
+        return false;
+      });
+    }
 
-      return false;
+    // Sort alphabetically (A-Z) by branch name
+    return list.slice().sort((a, b) => {
+      const nameA = getBranchNameFromLoc(a);
+      const nameB = getBranchNameFromLoc(b);
+      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
     });
   }, [rawLocations, stockSearchQuery]);
 
-  // Total locations available count
+  // Total locations available count (from API totalLocations or list length)
   const totalLocationsCount = useMemo(() => {
+    if (stockInfoData?.totalLocations !== undefined && stockInfoData.totalLocations !== null) {
+      const n = Number(stockInfoData.totalLocations);
+      if (!isNaN(n)) return n;
+    }
+    if (stockInfoData?.data?.totalLocations !== undefined && stockInfoData.data.totalLocations !== null) {
+      const n = Number(stockInfoData.data.totalLocations);
+      if (!isNaN(n)) return n;
+    }
+    if (stockInfoData?.data?.total_locations !== undefined && stockInfoData.data.total_locations !== null) {
+      const n = Number(stockInfoData.data.total_locations);
+      if (!isNaN(n)) return n;
+    }
+    if (stockInfoData?.total_locations !== undefined && stockInfoData.total_locations !== null) {
+      const n = Number(stockInfoData.total_locations);
+      if (!isNaN(n)) return n;
+    }
     return (filteredStockLocations || []).length;
-  }, [filteredStockLocations]);
+  }, [stockInfoData, filteredStockLocations]);
+
+  // Formatted updatedAt date for Stock Modal
+  const stockUpdatedAt = useMemo(() => {
+    const raw =
+      stockInfoData?.updatedAt ||
+      stockInfoData?.data?.updatedAt ||
+      stockInfoData?.data?.updated_at ||
+      stockInfoData?.updated_at ||
+      stockInfoData?.timestamp ||
+      stockInfoData?.data?.timestamp ||
+      '';
+    if (!raw) return '';
+    return formatTimestamp(raw);
+  }, [stockInfoData]);
 
   useEffect(() => {
     if (variationId) {
@@ -831,26 +1283,30 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
     );
   }, [reportDetails]);
 
-  // Extract unique brands dynamically
+  // Brands directly sourced from /mobilebrands/all API (with instant fallback if API is empty)
   const availableBrands = useMemo(() => {
     const set = new Set<string>();
     set.add('All Brands');
-    if (Array.isArray(reportDetails?.data)) {
+    if (apiBrands.length > 0) {
+      apiBrands.forEach((b) => set.add(b));
+    } else if (Array.isArray(reportDetails?.data)) {
       reportDetails.data.forEach((item: any) => {
         const b = item.Brand || item.brand || item.brand_name || item.brandName || item.Mobile_Brand;
-        if (b && typeof b === 'string' && b.trim().length > 0) {
+        if (b && typeof b === 'string' && b.trim().length > 0 && b !== '—') {
           set.add(b.trim());
         }
       });
     }
     return Array.from(set);
-  }, [reportDetails?.data]);
+  }, [apiBrands, reportDetails?.data]);
 
-  // Extract unique product categories dynamically
+  // Categories directly sourced from /settings/icat API (with instant fallback if API is empty)
   const availableProducts = useMemo(() => {
     const set = new Set<string>();
     set.add('All Categories');
-    if (Array.isArray(reportDetails?.data)) {
+    if (apiCategories.length > 0) {
+      apiCategories.forEach((c) => set.add(c));
+    } else if (Array.isArray(reportDetails?.data)) {
       reportDetails.data.forEach((item: any) => {
         const p =
           item.ProductName ||
@@ -867,13 +1323,13 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
           item.modelName ||
           item.item_name ||
           item.name;
-        if (p && typeof p === 'string' && p.trim().length > 0) {
+        if (p && typeof p === 'string' && p.trim().length > 0 && p !== '—') {
           set.add(p.trim());
         }
       });
     }
     return Array.from(set);
-  }, [reportDetails?.data]);
+  }, [apiCategories, reportDetails?.data]);
 
   const filteredAvailableBrands = useMemo(() => {
     const cleaned = brandSearchQuery.replace(/\*/g, ' ');
@@ -1059,372 +1515,31 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
     });
   }, [reportDetails?.data, debouncedSearchQuery, activeBrands, activeProducts]);
 
-  const PriceListItemCard: React.FC<{
-    item: any;
-    index: number;
-    isExpanded: boolean;
-    onToggleExpand: () => void;
-    isReportDetail: boolean;
-    visibleColumns: any[];
-    onFetchStockInfo: (item: any) => void;
-    onOpenOfferModal: (item: any, offers: NormalizedOffer[]) => void;
-  }> = ({
-    item,
-    isExpanded,
-    onToggleExpand,
-    isReportDetail,
-    visibleColumns,
-    onFetchStockInfo,
-    onOpenOfferModal,
-  }) => {
-    // Standard keys safely rendered
-    const brand = renderStringValue(
-      item.Brand ||
-      item.brand ||
-      item.brand_name ||
-      item.brandName ||
-      item.Mobile_Brand
-    );
-    const productName = renderStringValue(
-      item.product_name ||
-      item.productName ||
-      item.model_name ||
-      item.modelName ||
-      item.item_name ||
-      item.name ||
-      item.model
-    );
-    const modelGroup = renderStringValue(item.model_group_name || item.modelGroupName);
-    const rawTimestamp =
-      item.timestamp ??
-      item.Timestamp ??
-      item.TIMESTAMP ??
-      item.time_stamp ??
-      item.created_at ??
-      item.createdAt ??
-      reportDetails?.timestamp ??
-      '';
-    const formattedDateTime = formatTimestamp(rawTimestamp);
+  const renderItem = useCallback(
+    ({ item, index }: { item: any; index: number }) => {
+      const itemKey = item.id ?? item._id ?? index;
+      const isExpanded = expandedItemId === itemKey;
 
-    const rawOffers =
-      item.active_offers ??
-      item.activeOffers ??
-      item.Active_Offers ??
-      item['Active Offers'] ??
-      item['active_offers'] ??
-      item['active_offer'] ??
-      item.active_offer ??
-      item.activeOffer ??
-      item.offers ??
-      item.Offers ??
-      item.offer ??
-      item.Offer;
+      return (
+        <PriceListItemCard
+          item={item}
+          index={index}
+          isExpanded={isExpanded}
+          onToggleExpand={() =>
+            setExpandedItemId((prev) => (prev === itemKey ? null : itemKey))
+          }
+          isReportDetail={isReportDetail}
+          visibleColumns={visibleColumns}
+          timestamp={reportDetails?.timestamp}
+          onFetchStockInfo={(it) => handleFetchStockInfo(it, false)}
+          onOpenOfferModal={handleOpenOfferModal}
+        />
+      );
+    },
+    [expandedItemId, isReportDetail, visibleColumns, reportDetails?.timestamp]
+  );
 
-    const parsedOffers = useMemo(() => parseItemOffers(rawOffers), [rawOffers]);
-    const hasOffers = parsedOffers.length > 0;
-
-    // Hide "View Stock" button when GeneralmodelGroup is "*General"
-    const generalModelGroupVal = String(
-      item.GeneralmodelGroup ??
-      item['GeneralmodelGroup'] ??
-      item['General Model Group'] ??
-      item.general_model_group ??
-      item.generalModelGroup ??
-      item['General_model_group'] ??
-      item.model_group_name ??
-      item.modelGroupName ??
-      item['Model Group'] ??
-      ''
-    ).trim();
-
-    const isGeneral =
-      generalModelGroupVal === '*General' ||
-      generalModelGroupVal.toLowerCase() === '*general' ||
-      generalModelGroupVal.toLowerCase().includes('*general') ||
-      generalModelGroupVal === '* General' ||
-      generalModelGroupVal.toLowerCase() === '* general';
-
-    const showViewStock = !isReportDetail && !isGeneral;
-
-    const productCategory = renderStringValue(
-      item.ProductName ||
-      item['Product Name'] ||
-      item['ProductName'] ||
-      item.product_name ||
-      item.productName ||
-      item.product_category ||
-      item.productCategory ||
-      item['Product Category'] ||
-      item.category ||
-      item.Category ||
-      item.model_name ||
-      item.modelName ||
-      item.item_name ||
-      item.name ||
-      item.model
-    );
-
-    // Filter other dynamic columns: exclude date/timestamp, model group, brand, product category, offer, and internal IDs
-    const otherColumns = useMemo(() => {
-      const candidateKeys: string[] =
-        visibleColumns && visibleColumns.length > 0
-          ? visibleColumns.map((col) => col.column_name)
-          : Object.keys(item);
-
-      return candidateKeys.filter((key) => {
-        if (!key) return false;
-        const normalized = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
-
-        // 1) Exclude Date / Timestamp / CreatedAt (shown in Header)
-        if (
-          normalized === 'timestamp' ||
-          normalized === 'createdat' ||
-          normalized === 'lastupdateddate' ||
-          normalized === 'updatedat' ||
-          normalized === 'time' ||
-          normalized === 'date'
-        ) {
-          return false;
-        }
-
-        // 2) Exclude Model Group (shown as field #1)
-        if (
-          normalized === 'modelgroup' ||
-          normalized === 'modelgroupname' ||
-          normalized === 'generalmodelgroup' ||
-          normalized === 'generalmodelgroupname'
-        ) {
-          return false;
-        }
-
-        // 3) Exclude Brand (shown as field #2)
-        if (
-          normalized === 'brand' ||
-          normalized === 'brandname' ||
-          normalized === 'mobilebrand' ||
-          normalized === 'itembrand'
-        ) {
-          return false;
-        }
-
-        // 4) Exclude Product Category (shown as field #3)
-        if (
-          normalized === 'productname' ||
-          normalized === 'productcategory' ||
-          normalized === 'category'
-        ) {
-          return false;
-        }
-
-        // 5) Exclude Offer (shown as field #4)
-        if (
-          normalized === 'activeoffers' ||
-          normalized === 'activeoffer' ||
-          normalized === 'offer' ||
-          normalized === 'offers'
-        ) {
-          return false;
-        }
-
-        // 6) Exclude internal IDs / indices
-        if (
-          normalized === 'id' ||
-          normalized === '_id' ||
-          normalized === 'variationid' ||
-          normalized === 'variation_id' ||
-          normalized === 'srno' ||
-          normalized === 'sr_no' ||
-          normalized === 'sno' ||
-          normalized === 'index' ||
-          normalized === 'key'
-        ) {
-          return false;
-        }
-
-        return true;
-      });
-    }, [visibleColumns, item]);
-
-    const firstThreeOtherColumns = otherColumns.slice(0, 3);
-    const remainingOtherColumns = otherColumns.slice(3);
-    const hasMoreData = remainingOtherColumns.length > 0;
-
-    return (
-      <View style={styles.card}>
-        {/* 1) Top Header: Last Updated date (Left) + Down Arrow (Right) */}
-        <View style={styles.cardHeader}>
-          <View style={styles.cardTopMetaRow}>
-            {formattedDateTime !== '—' ? (
-              <View style={styles.dateBadge}>
-                <Image
-                  source={Images.calendar}
-                  style={styles.cardCalendarIcon}
-                  resizeMode="contain"
-                />
-                <Text style={styles.dateLabel}>Last Updated: </Text>
-                <Text style={styles.dateText}>{formattedDateTime}</Text>
-              </View>
-            ) : (
-              <View />
-            )}
-
-            {/* Down Arrow / Expand Toggle Button for remaining data */}
-            {hasMoreData && (
-              <TouchableOpacity
-                style={[
-                  styles.expandToggleBtn,
-                  isExpanded && styles.expandToggleBtnActive,
-                ]}
-                onPress={onToggleExpand}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Image
-                  source={Images.down}
-                  style={[
-                    styles.expandToggleIcon,
-                    isExpanded && styles.expandToggleIconRotated,
-                  ]}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {/* Details List */}
-        <View style={styles.detailsContent}>
-          {/* 1) Model Group (Highlighted) */}
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Model Group</Text>
-            <View style={styles.modelGroupBadgeWrapper}>
-              <Text style={styles.modelGroupValue} numberOfLines={2}>
-                {modelGroup || '—'}
-              </Text>
-            </View>
-          </View>
-
-          {/* 2) Brand */}
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Brand</Text>
-            <View style={styles.brandBadgeWrapper}>
-              <Text style={styles.brandBadgeText}>{brand || '—'}</Text>
-            </View>
-          </View>
-
-          {/* 3) Product Category (Highlighted) */}
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Product Category</Text>
-            <View style={styles.productCategoryBadgeWrapper}>
-              <Text style={styles.productCategoryBadgeText} numberOfLines={2}>
-                {productCategory || '—'}
-              </Text>
-            </View>
-          </View>
-
-          {/* 4) Offer (View Offer button if available, else '—') */}
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Offer</Text>
-            {hasOffers ? (
-              <TouchableOpacity
-                style={styles.viewOfferRowBadge}
-                activeOpacity={0.7}
-                onPress={() => onOpenOfferModal(item, parsedOffers)}
-              >
-                <Image source={Images.offer} style={styles.viewOfferRowIcon} resizeMode="contain" />
-                <Text style={styles.viewOfferRowText}>
-                  {parsedOffers.length > 1 ? `View ${parsedOffers.length} Offers` : 'View Offer'}
-                </Text>
-                <Text style={styles.viewOfferArrow}>›</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={[styles.offerBadgeWrapper, styles.offerBadgeEmpty]}>
-                <Text style={[styles.activeOffersText, styles.activeOffersTextEmpty]}>
-                  —
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* 5) Other data - First 3 items always visible */}
-          {firstThreeOtherColumns.map((colKey) => {
-            const val = item[colKey];
-            return (
-              <View key={colKey} style={styles.infoRow}>
-                <Text style={styles.infoLabel}>{colKey}</Text>
-                <Text
-                  style={styles.infoValue}
-                  numberOfLines={2}
-                >
-                  {renderStringValue(val)}
-                </Text>
-              </View>
-            );
-          })}
-
-          {/* Other data - Remaining items hidden with down arrow */}
-          {isExpanded && hasMoreData && (
-            <View style={styles.expandedDetailsSection}>
-              {remainingOtherColumns.map((colKey) => {
-                const val = item[colKey];
-                return (
-                  <View key={colKey} style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>{colKey}</Text>
-                    <Text
-                      style={styles.infoValue}
-                      numberOfLines={2}
-                    >
-                      {renderStringValue(val)}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </View>
-
-        {/* Bottom Footer: View Stock Button */}
-        {showViewStock && (
-          <View style={styles.cardFooter}>
-            <TouchableOpacity
-              style={styles.stockBtnBottom}
-              onPress={() => onFetchStockInfo(item)}
-              activeOpacity={0.7}
-            >
-              <Image
-                source={Images.product}
-                style={styles.stockBtnIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.stockBtnText}>View Stock</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-    );
-  };
-
-  const renderItem = ({ item, index }: { item: any; index: number }) => {
-    const itemKey = item.id ?? item._id ?? index;
-    const isExpanded = expandedItemId === itemKey;
-
-    return (
-      <PriceListItemCard
-        item={item}
-        index={index}
-        isExpanded={isExpanded}
-        onToggleExpand={() =>
-          setExpandedItemId((prev) => (prev === itemKey ? null : itemKey))
-        }
-        isReportDetail={isReportDetail}
-        visibleColumns={visibleColumns}
-        onFetchStockInfo={(it) => handleFetchStockInfo(it, true)}
-        onOpenOfferModal={handleOpenOfferModal}
-      />
-    );
-  };
-
-  if (detailsLoading) {
+  if (detailsError && isAccessDeniedError(detailsError)) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
@@ -1436,57 +1551,31 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
           titleStyle={styles.headerTitleStyle}
           iconColor={colors.white}
         />
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.stateText}>Loading report details…</Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (detailsError) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-        <Header
-          title={formatName || 'Price List Details'}
-          showBack={true}
-          onBackPress={() => navigation?.goBack()}
-          style={styles.headerStyle}
-          titleStyle={styles.headerTitleStyle}
-          iconColor={colors.white}
+        <AccessDenied
+          message={detailsError}
+          onRetry={() => loadReportDetails(token, variationId)}
+          onGoBack={() => navigation?.goBack()}
         />
-        {isAccessDeniedError(detailsError) ? (
-          <AccessDenied
-            message={detailsError}
-            onRetry={() => loadReportDetails(token, variationId)}
-            onGoBack={() => navigation?.goBack()}
-          />
-        ) : (
-          <View style={styles.center}>
-            <Text style={styles.stateIcon}>⚠️</Text>
-            <Text style={[styles.stateText, { color: '#DC2626' }]}>{detailsError}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={() => loadReportDetails(token, variationId)}>
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
     );
   }
 
-  const stockModalBrand =
-    selectedStockItem?.['Brand Name'] ||
-    selectedStockItem?.['Brand'] ||
-    selectedStockItem?.brand ||
-    selectedStockItem?.Brand ||
-    selectedStockItem?.brand_name ||
-    selectedStockItem?.brandName ||
+  const stockModalCategory =
+    selectedStockItem?.ProductName ||
+    selectedStockItem?.['Product Name'] ||
+    selectedStockItem?.['ProductName'] ||
+    selectedStockItem?.product_name ||
+    selectedStockItem?.productName ||
+    selectedStockItem?.product_category ||
+    selectedStockItem?.productCategory ||
+    selectedStockItem?.['Product Category'] ||
     selectedStockItem?.category ||
-    selectedStockItem?.['Category'] ||
-    stockInfoData?.data?.brand ||
-    stockInfoData?.brand ||
-    'ADAPTOR';
+    selectedStockItem?.Category ||
+    selectedStockItem?.item_category ||
+    selectedStockItem?.itemCategory ||
+    stockInfoData?.data?.category ||
+    stockInfoData?.category ||
+    '';
 
   const stockModalTitle =
     selectedStockItem?.['Model Group'] ||
@@ -1623,26 +1712,37 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
             activeOpacity={0.8}
             onPress={() => setIsBrandModalOpen(true)}
           >
-            <Text
-              style={[
-                styles.filterDropdownText,
-                activeBrands.length > 0 && styles.filterDropdownTextActive,
-              ]}
-              numberOfLines={1}
-            >
-              {brandDropdownLabel}
-            </Text>
-            <Image
-              source={Images.down}
-              style={[
-                styles.filterDropdownIcon,
-                activeBrands.length > 0 && styles.filterDropdownIconActive,
-              ]}
-              resizeMode="contain"
-            />
+            {brandsLoading ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', flex: 1 }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.filterDropdownText} numberOfLines={1}>
+                  Loading Brands...
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text
+                  style={[
+                    styles.filterDropdownText,
+                    activeBrands.length > 0 && styles.filterDropdownTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {brandDropdownLabel}
+                </Text>
+                <Image
+                  source={Images.down}
+                  style={[
+                    styles.filterDropdownIcon,
+                    activeBrands.length > 0 && styles.filterDropdownIconActive,
+                  ]}
+                  resizeMode="contain"
+                />
+              </>
+            )}
           </TouchableOpacity>
 
-          {/* Product Dropdown Button */}
+          {/* Product/Category Dropdown Button */}
           <TouchableOpacity
             style={[
               styles.filterDropdownBtn,
@@ -1651,79 +1751,113 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
             activeOpacity={0.8}
             onPress={() => setIsProductModalOpen(true)}
           >
-            <Text
-              style={[
-                styles.filterDropdownText,
-                activeProducts.length > 0 && styles.filterDropdownTextActive,
-              ]}
-              numberOfLines={1}
-            >
-              {productDropdownLabel}
-            </Text>
-            <Image
-              source={Images.down}
-              style={[
-                styles.filterDropdownIcon,
-                activeProducts.length > 0 && styles.filterDropdownIconActive,
-              ]}
-              resizeMode="contain"
-            />
+            {categoriesLoading ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', flex: 1 }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.filterDropdownText} numberOfLines={1}>
+                  Loading Categories...
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text
+                  style={[
+                    styles.filterDropdownText,
+                    activeProducts.length > 0 && styles.filterDropdownTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {productDropdownLabel}
+                </Text>
+                <Image
+                  source={Images.down}
+                  style={[
+                    styles.filterDropdownIcon,
+                    activeProducts.length > 0 && styles.filterDropdownIconActive,
+                  ]}
+                  resizeMode="contain"
+                />
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.mainContainer}>
-        <FlatList
-          data={filteredData}
-          extraData={expandedItemId}
-          keyExtractor={(item, idx) => String(item.id || item._id || idx)}
-          renderItem={renderItem}
-          contentContainerStyle={[
-            styles.listContent,
-            filteredData.length === 0 && styles.listContentEmpty,
-          ]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            isSearching ? (
-              <View style={styles.emptyContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.stateText}>Searching products...</Text>
-              </View>
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.stateIcon}>🔍</Text>
-                <Text style={styles.emptyTitle}>No matching records found</Text>
-                <Text style={styles.stateText}>
-                  {searchQuery.trim()
-                    ? `No products found matching "${searchQuery}"`
-                    : 'No price list data available for the selected filters'}
-                </Text>
-                {(!!searchQuery.trim() || activeBrands.length > 0 || activeProducts.length > 0) && (
-                  <TouchableOpacity
-                    style={styles.retryBtn}
-                    onPress={() => {
-                      setSearchQuery('');
-                      setSelectedBrands(['All Brands']);
-                      setSelectedProducts(['All Categories']);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.retryText}>Clear Filters & Search</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )
-          }
-          refreshControl={
-            <RefreshControl
-              refreshing={detailsLoading}
-              onRefresh={() => loadReportDetails(token, variationId, selectedDate)}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
-          }
-        />
+        {detailsLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.stateText}>Loading data…</Text>
+          </View>
+        ) : detailsError ? (
+          <View style={styles.center}>
+            <Text style={styles.stateIcon}>⚠️</Text>
+            <Text style={[styles.stateText, { color: '#DC2626' }]}>{detailsError}</Text>
+            <TouchableOpacity
+              style={styles.retryBtn}
+              onPress={() => loadReportDetails(token, variationId)}
+            >
+              <Text style={styles.retryText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredData}
+            extraData={expandedItemId}
+            keyExtractor={(item, idx) => String(item.id || item._id || idx)}
+            renderItem={renderItem}
+            contentContainerStyle={[
+              styles.listContent,
+              filteredData.length === 0 && styles.listContentEmpty,
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            removeClippedSubviews={Platform.OS === 'android'}
+            updateCellsBatchingPeriod={50}
+            refreshControl={
+              <RefreshControl
+                refreshing={detailsLoading}
+                onRefresh={() => loadReportDetails(token, variationId, selectedDate)}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+            ListEmptyComponent={
+              isSearching ? (
+                <View style={styles.emptyContainer}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={styles.stateText}>Searching products...</Text>
+                </View>
+              ) : (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.stateIcon}>🔍</Text>
+                  <Text style={styles.emptyTitle}>No matching records found</Text>
+                  <Text style={styles.stateText}>
+                    {searchQuery.trim()
+                      ? `No products found matching "${searchQuery}"`
+                      : 'No price list data available for the selected filters'}
+                  </Text>
+                  {(!!searchQuery.trim() || activeBrands.length > 0 || activeProducts.length > 0) && (
+                    <TouchableOpacity
+                      style={styles.retryBtn}
+                      onPress={() => {
+                        setSearchQuery('');
+                        setSelectedBrands(['All Brands']);
+                        setSelectedProducts(['All Categories']);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.retryText}>Clear Filters & Search</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )
+            }
+          />
+        )}
       </View>
 
       {/* ── Multi-Brand Selection Modal ── */}
@@ -1803,7 +1937,12 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }}>
-              {filteredAvailableBrands.length === 0 ? (
+              {brandsLoading ? (
+                <View style={{ paddingVertical: 30, alignItems: 'center', justifyContent: 'center' }}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[styles.stateText, { marginTop: 8 }]}>Loading brands...</Text>
+                </View>
+              ) : filteredAvailableBrands.length === 0 ? (
                 <Text style={styles.modalEmptyText}>No brands found</Text>
               ) : (
                 filteredAvailableBrands.map((b) => {
@@ -1932,7 +2071,12 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }}>
-              {filteredAvailableProducts.length === 0 ? (
+              {categoriesLoading ? (
+                <View style={{ paddingVertical: 30, alignItems: 'center', justifyContent: 'center' }}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[styles.stateText, { marginTop: 8 }]}>Loading categories...</Text>
+                </View>
+              ) : filteredAvailableProducts.length === 0 ? (
                 <Text style={styles.modalEmptyText}>No categories found</Text>
               ) : (
                 filteredAvailableProducts.map((p) => {
@@ -2146,31 +2290,8 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
           <View style={styles.stockModalCard}>
             {/* Modal Top Header */}
             <View style={styles.stockModalHeader}>
-              <View style={styles.stockModalTitleRow}>
-                <View style={styles.stockIconCircle}>
-                  <Text style={styles.stockIconEmoji}>📦</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                    <Text style={styles.stockModalTitle} numberOfLines={1}>
-                      {stockModalTitle}
-                    </Text>
-                    {!!stockModalBrand && (
-                      <View style={styles.stockCategoryPill}>
-                        <Text style={styles.stockCategoryText}>{stockModalBrand}</Text>
-                      </View>
-                    )}
-                    <View style={styles.stockLivePill}>
-                      <Text style={styles.stockLiveText}>⚡ Live Synced</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.stockLastSyncedText}>
-                    Last Synced: {new Date().toLocaleTimeString()}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {/* Top Action Bar: Sync Apx button (sync = true) + Close button */}
+              <View style={styles.stockModalTopActionBar}>
                 <TouchableOpacity
                   style={styles.stockSyncBtn}
                   activeOpacity={0.7}
@@ -2181,8 +2302,8 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
                     <>
-                      <Text style={styles.stockSyncBtnIcon}>🔄</Text>
-                      <Text style={styles.stockSyncBtnText}>Sync Live Stock</Text>
+                      <Text style={styles.stockSyncBtnIcon}>⚡</Text>
+                      <Text style={styles.stockSyncBtnText}>Sync Apx</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -2194,6 +2315,31 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
                 >
                   <Text style={styles.stockModalCloseText}>✕</Text>
                 </TouchableOpacity>
+              </View>
+
+              {/* Title Section: Icon, Model Title, Category Pill, and Last Synced */}
+              <View style={styles.stockModalTitleRow}>
+                <View style={styles.stockIconCircle}>
+                  <Text style={styles.stockIconEmoji}>📦</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                    <Text style={styles.stockModalTitle} numberOfLines={3}>
+                      {stockModalTitle}
+                    </Text>
+                    
+                  </View>
+                  {!!stockModalCategory && (
+                      <View style={styles.stockCategoryPill}>
+                        <Text style={styles.stockCategoryText}>{stockModalCategory}</Text>
+                      </View>
+                    )}
+                  {!!stockUpdatedAt && stockUpdatedAt !== '—' && (
+                    <Text style={styles.stockLastSyncedText}>
+                      Last Synced: {stockUpdatedAt}
+                    </Text>
+                  )}
+                </View>
               </View>
             </View>
 
@@ -2228,6 +2374,14 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
                     Total Saleable Stock: <Text style={{ fontFamily: fontFamily.bold, color: '#fff' }}>{totalStockCount}</Text>
                   </Text>
                 </View>
+                <TouchableOpacity
+                  style={styles.stockRefreshIconBtn}
+                  activeOpacity={0.7}
+                  disabled={stockLoading}
+                  onPress={() => handleFetchStockInfo(selectedStockItem, false)}
+                >
+                  <Text style={styles.stockRefreshIconEmoji}>🔄</Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -2257,6 +2411,14 @@ export const PriceListDetailScreen: React.FC<{ route: any; navigation?: any }> =
                   showsVerticalScrollIndicator={true}
                   keyboardShouldPersistTaps="handled"
                   nestedScrollEnabled={true}
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={stockLoading}
+                      onRefresh={() => handleFetchStockInfo(selectedStockItem, false)}
+                      colors={[colors.primary]}
+                      tintColor={colors.primary}
+                    />
+                  }
                   ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                       <Text style={styles.stateIcon}>📦</Text>
@@ -3543,21 +3705,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stockModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 14,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
+  stockModalTopActionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginBottom: 10,
+  },
   stockModalTitleRow: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    marginRight: 8,
   },
   stockIconCircle: {
     width: 38,
@@ -3576,10 +3740,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   stockCategoryPill: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingVertical: 2
   },
   stockCategoryText: {
     fontSize: 10.5,
@@ -3605,6 +3766,25 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     color: '#94A3B8',
     marginTop: 3,
+  },
+  stockRefreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 9,
+    paddingVertical: 6.5,
+    borderRadius: 10,
+    gap: 4,
+  },
+  stockRefreshBtnIcon: {
+    fontSize: 11,
+  },
+  stockRefreshBtnText: {
+    fontSize: 11.5,
+    fontFamily: fontFamily.medium,
+    color: '#334155',
   },
   stockSyncBtn: {
     flexDirection: 'row',
@@ -3699,6 +3879,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fontFamily.medium,
     color: '#fff',
+  },
+  stockRefreshIconBtn: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    width: 32,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stockRefreshIconEmoji: {
+    fontSize: 13,
   },
 
   /* Location Cards Content */

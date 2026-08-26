@@ -12,6 +12,7 @@ import {
   Image,
   Modal,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
 import { StockCashDepositItem, fetchStatesApi } from '../../../api/stockCashDepositApi';
@@ -75,7 +76,7 @@ const getStatusDetails = (item: StockCashDepositItem) => {
 };
 
 /* ── Card Component ── */
-const StockVsCashCard: React.FC<{ item: StockCashDepositItem; index: number }> = ({
+const StockVsCashCard = React.memo<{ item: StockCashDepositItem; index: number }>(({
   item,
   index,
 }) => {
@@ -269,7 +270,7 @@ const StockVsCashCard: React.FC<{ item: StockCashDepositItem; index: number }> =
       </View>
     </View>
   );
-};
+});
 
 /* ── Main Screen Component ── */
 const StockVsCashReportScreen: React.FC<{ navigation?: any }> = ({
@@ -722,6 +723,11 @@ const StockVsCashReportScreen: React.FC<{ navigation?: any }> = ({
             filteredData.length === 0 && styles.listContentEmpty,
           ]}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          updateCellsBatchingPeriod={50}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.stateIcon}>📊</Text>

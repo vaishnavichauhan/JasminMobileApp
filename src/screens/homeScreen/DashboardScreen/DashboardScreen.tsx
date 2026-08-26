@@ -11,6 +11,7 @@ import {
   TextInput,
   Modal,
   FlatList,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './DashboardScreenStyles';
@@ -218,6 +219,228 @@ const ActiveOffersTicker: React.FC<{ token: string | null; navigation?: any }> =
     </TouchableOpacity>
   );
 };
+
+/* ── Memoized ABM Deposit Card ── */
+const DashboardAbmCard = React.memo<{ item: CashDepositAbmItem; index: number }>(({ item }) => {
+  const firstLetter = (item.abmName || 'A').trim().charAt(0).toUpperCase();
+  return (
+    <View style={styles.abmCard}>
+      {/* ABM Card Header: Name + Pending Deposit % Badge */}
+      <View style={styles.abmCardHeader}>
+        <View style={styles.abmHeaderLeft}>
+          <View style={styles.abmAvatarBadge}>
+            <Text style={styles.abmAvatarText}>{firstLetter}</Text>
+          </View>
+          <Text style={styles.abmNameText} numberOfLines={1}>
+            {item.abmName}
+          </Text>
+        </View>
+
+        <View style={styles.abmPercentBadge}>
+          <Text style={styles.abmPercentText}>
+            {formatPercent(item.pendingDepositPercentage)}
+          </Text>
+        </View>
+      </View>
+
+      {/* 4-Box Metric Grid */}
+      <View style={styles.abmStatsGrid}>
+        {/* 1. Opening Cash */}
+        <View style={styles.abmStatItem}>
+          <Text style={styles.abmStatLabel}>Opening Cash</Text>
+          <Text style={styles.abmStatValue}>
+            {formatCurrency(item.openingCash)}
+          </Text>
+        </View>
+
+        {/* 2. Cash Deposit */}
+        <View style={styles.abmStatItem}>
+          <Text style={styles.abmStatLabel}>Cash Deposit</Text>
+          <Text style={styles.abmStatValue}>
+            {formatCurrency(item.cashDeposit)}
+          </Text>
+        </View>
+
+        {/* 3. Pending Cash Deposit (Title & Value in RED) */}
+        <View style={[styles.abmStatItem, styles.abmStatItemPendingRed]}>
+          <Text style={styles.abmStatLabelRed}>
+            Pending Cash Deposit
+          </Text>
+          <Text style={styles.abmStatValueRed}>
+            {formatCurrency(item.pendingCashDeposit)}
+          </Text>
+        </View>
+
+        {/* 4. Pending Deposit */}
+        <View style={[styles.abmStatItem, styles.abmStatItemPendingRed]}>
+          <Text style={styles.abmStatLabelRed}>
+            Pending Deposit
+          </Text>
+          <Text style={styles.abmStatValueRed}>
+            {formatPercent(item.pendingDepositPercentage)}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+});
+
+/* ── Memoized Brand Wise Sale Card ── */
+const DashboardBrandCard = React.memo<{ item: BrandWiseSaleItem; index: number }>(({ item, index }) => {
+  const growthQtyNum = Number(item.growthQtyPercentage) || 0;
+  const growthValueNum = Number(item.growthValuePercentage) || 0;
+
+  return (
+    <View style={styles.brandCard}>
+      {/* Card Header: Brand Name + Sr No Badge */}
+      <View style={styles.brandCardHeader}>
+        <View style={styles.brandHeaderLeft}>
+          <View style={styles.brandIconWrapper}>
+            <Image
+              source={Images.product}
+              style={styles.brandProductIcon}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={styles.brandHeaderTitleWrap}>
+            <Text style={styles.brandNameText} numberOfLines={1}>
+              {item.brandName}
+            </Text>
+            <Text style={styles.brandIndexBadge}>
+              #{item.srNo ?? (index + 1)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* 4-Box Metric Grid (FTD, LMFTD, MTD, LMTD) */}
+      <View style={styles.brandStatsGrid}>
+        {/* 1. FTD */}
+        <View style={styles.brandBox}>
+          <View style={styles.brandBoxHeader}>
+            <Text style={styles.brandBoxTitle}>FTD</Text>
+            <View style={styles.brandBoxQtyBadge}>
+              <Text style={styles.brandBoxQtyText}>
+                {formatQuantity(item.ftdQty)}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.brandBoxValueText}>
+            {formatCurrency(item.ftdValue)}
+          </Text>
+        </View>
+
+        {/* 2. LMFTD */}
+        <View style={styles.brandBox}>
+          <View style={styles.brandBoxHeader}>
+            <Text style={styles.brandBoxTitle}>LMFTD</Text>
+            <View style={styles.brandBoxQtyBadge}>
+              <Text style={styles.brandBoxQtyText}>
+                {formatQuantity(item.lmftdQty)}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.brandBoxValueText}>
+            {formatCurrency(item.lmftdValue)}
+          </Text>
+        </View>
+
+        {/* 3. MTD (Highlighted in Purple) */}
+        <View style={[styles.brandBox, styles.brandBoxMtd]}>
+          <View style={styles.brandBoxHeader}>
+            <Text style={[styles.brandBoxTitle, styles.brandBoxTitleMtd]}>
+              MTD
+            </Text>
+            <View style={[styles.brandBoxQtyBadge, styles.brandBoxQtyBadgeMtd]}>
+              <Text style={[styles.brandBoxQtyText, styles.brandBoxQtyTextMtd]}>
+                {formatQuantity(item.mtdQty)}
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.brandBoxValueText, styles.brandBoxValueTextMtd]}>
+            {formatCurrency(item.mtdValue)}
+          </Text>
+        </View>
+
+        {/* 4. LMTD */}
+        <View style={styles.brandBox}>
+          <View style={styles.brandBoxHeader}>
+            <Text style={styles.brandBoxTitle}>LMTD</Text>
+            <View style={styles.brandBoxQtyBadge}>
+              <Text style={styles.brandBoxQtyText}>
+                {formatQuantity(item.lmtdQty)}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.brandBoxValueText}>
+            {formatCurrency(item.lmtdValue)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Growth Row (Growth Qty % & Growth Value %) */}
+      <View style={styles.brandGrowthRow}>
+        {/* Growth Qty % */}
+        <View
+          style={[
+            styles.brandGrowthBox,
+            growthQtyNum >= 0 ? styles.growthGreenBox : styles.growthRedBox,
+          ]}
+        >
+          <Text
+            style={[
+              styles.brandGrowthLabel,
+              growthQtyNum >= 0 ? styles.growthGreenText : styles.growthRedText,
+            ]}
+          >
+            Growth Qty %
+          </Text>
+          <Text
+            style={[
+              styles.brandGrowthValue,
+              growthQtyNum >= 0 ? styles.growthGreenText : styles.growthRedText,
+            ]}
+          >
+            {growthQtyNum > 0
+              ? `▲ +${formatPercent(growthQtyNum)}`
+              : growthQtyNum < 0
+              ? `▼ ${formatPercent(growthQtyNum)}`
+              : formatPercent(growthQtyNum)}
+          </Text>
+        </View>
+
+        {/* Growth Value % */}
+        <View
+          style={[
+            styles.brandGrowthBox,
+            growthValueNum >= 0 ? styles.growthGreenBox : styles.growthRedBox,
+          ]}
+        >
+          <Text
+            style={[
+              styles.brandGrowthLabel,
+              growthValueNum >= 0 ? styles.growthGreenText : styles.growthRedText,
+            ]}
+          >
+            Growth Value %
+          </Text>
+          <Text
+            style={[
+              styles.brandGrowthValue,
+              growthValueNum >= 0 ? styles.growthGreenText : styles.growthRedText,
+            ]}
+          >
+            {growthValueNum > 0
+              ? `▲ +${formatPercent(growthValueNum)}`
+              : growthValueNum < 0
+              ? `▼ ${formatPercent(growthValueNum)}`
+              : formatPercent(growthValueNum)}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+});
 
 const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavigation }) => {
   const nav = useNavigation<any>();
@@ -770,12 +993,28 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
               </TouchableOpacity>
             </View>
 
-            {/* ABM Card ScrollList */}
-            <ScrollView
+            {/* ABM Card FlatList */}
+            <FlatList
+              data={filteredCashDepositList}
+              keyExtractor={(item, index) => String(item.id ?? index)}
+              renderItem={({ item, index }) => (
+                <DashboardAbmCard item={item} index={index} />
+              )}
               style={styles.cardListScroll}
-              contentContainerStyle={styles.cardListContent}
+              contentContainerStyle={[
+                styles.cardListContent,
+                (filteredCashDepositList.length === 0 || (loading && !refreshing)) && {
+                  flexGrow: 1,
+                  justifyContent: 'center',
+                },
+              ]}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              windowSize={7}
+              removeClippedSubviews={Platform.OS === 'android'}
+              updateCellsBatchingPeriod={50}
               refreshControl={
                 <RefreshControl
                   refreshing={refreshing}
@@ -784,99 +1023,25 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                   tintColor={colors.primary}
                 />
               }
-            >
-              {loading && !refreshing ? (
-                <View style={styles.centerLoading}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={styles.loadingText}>Loading ABM deposit cards...</Text>
-                </View>
-              ) : error && isAccessDeniedError(error) ? (
-                <AccessDenied
-                  message={error}
-                  onRetry={() => loadCashDepositData(token, true, selectedStates)}
-                />
-              ) : filteredCashDepositList.length === 0 ? (
-                 <View style={styles.center}>
-                          <Text style={styles.stateIcon}>📊</Text>
-                          <Text style={styles.stateText}>No data found</Text>
-                         
-                        </View>
-              ) : (
-                filteredCashDepositList.map((item, index) => {
-                  const firstLetter = (item.abmName || 'A').trim().charAt(0).toUpperCase();
-                  return (
-                    <View key={item.id || index} style={styles.abmCard}>
-                      {/* ABM Card Header: Name + Pending Deposit % Badge */}
-                      <View style={styles.abmCardHeader}>
-                        <View style={styles.abmHeaderLeft}>
-                          <View style={styles.abmAvatarBadge}>
-                            <Text style={styles.abmAvatarText}>{firstLetter}</Text>
-                          </View>
-                          <Text style={styles.abmNameText} numberOfLines={1}>
-                            {item.abmName}
-                          </Text>
-                        </View>
-
-                        <View style={styles.abmPercentBadge}>
-                          <Text style={styles.abmPercentText}>
-                            {formatPercent(item.pendingDepositPercentage)}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* 4-Box Metric Grid */}
-                      <View style={styles.abmStatsGrid}>
-                        {/* 1. Opening Cash */}
-                        <View style={styles.abmStatItem}>
-                          <Text style={styles.abmStatLabel}>Opening Cash</Text>
-                          <Text style={styles.abmStatValue}>
-                            {formatCurrency(item.openingCash)}
-                          </Text>
-                        </View>
-
-                        {/* 2. Cash Deposit */}
-                        <View style={styles.abmStatItem}>
-                          <Text style={styles.abmStatLabel}>Cash Deposit</Text>
-                          <Text style={styles.abmStatValue}>
-                            {formatCurrency(item.cashDeposit)}
-                          </Text>
-                        </View>
-
-                        {/* 3. Pending Cash Deposit (Title & Value in RED) */}
-                        <View
-                          style={[
-                            styles.abmStatItem,
-                            styles.abmStatItemPendingRed,
-                          ]}
-                        >
-                          <Text style={styles.abmStatLabelRed}>
-                            Pending Cash Deposit
-                          </Text>
-                          <Text style={styles.abmStatValueRed}>
-                            {formatCurrency(item.pendingCashDeposit)}
-                          </Text>
-                        </View>
-
-                        {/* 4. Pending Deposit (Title & Value in GREEN) */}
-                        <View
-                          style={[
-                            styles.abmStatItem,
-                            styles.abmStatItemPendingRed,
-                          ]}
-                        >
-                          <Text style={styles.abmStatLabelRed}>
-                            Pending Deposit
-                          </Text>
-                          <Text style={styles.abmStatValueRed}>
-                            {formatPercent(item.pendingDepositPercentage)}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })
-              )}
-            </ScrollView>
+              ListEmptyComponent={
+                loading && !refreshing ? (
+                  <View style={styles.centerLoading}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={styles.loadingText}>Loading ABM deposit cards...</Text>
+                  </View>
+                ) : error && isAccessDeniedError(error) ? (
+                  <AccessDenied
+                    message={error}
+                    onRetry={() => loadCashDepositData(token, true, selectedStates)}
+                  />
+                ) : (
+                  <View style={styles.center}>
+                    <Text style={styles.stateIcon}>📊</Text>
+                    <Text style={styles.stateText}>No data found</Text>
+                  </View>
+                )
+              }
+            />
           </View>
         )}
 
@@ -1000,11 +1165,29 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
               </TouchableOpacity>
             </View>
 
-            <ScrollView
+            {/* Brand Sales FlatList */}
+            <FlatList
+              data={filteredBrandSalesList}
+              keyExtractor={(item, index) => String(item.id ?? index)}
+              renderItem={({ item, index }) => (
+                <DashboardBrandCard item={item} index={index} />
+              )}
               style={styles.cardListScroll}
-              contentContainerStyle={styles.cardListContent}
+              contentContainerStyle={[
+                styles.cardListContent,
+                filteredBrandSalesList.length === 0 &&
+                  !brandSalesTotals && {
+                    flexGrow: 1,
+                    justifyContent: 'center',
+                  },
+              ]}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              windowSize={7}
+              removeClippedSubviews={Platform.OS === 'android'}
+              updateCellsBatchingPeriod={50}
               refreshControl={
                 <RefreshControl
                   refreshing={refreshing}
@@ -1013,373 +1196,212 @@ const DashboardScreen: React.FC<{ navigation?: any }> = ({ navigation: propNavig
                   tintColor={colors.primary}
                 />
               }
-            >
-              {loading && !refreshing ? (
-                <View style={styles.centerLoading}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={styles.loadingText}>Loading brand sales cards...</Text>
-                </View>
-              ) : error && isAccessDeniedError(error) ? (
-                <AccessDenied
-                  message={error}
-                  onRetry={() =>
-                    loadBrandSalesData(
-                      token,
-                      true,
-                      selectedStates,
-                      selectedZones,
-                      selectedDate,
-                      brandSearchQuery
-                    )
-                  }
-                />
-              ) : filteredBrandSalesList.length === 0 && !brandSalesTotals ? (
-                <View style={styles.center}>
-                  <Text style={styles.stateIcon}>📊</Text>
-                  <Text style={styles.stateText}>No data found</Text>
-                </View>
-              ) : (
-                <>
-                  {/* ── CARD 1: TOTAL BRAND SALES CARD (Purple Theme) ── */}
-                  {brandSalesTotals && (
-                    <View style={[styles.brandCard, styles.totalBrandCard]}>
-                      {/* Total Card Header */}
-                      <View style={styles.totalBrandCardHeader}>
-                        <View style={styles.totalBrandHeaderLeft}>
-                          <View style={styles.totalBrandIconWrapper}>
-                            <Image
-                              source={Images.report}
-                              style={styles.totalBrandProductIcon}
-                              resizeMode="contain"
-                            />
-                          </View>
-                          <View>
-                            <Text style={styles.totalBrandTitle}>
-                              {brandSalesTotals.brandName || 'Total Brand Sales'}
-                            </Text>
-                            <Text style={styles.totalBrandSubtitle}>
-                              Cumulative Summary
-                            </Text>
-                          </View>
+              ListHeaderComponent={
+                brandSalesTotals ? (
+                  <View style={[styles.brandCard, styles.totalBrandCard]}>
+                    {/* Total Card Header */}
+                    <View style={styles.totalBrandCardHeader}>
+                      <View style={styles.totalBrandHeaderLeft}>
+                        <View style={styles.totalBrandIconWrapper}>
+                          <Image
+                            source={Images.report}
+                            style={styles.totalBrandProductIcon}
+                            resizeMode="contain"
+                          />
                         </View>
-
-                        <View style={styles.totalBadge}>
-                          <Text style={styles.totalBadgeText}>SUMMARY</Text>
-                        </View>
-                      </View>
-
-                      {/* 4-Box Metrics Grid for Totals */}
-                      <View style={styles.brandStatsGrid}>
-                        {/* 1. FTD */}
-                        <View style={[styles.brandBox, styles.totalBox]}>
-                          <View style={styles.brandBoxHeader}>
-                            <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
-                              FTD
-                            </Text>
-                            <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
-                              <Text style={styles.brandBoxQtyText}>
-                                {formatQuantity(brandSalesTotals.ftdQty)}
-                              </Text>
-                            </View>
-                          </View>
-                          <Text style={[styles.brandBoxValueText, styles.totalBoxValueText]}>
-                            {formatCurrency(brandSalesTotals.ftdValue)}
+                        <View>
+                          <Text style={styles.totalBrandTitle}>
+                            {brandSalesTotals.brandName || 'Total Brand Sales'}
                           </Text>
-                        </View>
-
-                        {/* 2. LMFTD */}
-                        <View style={[styles.brandBox, styles.totalBox]}>
-                          <View style={styles.brandBoxHeader}>
-                            <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
-                              LMFTD
-                            </Text>
-                            <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
-                              <Text style={styles.brandBoxQtyText}>
-                                {formatQuantity(brandSalesTotals.lmftdQty)}
-                              </Text>
-                            </View>
-                          </View>
-                          <Text style={[styles.brandBoxValueText, styles.totalBoxValueText]}>
-                            {formatCurrency(brandSalesTotals.lmftdValue)}
-                          </Text>
-                        </View>
-
-                        {/* 3. MTD (Highlighted in Purple) */}
-                        <View style={[styles.brandBox, styles.totalBoxMtd]}>
-                          <View style={styles.brandBoxHeader}>
-                            <Text style={[styles.brandBoxTitle, styles.totalBoxTitleMtd]}>
-                              MTD
-                            </Text>
-                            <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadgeMtd]}>
-                              <Text style={[styles.brandBoxQtyText, styles.brandBoxQtyTextMtd]}>
-                                {formatQuantity(brandSalesTotals.mtdQty)}
-                              </Text>
-                            </View>
-                          </View>
-                          <Text style={[styles.brandBoxValueText, styles.totalBoxValueTextMtd]}>
-                            {formatCurrency(brandSalesTotals.mtdValue)}
-                          </Text>
-                        </View>
-
-                        {/* 4. LMTD */}
-                        <View style={[styles.brandBox, styles.totalBox]}>
-                          <View style={styles.brandBoxHeader}>
-                            <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
-                              LMTD
-                            </Text>
-                            <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
-                              <Text style={styles.brandBoxQtyText}>
-                                {formatQuantity(brandSalesTotals.lmtdQty)}
-                              </Text>
-                            </View>
-                          </View>
-                          <Text style={[styles.brandBoxValueText, styles.totalBoxValueText]}>
-                            {formatCurrency(brandSalesTotals.lmtdValue)}
+                          <Text style={styles.totalBrandSubtitle}>
+                            Cumulative Summary
                           </Text>
                         </View>
                       </View>
 
-                      {/* Growth Row for Totals */}
-                      <View style={styles.brandGrowthRow}>
-                        {/* Growth Qty % */}
-                        <View
+                      <View style={styles.totalBadge}>
+                        <Text style={styles.totalBadgeText}>SUMMARY</Text>
+                      </View>
+                    </View>
+
+                    {/* 4-Box Metrics Grid for Totals */}
+                    <View style={styles.brandStatsGrid}>
+                      {/* 1. FTD */}
+                      <View style={[styles.brandBox, styles.totalBox]}>
+                        <View style={styles.brandBoxHeader}>
+                          <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
+                            FTD
+                          </Text>
+                          <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
+                            <Text style={styles.brandBoxQtyText}>
+                              {formatQuantity(brandSalesTotals.ftdQty)}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={[styles.brandBoxValueText, styles.totalBoxValueText]}>
+                          {formatCurrency(brandSalesTotals.ftdValue)}
+                        </Text>
+                      </View>
+
+                      {/* 2. LMFTD */}
+                      <View style={[styles.brandBox, styles.totalBox]}>
+                        <View style={styles.brandBoxHeader}>
+                          <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
+                            LMFTD
+                          </Text>
+                          <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
+                            <Text style={styles.brandBoxQtyText}>
+                              {formatQuantity(brandSalesTotals.lmftdQty)}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={[styles.brandBoxValueText, styles.totalBoxValueText]}>
+                          {formatCurrency(brandSalesTotals.lmftdValue)}
+                        </Text>
+                      </View>
+
+                      {/* 3. MTD (Highlighted in Purple) */}
+                      <View style={[styles.brandBox, styles.totalBoxMtd]}>
+                        <View style={styles.brandBoxHeader}>
+                          <Text style={[styles.brandBoxTitle, styles.totalBoxTitleMtd]}>
+                            MTD
+                          </Text>
+                          <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadgeMtd]}>
+                            <Text style={[styles.brandBoxQtyText, styles.brandBoxQtyTextMtd]}>
+                              {formatQuantity(brandSalesTotals.mtdQty)}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={[styles.brandBoxValueText, styles.totalBoxValueTextMtd]}>
+                          {formatCurrency(brandSalesTotals.mtdValue)}
+                        </Text>
+                      </View>
+
+                      {/* 4. LMTD */}
+                      <View style={[styles.brandBox, styles.totalBox]}>
+                        <View style={styles.brandBoxHeader}>
+                          <Text style={[styles.brandBoxTitle, styles.totalBoxTitle]}>
+                            LMTD
+                          </Text>
+                          <View style={[styles.brandBoxQtyBadge, styles.totalQtyBadge]}>
+                            <Text style={styles.brandBoxQtyText}>
+                              {formatQuantity(brandSalesTotals.lmtdQty)}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={[styles.brandBoxValueText, styles.totalBoxValueText]}>
+                          {formatCurrency(brandSalesTotals.lmtdValue)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Growth Row for Totals */}
+                    <View style={styles.brandGrowthRow}>
+                      {/* Growth Qty % */}
+                      <View
+                        style={[
+                          styles.brandGrowthBox,
+                          (brandSalesTotals.growthQtyPercentage ?? 0) >= 0
+                            ? styles.growthGreenBox
+                            : styles.growthRedBox,
+                        ]}
+                      >
+                        <Text
                           style={[
-                            styles.brandGrowthBox,
+                            styles.brandGrowthLabel,
                             (brandSalesTotals.growthQtyPercentage ?? 0) >= 0
-                              ? styles.growthGreenBox
-                              : styles.growthRedBox,
+                              ? styles.growthGreenText
+                              : styles.growthRedText,
                           ]}
                         >
-                          <Text
-                            style={[
-                              styles.brandGrowthLabel,
-                              (brandSalesTotals.growthQtyPercentage ?? 0) >= 0
-                                ? styles.growthGreenText
-                                : styles.growthRedText,
-                            ]}
-                          >
-                            Growth Qty %
-                          </Text>
-                          <Text
-                            style={[
-                              styles.brandGrowthValue,
-                              (brandSalesTotals.growthQtyPercentage ?? 0) >= 0
-                                ? styles.growthGreenText
-                                : styles.growthRedText,
-                            ]}
-                          >
-                            {(brandSalesTotals.growthQtyPercentage ?? 0) > 0
-                              ? `▲ +${formatPercent(brandSalesTotals.growthQtyPercentage)}`
-                              : (brandSalesTotals.growthQtyPercentage ?? 0) < 0
-                              ? `▼ ${formatPercent(brandSalesTotals.growthQtyPercentage)}`
-                              : formatPercent(brandSalesTotals.growthQtyPercentage)}
-                          </Text>
-                        </View>
-
-                        {/* Growth Value % */}
-                        <View
+                          Growth Qty %
+                        </Text>
+                        <Text
                           style={[
-                            styles.brandGrowthBox,
-                            (brandSalesTotals.growthValuePercentage ?? 0) >= 0
-                              ? styles.growthGreenBox
-                              : styles.growthRedBox,
+                            styles.brandGrowthValue,
+                            (brandSalesTotals.growthQtyPercentage ?? 0) >= 0
+                              ? styles.growthGreenText
+                              : styles.growthRedText,
                           ]}
                         >
-                          <Text
-                            style={[
-                              styles.brandGrowthLabel,
-                              (brandSalesTotals.growthValuePercentage ?? 0) >= 0
-                                ? styles.growthGreenText
-                                : styles.growthRedText,
-                            ]}
-                          >
-                            Growth Value %
-                          </Text>
-                          <Text
-                            style={[
-                              styles.brandGrowthValue,
-                              (brandSalesTotals.growthValuePercentage ?? 0) >= 0
-                                ? styles.growthGreenText
-                                : styles.growthRedText,
-                            ]}
-                          >
-                            {(brandSalesTotals.growthValuePercentage ?? 0) > 0
-                              ? `▲ +${formatPercent(brandSalesTotals.growthValuePercentage)}`
-                              : (brandSalesTotals.growthValuePercentage ?? 0) < 0
-                              ? `▼ ${formatPercent(brandSalesTotals.growthValuePercentage)}`
-                              : formatPercent(brandSalesTotals.growthValuePercentage)}
-                          </Text>
-                        </View>
+                          {(brandSalesTotals.growthQtyPercentage ?? 0) > 0
+                            ? `▲ +${formatPercent(brandSalesTotals.growthQtyPercentage)}`
+                            : (brandSalesTotals.growthQtyPercentage ?? 0) < 0
+                            ? `▼ ${formatPercent(brandSalesTotals.growthQtyPercentage)}`
+                            : formatPercent(brandSalesTotals.growthQtyPercentage)}
+                        </Text>
+                      </View>
+
+                      {/* Growth Value % */}
+                      <View
+                        style={[
+                          styles.brandGrowthBox,
+                          (brandSalesTotals.growthValuePercentage ?? 0) >= 0
+                            ? styles.growthGreenBox
+                            : styles.growthRedBox,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.brandGrowthLabel,
+                            (brandSalesTotals.growthValuePercentage ?? 0) >= 0
+                              ? styles.growthGreenText
+                              : styles.growthRedText,
+                          ]}
+                        >
+                          Growth Value %
+                        </Text>
+                        <Text
+                          style={[
+                            styles.brandGrowthValue,
+                            (brandSalesTotals.growthValuePercentage ?? 0) >= 0
+                              ? styles.growthGreenText
+                              : styles.growthRedText,
+                          ]}
+                        >
+                          {(brandSalesTotals.growthValuePercentage ?? 0) > 0
+                            ? `▲ +${formatPercent(brandSalesTotals.growthValuePercentage)}`
+                            : (brandSalesTotals.growthValuePercentage ?? 0) < 0
+                            ? `▼ ${formatPercent(brandSalesTotals.growthValuePercentage)}`
+                            : formatPercent(brandSalesTotals.growthValuePercentage)}
+                        </Text>
                       </View>
                     </View>
-                  )}
-
-                  {/* ── Individual Brand Cards List ── */}
-                  {filteredBrandSalesList.length === 0 ? (
-                    <View style={styles.center}>
-                      <Text style={styles.stateIcon}>📊</Text>
-                      <Text style={styles.stateText}>No brands matching your search</Text>
-                    </View>
-                  ) : (
-                    filteredBrandSalesList.map((item, index) => {
-                      const growthQtyNum = Number(item.growthQtyPercentage) || 0;
-                      const growthValueNum = Number(item.growthValuePercentage) || 0;
-
-                      return (
-                        <View key={item.id || index} style={styles.brandCard}>
-                          {/* Card Header: Brand Name + Sr No Badge */}
-                          <View style={styles.brandCardHeader}>
-                            <View style={styles.brandHeaderLeft}>
-                              <View style={styles.brandIconWrapper}>
-                                <Image
-                                  source={Images.product}
-                                  style={styles.brandProductIcon}
-                                  resizeMode="contain"
-                                />
-                              </View>
-                              <View style={styles.brandHeaderTitleWrap}>
-                                <Text style={styles.brandNameText} numberOfLines={1}>
-                                  {item.brandName}
-                                </Text>
-                                <Text style={styles.brandIndexBadge}>
-                                  #{item.srNo ?? (index + 1)}
-                                </Text>
-                              </View>
-                            </View>
-                          </View>
-
-                          {/* 4-Box Metric Grid (FTD, LMFTD, MTD, LMTD) */}
-                          <View style={styles.brandStatsGrid}>
-                            {/* 1. FTD */}
-                            <View style={styles.brandBox}>
-                              <View style={styles.brandBoxHeader}>
-                                <Text style={styles.brandBoxTitle}>FTD</Text>
-                                <View style={styles.brandBoxQtyBadge}>
-                                  <Text style={styles.brandBoxQtyText}>
-                                    {formatQuantity(item.ftdQty)}
-                                  </Text>
-                                </View>
-                              </View>
-                              <Text style={styles.brandBoxValueText}>
-                                {formatCurrency(item.ftdValue)}
-                              </Text>
-                            </View>
-
-                            {/* 2. LMFTD */}
-                            <View style={styles.brandBox}>
-                              <View style={styles.brandBoxHeader}>
-                                <Text style={styles.brandBoxTitle}>LMFTD</Text>
-                                <View style={styles.brandBoxQtyBadge}>
-                                  <Text style={styles.brandBoxQtyText}>
-                                    {formatQuantity(item.lmftdQty)}
-                                  </Text>
-                                </View>
-                              </View>
-                              <Text style={styles.brandBoxValueText}>
-                                {formatCurrency(item.lmftdValue)}
-                              </Text>
-                            </View>
-
-                            {/* 3. MTD (Highlighted in Purple) */}
-                            <View style={[styles.brandBox, styles.brandBoxMtd]}>
-                              <View style={styles.brandBoxHeader}>
-                                <Text style={[styles.brandBoxTitle, styles.brandBoxTitleMtd]}>
-                                  MTD
-                                </Text>
-                                <View style={[styles.brandBoxQtyBadge, styles.brandBoxQtyBadgeMtd]}>
-                                  <Text style={[styles.brandBoxQtyText, styles.brandBoxQtyTextMtd]}>
-                                    {formatQuantity(item.mtdQty)}
-                                  </Text>
-                                </View>
-                              </View>
-                              <Text style={[styles.brandBoxValueText, styles.brandBoxValueTextMtd]}>
-                                {formatCurrency(item.mtdValue)}
-                              </Text>
-                            </View>
-
-                            {/* 4. LMTD */}
-                            <View style={styles.brandBox}>
-                              <View style={styles.brandBoxHeader}>
-                                <Text style={styles.brandBoxTitle}>LMTD</Text>
-                                <View style={styles.brandBoxQtyBadge}>
-                                  <Text style={styles.brandBoxQtyText}>
-                                    {formatQuantity(item.lmtdQty)}
-                                  </Text>
-                                </View>
-                              </View>
-                              <Text style={styles.brandBoxValueText}>
-                                {formatCurrency(item.lmtdValue)}
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* Growth Row (Growth Qty % & Growth Value %) */}
-                          <View style={styles.brandGrowthRow}>
-                            {/* Growth Qty % */}
-                            <View
-                              style={[
-                                styles.brandGrowthBox,
-                                growthQtyNum >= 0 ? styles.growthGreenBox : styles.growthRedBox,
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.brandGrowthLabel,
-                                  growthQtyNum >= 0 ? styles.growthGreenText : styles.growthRedText,
-                                ]}
-                              >
-                                Growth Qty %
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.brandGrowthValue,
-                                  growthQtyNum >= 0 ? styles.growthGreenText : styles.growthRedText,
-                                ]}
-                              >
-                                {growthQtyNum > 0
-                                  ? `▲ +${formatPercent(growthQtyNum)}`
-                                  : growthQtyNum < 0
-                                  ? `▼ ${formatPercent(growthQtyNum)}`
-                                  : formatPercent(growthQtyNum)}
-                              </Text>
-                            </View>
-
-                            {/* Growth Value % */}
-                            <View
-                              style={[
-                                styles.brandGrowthBox,
-                                growthValueNum >= 0 ? styles.growthGreenBox : styles.growthRedBox,
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.brandGrowthLabel,
-                                  growthValueNum >= 0 ? styles.growthGreenText : styles.growthRedText,
-                                ]}
-                              >
-                                Growth Value %
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.brandGrowthValue,
-                                  growthValueNum >= 0 ? styles.growthGreenText : styles.growthRedText,
-                                ]}
-                              >
-                                {growthValueNum > 0
-                                  ? `▲ +${formatPercent(growthValueNum)}`
-                                  : growthValueNum < 0
-                                  ? `▼ ${formatPercent(growthValueNum)}`
-                                  : formatPercent(growthValueNum)}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                      );
-                    })
-                  )}
-                </>
-              )}
-            </ScrollView>
+                  </View>
+                ) : null
+              }
+              ListEmptyComponent={
+                loading && !refreshing ? (
+                  <View style={styles.centerLoading}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={styles.loadingText}>Loading brand sales cards...</Text>
+                  </View>
+                ) : error && isAccessDeniedError(error) ? (
+                  <AccessDenied
+                    message={error}
+                    onRetry={() =>
+                      loadBrandSalesData(
+                        token,
+                        true,
+                        selectedStates,
+                        selectedZones,
+                        selectedDate,
+                        brandSearchQuery
+                      )
+                    }
+                  />
+                ) : (
+                  <View style={styles.center}>
+                    <Text style={styles.stateIcon}>📊</Text>
+                    <Text style={styles.stateText}>
+                      {brandSearchQuery.trim()
+                        ? 'No brands matching your search'
+                        : 'No data found'}
+                    </Text>
+                  </View>
+                )
+              }
+            />
           </View>
         )}
       </View>

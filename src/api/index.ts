@@ -6,6 +6,11 @@ export * from './dashboardApi';
 export * from './priceListApi';
 export * from './stockCashDepositApi';
 export * from './financeBrandApi';
-export * from './targetVsAchievementApi';
+export {
+  fetchTvaData,
+  fetchAbmWiseTvaData,
+  fetchStatesApi as fetchTvaStatesApi,
+} from './targetVsAchievementApi';
+export type { TvaItem, AbmWiseTvaItem } from './targetVsAchievementApi';
 export * from './offersApi';
 export * from './alertsApi';

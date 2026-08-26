@@ -171,8 +171,8 @@ const DeviceLimitReachedScreen: React.FC<DeviceLimitReachedScreenProps> = ({
                     <TouchableOpacity
                       key={item.id ? String(item.id) : String(index)}
                       style={[
-                        styles.deviceItemCard,
-                        isSelected && styles.deviceItemCardSelected,
+                        styles.deviceCard,
+                        isSelected && styles.deviceCardSelected,
                       ]}
                       onPress={() => setSelectedDeviceId(item.id)}
                       activeOpacity={0.8}

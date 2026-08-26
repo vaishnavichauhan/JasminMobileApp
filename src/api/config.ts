@@ -7,9 +7,8 @@ const LOCAL_DEV_URL =
   Platform.OS === 'android'
     ? `http://10.0.2.2:${PORT}/v1/api`
     : `http://localhost:${PORT}/v1/api`;
-
-//  export const BASE_URL = 'https://interlink.jasminmobile.com/v1/api';
- export const BASE_URL = LOCAL_DEV_URL;
+  export const BASE_URL = 'https://interlink.jasminmobile.com/v1/api';
+// export const BASE_URL = LOCAL_DEV_URL;
 
 export const getHostUrl = (): string => {
   return BASE_URL.replace(/\/api\/?$/, '');
@@ -44,6 +43,8 @@ export const API_ENDPOINTS = {
     PRICE_LIST_REPORT: (variationId: string | number) =>
       `${BASE_URL}/price-lists/report/${variationId}`,
     PRICE_LIST_STOCK_INFO: `${BASE_URL}/price-lists/stock-info`,
+    MOBILE_BRANDS_ALL: `${BASE_URL}/mobilebrands/all`,
+    SETTINGS_ICAT: `${BASE_URL}/settings/icat`,
     TARGET_VS_ACHIEVEMENT_ALL: `${BASE_URL}/target-vs-achievement/all`,
     TARGET_VS_ACHIEVEMENT_ABM_WISE: `${BASE_URL}/target-vs-achievement/abm-wise-summary`,
     TARGET_VS_ACHIEVEMENT_STATES: `${BASE_URL}/target-vs-achievement/states`,

@@ -12,6 +12,7 @@ import {
   Image,
   Modal,
   ScrollView,
+  Platform,
 } from 'react-native';
 import Header from '../../../components/Header/Header';
 import AccessDenied from '../../../components/AccessDenied/AccessDenied';
@@ -36,7 +37,7 @@ interface CardProps {
   companies: FinanceCompanyItem[];
 }
 
-const FinanceBrandCard: React.FC<CardProps> = ({
+const FinanceBrandCard = React.memo<CardProps>(({
   item,
   index,
   brands,
@@ -360,7 +361,7 @@ const FinanceBrandCard: React.FC<CardProps> = ({
       )}
     </View>
   );
-};
+});
 
 /* ── Main Screen Component ── */
 const FinanceBrandReport: React.FC<{ navigation?: any }> = ({ navigation }) => {
@@ -643,6 +644,11 @@ const FinanceBrandReport: React.FC<{ navigation?: any }> = ({ navigation }) => {
             filteredRows.length === 0 && styles.listContentEmpty,
           ]}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          updateCellsBatchingPeriod={50}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.stateIcon}>📊</Text>
