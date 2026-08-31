@@ -500,8 +500,18 @@ const formatOfferDate = (dateStr: any): string => {
 
 const renderStringValue = (val: any): string => {
   if (val === null || val === undefined || val === '') return '—';
-  if (typeof val === 'string') return val;
-  if (typeof val === 'number') return String(val);
+  if (typeof val === 'string') {
+    // If the string looks like a decimal number, format it to 2 decimal places
+    const num = parseFloat(val);
+    if (!isNaN(num) && val.trim() !== '' && String(num) === val.trim() && val.includes('.')) {
+      return num.toFixed(2);
+    }
+    return val;
+  }
+  if (typeof val === 'number') {
+    // Format decimal numbers to 2 decimal places; keep integers as-is
+    return Number.isInteger(val) ? String(val) : val.toFixed(2);
+  }
   if (typeof val === 'boolean') return val ? 'Yes' : 'No';
   if (typeof val === 'object') {
     if (Array.isArray(val)) {
