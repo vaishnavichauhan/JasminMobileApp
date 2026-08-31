@@ -28,7 +28,7 @@ const fmtNum = (v: any): string => {
   if (v === null || v === undefined || v === '') return '—';
   const n = Number(v);
   if (isNaN(n)) return String(v);
-  return String(n);
+  return n.toLocaleString('en-IN');
 };
 
 const fmtPct = (v: any): string => {
@@ -36,6 +36,14 @@ const fmtPct = (v: any): string => {
   const n = Number(v);
   if (isNaN(n)) return String(v);
   return `${n.toFixed(2)}%`;
+};
+
+const fmtGrowthPct = (v: any): string => {
+  if (v === null || v === undefined || v === '') return '—';
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  const prefix = n > 0 ? '+' : '';
+  return `${prefix}${n.toFixed(2)}%`;
 };
 
 const getAbmName = (item: AbmWiseTvaItem): string =>
@@ -50,6 +58,10 @@ const AbmCard = React.memo<{ item: AbmWiseTvaItem; index: number }>(({ item, ind
   const gValue = item.growth_value_percentage??null;
   const gQtyN   = Number(gQty);
   const gValueN = Number(gValue);
+
+  const isQtyNeg = !isNaN(gQtyN) && gQtyN < 0;
+  const isValNeg = !isNaN(gValueN) && gValueN < 0;
+  const isGrowthNeg = isValNeg || isQtyNeg;
 
   return (
     <View style={styles.cardSmall}>
@@ -133,17 +145,17 @@ const AbmCard = React.memo<{ item: AbmWiseTvaItem; index: number }>(({ item, ind
         </View>
 
         {/* MTD % ACH */}
-        <View style={styles.metricBoxCompact}>
-          <Text style={styles.boxTitle}>MTD % ACH</Text>
+        <View style={[styles.metricBoxCompact, styles.mtdPctBoxGrid]}>
+          <Text style={[styles.boxTitle, styles.mtdPctTitleGrid]}>MTD % ACH</Text>
           <View style={styles.boxRow}>
             <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>QTY %</Text>
-              <Text style={styles.boxSubValue}>{fmtPct(mtdQtyPct)}</Text>
+              <Text style={[styles.boxSubLabel, styles.mtdPctSubLabelGrid]}>QTY %</Text>
+              <Text style={[styles.boxSubValue, styles.mtdPctValue]}>{fmtPct(mtdQtyPct)}</Text>
             </View>
-            <View style={styles.boxColDivider} />
+            <View style={[styles.boxColDivider, styles.mtdPctDividerGrid]} />
             <View style={styles.boxCol}>
-              <Text style={styles.boxSubLabel}>VAL %</Text>
-              <Text style={styles.boxSubValue}>{fmtPct(mtdValPct)}</Text>
+              <Text style={[styles.boxSubLabel, styles.mtdPctSubLabelGrid]}>VAL %</Text>
+              <Text style={[styles.boxSubValue, styles.mtdPctValue]}>{fmtPct(mtdValPct)}</Text>
             </View>
           </View>
         </View>
@@ -197,32 +209,32 @@ const AbmCard = React.memo<{ item: AbmWiseTvaItem; index: number }>(({ item, ind
         </View>
 
         {/* Growth */}
-        <View style={[styles.metricBoxCompact, styles.growthBoxGrid]}>
-          <Text style={[styles.boxTitle, styles.growthTitleGrid]}>GROWTH</Text>
+        <View style={[styles.metricBoxCompact, isGrowthNeg ? styles.growthBoxGridNeg : styles.growthBoxGrid]}>
+          <Text style={[styles.boxTitle, isGrowthNeg ? styles.growthTitleGridNeg : styles.growthTitleGrid]}>GROWTH</Text>
           <View style={styles.boxRow}>
             <View style={styles.boxCol}>
-              <Text style={[styles.boxSubLabel, styles.growthSubLabelGrid]}>QTY</Text>
+              <Text style={[styles.boxSubLabel, isGrowthNeg ? styles.growthSubLabelGridNeg : styles.growthSubLabelGrid]}>QTY</Text>
               <Text
                 style={[
                   styles.boxSubValue,
                   styles.growthSubValueGrid,
-                  !isNaN(gQtyN) && gQtyN < 0 ? styles.growthNeg : null,
+                  isQtyNeg ? styles.growthNeg : null,
                 ]}
               >
-                {fmtPct(gQty)}
+                {fmtGrowthPct(gQty)}
               </Text>
             </View>
-            <View style={[styles.boxColDivider, styles.growthDividerGrid]} />
+            <View style={[styles.boxColDivider, isGrowthNeg ? styles.growthDividerGridNeg : styles.growthDividerGrid]} />
             <View style={styles.boxCol}>
-              <Text style={[styles.boxSubLabel, styles.growthSubLabelGrid]}>VAL</Text>
+              <Text style={[styles.boxSubLabel, isGrowthNeg ? styles.growthSubLabelGridNeg : styles.growthSubLabelGrid]}>VAL</Text>
               <Text
                 style={[
                   styles.boxSubValue,
                   styles.growthSubValueGrid,
-                  !isNaN(gValueN) && gValueN < 0 ? styles.growthNeg : null,
+                  isValNeg ? styles.growthNeg : null,
                 ]}
               >
-                {fmtPct(gValue)}
+                {fmtGrowthPct(gValue)}
               </Text>
             </View>
           </View>
@@ -749,6 +761,24 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: '#0F172A',
   },
+  /* MTD % ACH grid box override */
+  mtdPctBoxGrid: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FED7AA',
+    borderWidth: 1.5,
+  },
+  mtdPctTitleGrid: {
+    color: '#C25E00',
+  },
+  mtdPctSubLabelGrid: {
+    color: '#EA580C',
+  },
+  mtdPctValue: {
+    color: '#E27000',
+  },
+  mtdPctDividerGrid: {
+    backgroundColor: '#FED7AA',
+  },
 
   /* Growth grid box override */
   growthBoxGrid: {
@@ -767,6 +797,20 @@ const styles = StyleSheet.create({
   },
   growthDividerGrid: {
     backgroundColor: '#BBF7D0',
+  },
+  growthBoxGridNeg: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    borderWidth: 1.5,
+  },
+  growthTitleGridNeg: {
+    color: '#B91C1C',
+  },
+  growthSubLabelGridNeg: {
+    color: '#991B1B',
+  },
+  growthDividerGridNeg: {
+    backgroundColor: '#FECACA',
   },
   growthNeg: {
     color: '#DC2626',
