@@ -177,22 +177,32 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
 
+  scrollContent: {
+    paddingBottom: Platform.OS === 'ios' ? 120 : 100,
+  },
+  cardScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+  },
+
   /* ── Horizontal Offer Cards Carousel ── */
   horizontalScrollContainer: {
-    paddingTop: 8,
-    paddingBottom: 24,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   horizontalCardListContent: {
     paddingHorizontal: marginHorizontal.small,
-    alignItems: 'stretch',
+    alignItems: 'flex-start',
   },
   offerCardHorizontal: {
     width: responsiveWidth(86),
-    minHeight: 270,
+    height: responsiveHeight(Platform.OS === 'ios' ? 53 : 52),
+    maxHeight: 465,
     marginRight: 14,
     backgroundColor: colors.white,
     borderRadius: 22,
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderWidth: 1.8,
     borderColor: colors.primary,
     borderLeftWidth: 5,
@@ -202,7 +212,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.14,
     shadowRadius: 12,
     elevation: 6,
-    justifyContent: 'space-between',
+    overflow: 'hidden',
   },
   offerCardExpiredHorizontal: {
     backgroundColor: '#F8FAFC',
@@ -234,8 +244,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 12,
-    marginBottom: 20,
+    marginTop: 10,
+    marginBottom: 10,
   },
   carouselDot: {
     width: 8,
@@ -303,7 +313,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   offerTitleWrapper: {
     flex: 1,
@@ -369,7 +379,7 @@ const styles = StyleSheet.create({
   gridRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   metaBadge: {
     backgroundColor: '#F1F5F9',
@@ -456,9 +466,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 10,
-    marginBottom: 10,
+    marginBottom: 8,
     gap: 6,
   },
   /* Transaction Details Card */
@@ -467,9 +477,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#EDE9FE',
-    padding: 10,
-    marginBottom: 8,
-    gap: 7,
+    padding: 9,
+    marginBottom: 6,
+    gap: 5,
   },
   txnDetailRow: {
     flexDirection: 'row',
@@ -515,7 +525,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 10,
-    padding: 10,
+    padding: 8,
     marginTop: 4,
     marginBottom: 4,
   },

@@ -139,7 +139,8 @@ console.log("OfferItem,", allOffers);
         <ScrollView
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled={true}
-          style={{ flex: 1 }}
+          bounces={false}
+          contentContainerStyle={styles.cardScrollContent}
         >
           {/* Card Header: Type Badge & Status Badge */}
           <View style={styles.offerCardHeader}>
@@ -438,6 +439,7 @@ console.log("OfferItem,", allOffers);
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

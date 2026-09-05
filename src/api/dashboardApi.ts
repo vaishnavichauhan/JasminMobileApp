@@ -230,6 +230,9 @@ export const fetchStockCashDepositAbmWiseApi = async (
       pendingDepositPercentage:
         getVal(
           item,
+          'pending_pct',
+          'pendingPct',
+          'PENDING_PCT',
           'pendingDepositPercentage',
           'pending_deposit_percentage',
           'PENDING_DEPOSIT_PERCENTAGE',
@@ -237,7 +240,7 @@ export const fetchStockCashDepositAbmWiseApi = async (
           'pendingDepositPercent',
           'pending_percent',
           'percentage',
-          'percent'
+          'percent',
         ) ?? 0,
       ...item,
     }));
