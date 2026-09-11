@@ -86,12 +86,12 @@ const TvaCard = React.memo<{ item: TvaItem; index: number }>(({ item, index }) =
           <Text style={styles.indexText}>{String(index + 1).padStart(2, '0')}</Text>
         </View>
         <View style={styles.headerInfo}>
-          <Text style={styles.branchName} numberOfLines={1}>{getBranchName(item)}</Text>
+          <Text style={styles.branchName} numberOfLines={2} ellipsizeMode="tail">{getBranchName(item)}</Text>
           {getAbmName(item) !== '—' && (
-            <Text style={styles.abmName} numberOfLines={1}>ABM: {getAbmName(item)}</Text>
+            <Text style={styles.abmName} numberOfLines={1} ellipsizeMode="tail">ABM: {getAbmName(item)}</Text>
           )}
           {!!zoneName && (
-            <Text style={styles.zoneName} numberOfLines={1}>Zone: {zoneName}</Text>
+            <Text style={styles.zoneName} numberOfLines={1} ellipsizeMode="tail">Zone: {zoneName}</Text>
           )}
         </View>
       </View>
@@ -1759,6 +1759,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 10,
+    borderTopLeftRadius: 17,
+    borderTopRightRadius: 17,
+    marginHorizontal: -14,
+    marginTop: -14,
+    marginBottom: 0,
   },
   indexBadge: {
     width: 36,
@@ -1782,6 +1787,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontFamily.bold,
     color: '#fff',
+    flex: 1,
+    flexShrink: 1,
   },
   abmName: {
     fontSize: 11,

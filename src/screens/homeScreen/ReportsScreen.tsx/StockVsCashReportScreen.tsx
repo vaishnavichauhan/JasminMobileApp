@@ -129,7 +129,7 @@ const StockVsCashCard = React.memo<{ item: StockCashDepositItem; index: number }
         </View>
         <View style={styles.headerInfo}>
           <View style={styles.headerTopRow}>
-            <Text style={styles.branchNameText} numberOfLines={1}>
+            <Text style={styles.branchNameText} numberOfLines={3} ellipsizeMode="tail">
               {getBranchName(item)}
             </Text>
             <View
@@ -161,7 +161,7 @@ const StockVsCashCard = React.memo<{ item: StockCashDepositItem; index: number }
             </View>
           </View>
           {locationStr ? (
-            <Text style={styles.locationText} numberOfLines={1}>
+            <Text style={styles.locationText} numberOfLines={2} ellipsizeMode="tail">
               📍 {locationStr}
             </Text>
           ) : null}
@@ -1459,6 +1459,7 @@ const styles = StyleSheet.create({
   },
   branchNameText: {
     flex: 1,
+    flexShrink: 1,
     fontSize: 15,
     fontFamily: fontFamily.bold,
     color: '#fff',
@@ -1468,6 +1469,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     color: 'rgba(255,255,255,0.9)',
     marginTop: 2,
+    flexShrink: 1,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -1478,6 +1480,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 5,
     marginLeft: 6,
+    flexShrink: 0,
   },
   statusBadgeActive: {
     backgroundColor: '#DCFCE7',

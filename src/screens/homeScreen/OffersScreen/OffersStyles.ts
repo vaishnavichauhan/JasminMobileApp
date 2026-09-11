@@ -492,6 +492,8 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontFamily: fontFamily.regular,
     color: '#64748B',
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   txnDetailValue: {
     fontSize: 12,
@@ -512,12 +514,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 2.5,
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
+    flexShrink: 1,
+    maxWidth: '60%',
   },
   txnValuePillText: {
     fontSize: 11.5,
     fontFamily: fontFamily.bold,
     color: '#FFFFFF',
+    flexWrap: 'wrap',
   },
   /* Offer Text Box at Bottom */
   offerTextBox: {

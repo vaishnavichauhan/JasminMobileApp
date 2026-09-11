@@ -75,7 +75,7 @@ const FinanceBrandCard = React.memo<CardProps>(({
 
           {/* Branch Title & Meta Badges */}
           <View style={styles.headerInfo}>
-            <Text style={styles.branchNameText} numberOfLines={1}>
+            <Text style={styles.branchNameText} numberOfLines={2} ellipsizeMode="tail">
               {item.branch_name || 'Unnamed Branch'}
             </Text>
 
@@ -957,6 +957,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     lineHeight: 19,
     marginBottom: 4,
+    flexShrink: 1,
   },
   subMetaRow: {
     flexDirection: 'row',
