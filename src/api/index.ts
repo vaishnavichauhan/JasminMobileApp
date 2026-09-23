@@ -11,6 +11,7 @@ export {
   fetchAbmWiseTvaData,
   fetchStatesApi as fetchTvaStatesApi,
 } from './targetVsAchievementApi';
-export type { TvaItem, AbmWiseTvaItem } from './targetVsAchievementApi';
+export type { TvaItem, TvaBrandItem, AbmWiseTvaItem } from './targetVsAchievementApi';
 export * from './offersApi';
 export * from './alertsApi';
+export * from './ticketsApi';

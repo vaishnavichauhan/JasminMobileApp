@@ -1,6 +1,45 @@
 import { API_ENDPOINTS } from './config';
 import { fetchWithAuth } from './apiClient';
 
+export interface TvaBrandItem {
+  id?: number | string;
+  brand_name?: string;
+  brandName?: string;
+  name?: string;
+  share_percentage?: number | string;
+
+  qty_tgt?: number | string;
+  value_tgt?: number | string;
+
+  ftd_qty_ach?: number | string;
+  ftd_value_ach?: number | string;
+
+  lmftd_qty_ach?: number | string;
+  lmftd_value_ach?: number | string;
+
+  mtd_qty_ach?: number | string;
+  mtd_value_ach?: number | string;
+
+  mtd_qty_percentage_ach?: number | string;
+  mtd_value_percentage_ach?: number | string;
+
+  lmtd_qty_ach?: number | string;
+  lmtd_value_ach?: number | string;
+
+  btd_qty?: number | string;
+  btd_value?: number | string;
+
+  ddr_qty?: number | string;
+  ddr_value?: number | string;
+
+  growth_qty_percentage?: number | string;
+  growth_value_percentage?: number | string;
+  growth_qty?: number | string;
+  growth_value?: number | string;
+
+  [key: string]: any;
+}
+
 export interface TvaItem {
   id?: number;
   branch_name?: string;
@@ -22,6 +61,9 @@ export interface TvaItem {
   mtd_qty_ach?: number | string;
   mtd_value_ach?: number | string;
 
+  mtd_qty_percentage_ach?: number | string;
+  mtd_value_percentage_ach?: number | string;
+
   lmtd_qty_ach?: number | string;
   lmtd_value_ach?: number | string;
 
@@ -38,6 +80,8 @@ export interface TvaItem {
   // legacy aliases (kept for safety)
   growth_qty?: number | string;
   growth_value?: number | string;
+
+  brands?: TvaBrandItem[];
 
   [key: string]: any;
 }
@@ -113,8 +157,7 @@ export const fetchTvaData = async (token?: string | null): Promise<TvaItem[]> =>
   }
 
   const json = await response.json();
-
-  console.log('[TvA API] Response json:', json);
+  console.log('[TvA API] Fetched records count:', Array.isArray(json?.data) ? json.data.length : (Array.isArray(json) ? json.length : 'unknown'));
   
   // Handle various response shapes
   if (Array.isArray(json)) return json;

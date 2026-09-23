@@ -560,6 +560,14 @@ export const TabNavigation: React.FC<TabNavigationProps> = () => {
                     bgColor="#F5F3FF"
                     onPress={(nav) => handleMenuSelect(nav, 'Profile')}
                   />
+                  {/* 7. Support */}
+                  <QuickGridItem
+                    title="Support"
+                    icon={Images.support}
+                    tintColor="#9333EA"
+                    bgColor="#F5F3FF"
+                    onPress={(nav) => handleMenuSelect(nav, 'Support')}
+                  />
                 </View>
               </Animated.View>
             </TouchableWithoutFeedback>

@@ -7,8 +7,8 @@ const LOCAL_DEV_URL =
   Platform.OS === 'android'
     ? `http://10.0.2.2:${PORT}/v1/api`
     : `http://localhost:${PORT}/v1/api`;
-  export const BASE_URL = 'https://interlink.jasminmobile.com/v1/api';
-// export const BASE_URL = LOCAL_DEV_URL;
+  // export const BASE_URL = 'https://interlink.jasminmobile.com/v1/api';
+export const BASE_URL = LOCAL_DEV_URL;
 
 export const getHostUrl = (): string => {
   return BASE_URL.replace(/\/api\/?$/, '');
@@ -59,6 +59,19 @@ export const API_ENDPOINTS = {
   ALERTS: {
     BASE: `${BASE_URL}/alerts`,
     BY_ID: (alertId: string | number) => `${BASE_URL}/alerts/${alertId}`,
+  },
+
+  // Tickets Endpoints
+  TICKETS: {
+    SUB_TICKET_TYPES_ALL: `${BASE_URL}/sub-ticket-types/all`,
+    TICKET_TYPES_ALL: `${BASE_URL}/ticket-types/all`,
+    FORM_OPTIONS: `${BASE_URL}/tickets/form-options`,
+    ADD: `${BASE_URL}/tickets/add`,
+    LIST: `${BASE_URL}/tickets/list`,
+    DETAILS: (id: string | number) => `${BASE_URL}/tickets/details/${id}`,
+    REMARK: (id: string | number) => `${BASE_URL}/tickets/remark/${id}`,
+    COMPLETE: (id: string | number) => `${BASE_URL}/tickets/complete/${id}`,
+    STATS: `${BASE_URL}/tickets/stats`,
   },
 };
 

@@ -21,7 +21,8 @@ export const Images = {
   down:require('./down.png'),
   product :require('./product.png'),
   dashboardIcon:require('./dashboardIcon.png'),
-  brand:require('./brand.png')
+  brand:require('./brand.png'),
+  support:require('./support.png')
 };
 
 export default Images;

@@ -15,7 +15,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
-import { fetchTvaData, fetchStatesApi, TvaItem } from '../../../api/targetVsAchievementApi';
+import { fetchTvaData, fetchStatesApi, TvaItem, TvaBrandItem } from '../../../api/targetVsAchievementApi';
 import { colors, fontFamily, fontSize, borderRadius } from '../../../styles/variables';
 import Header from '../../../components/Header/Header';
 import Images from '../../../assets/images';
@@ -67,7 +67,12 @@ const InfoRow: React.FC<RowProps> = ({ label, value, sub }) => (
 );
 
 /* ── Card component ── */
-const TvaCard = React.memo<{ item: TvaItem; index: number }>(({ item, index }) => {
+const TvaCard = React.memo<{
+  item: TvaItem;
+  index: number;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+}>(({ item, index, isExpanded, onToggleExpand }) => {
   const gQty   = item.growth_qty_percentage   ?? item.growth_qty   ?? null;
   const gValue = item.growth_value_percentage ?? item.growth_value ?? null;
   const gQtyN   = Number(gQty);
@@ -77,6 +82,9 @@ const TvaCard = React.memo<{ item: TvaItem; index: number }>(({ item, index }) =
   const isQtyNeg = !isNaN(gQtyN) && gQtyN < 0;
   const isValNeg = !isNaN(gValueN) && gValueN < 0;
   const isGrowthNeg = isValNeg || isQtyNeg;
+
+  const brands = useMemo(() => (Array.isArray(item.brands) ? item.brands : []), [item.brands]);
+  const hasBrands = brands.length > 0;
 
   return (
     <View style={styles.cardSmall}>
@@ -94,6 +102,19 @@ const TvaCard = React.memo<{ item: TvaItem; index: number }>(({ item, index }) =
             <Text style={styles.zoneName} numberOfLines={1} ellipsizeMode="tail">Zone: {zoneName}</Text>
           )}
         </View>
+        {hasBrands && (
+          <TouchableOpacity
+            style={styles.headerBrandBadge}
+            onPress={onToggleExpand}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <View style={styles.headerBrandBadgeInner}>
+              <Text style={styles.headerBrandBadgeCount}>{brands.length}</Text>
+              <Text style={styles.headerBrandChevron}>{isExpanded ? '▲' : '▼'}</Text>
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.gridContainer}>
@@ -226,12 +247,14 @@ const TvaCard = React.memo<{ item: TvaItem; index: number }>(({ item, index }) =
         </View>
 
         {/* Growth */}
-        <View style={[styles.metricBoxCompact, isGrowthNeg ? styles.growthBoxGridNeg : styles.growthBoxGrid]}>
+        <View style={[styles.metricBoxCompact, styles.metricBoxFullWidth, isGrowthNeg ? styles.growthBoxGridNeg : styles.growthBoxGrid]}>
           <Text style={[styles.boxTitle, isGrowthNeg ? styles.growthTitleGridNeg : styles.growthTitleGrid]}>GROWTH</Text>
           <View style={styles.boxRow}>
             <View style={styles.boxCol}>
               <Text style={[styles.boxSubLabel, isGrowthNeg ? styles.growthSubLabelGridNeg : styles.growthSubLabelGrid]}>QTY</Text>
               <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
                 style={[
                   styles.boxSubValue,
                   styles.growthSubValueGrid,
@@ -245,6 +268,8 @@ const TvaCard = React.memo<{ item: TvaItem; index: number }>(({ item, index }) =
             <View style={styles.boxCol}>
               <Text style={[styles.boxSubLabel, isGrowthNeg ? styles.growthSubLabelGridNeg : styles.growthSubLabelGrid]}>VAL</Text>
               <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
                 style={[
                   styles.boxSubValue,
                   styles.growthSubValueGrid,
@@ -257,6 +282,240 @@ const TvaCard = React.memo<{ item: TvaItem; index: number }>(({ item, index }) =
           </View>
         </View>
       </View>
+
+      {/* Brands Toggle Footer Bar */}
+      {hasBrands && (
+        <TouchableOpacity
+          style={[styles.brandsToggleBar, isExpanded && styles.brandsToggleBarExpanded]}
+          onPress={onToggleExpand}
+          activeOpacity={0.7}
+        >
+          <View style={styles.brandsToggleLeft}>
+            <View style={styles.brandCountPill}>
+              <Text style={styles.brandCountPillText}>{brands.length}</Text>
+            </View>
+            <Text style={styles.brandsToggleTitle}>
+              {brands.length === 1 ? 'Brand' : 'Brands'}
+            </Text>
+          </View>
+          <View style={styles.brandsToggleRight}>
+            
+            <Text style={styles.brandsToggleChevron}>{isExpanded ? '▲' : '▼'}</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* Expanded Brands List (Horizontal Scroll) */}
+      {isExpanded && hasBrands && (
+        <View style={styles.brandsContainer}>
+          <ScrollView
+            horizontal
+            nestedScrollEnabled={true}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.brandsScrollContent}
+          >
+            {brands.map((brand: TvaBrandItem, bIdx: number) => {
+            const bGQty   = brand.growth_qty_percentage   ?? brand.growth_qty   ?? null;
+            const bGValue = brand.growth_value_percentage ?? brand.growth_value ?? null;
+            const bGQtyN   = Number(bGQty);
+            const bGValueN = Number(bGValue);
+            const isBQtyNeg = !isNaN(bGQtyN) && bGQtyN < 0;
+            const isBValNeg = !isNaN(bGValueN) && bGValueN < 0;
+            const isBGrowthNeg = isBValNeg || isBQtyNeg;
+
+            return (
+              <View key={brand.brand_name || brand.name || `brand-${bIdx}`} style={styles.brandCard}>
+                {/* Brand Header */}
+                <View style={styles.brandCardHeader}>
+                  <View style={styles.brandTitleLeft}>
+                    <Text style={[styles.brandTitleText,{color:colors.primary,fontSize:14}]}>{bIdx+1}.</Text>
+                    <Text style={styles.brandTitleText}>
+                      {brand.brand_name || brand.name || `Brand #${bIdx + 1}`}
+                    </Text>
+                  </View>
+                  {brand.share_percentage !== undefined &&
+                    brand.share_percentage !== null &&
+                    Number(brand.share_percentage) > 0 && (
+                      <View style={styles.shareBadge}>
+                        <Text style={styles.shareBadgeText}>
+                          {Number(brand.share_percentage).toFixed(1)}% Share
+                        </Text>
+                      </View>
+                    )}
+                </View>
+
+                {/* Brand Metrics Grid */}
+                <View style={styles.brandGridContainer}>
+                  {/* TGT */}
+                  <View style={styles.brandMetricBox}>
+                    <Text style={styles.boxTitle}>TGT</Text>
+                    <View style={styles.boxRow}>
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>QTY</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.qty_tgt)}</Text>
+                      </View>
+                      <View style={styles.boxColDivider} />
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>VAL</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.value_tgt)}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* FTD ACH */}
+                  <View style={styles.brandMetricBox}>
+                    <Text style={styles.boxTitle}>FTD ACH</Text>
+                    <View style={styles.boxRow}>
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>QTY</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.ftd_qty_ach)}</Text>
+                      </View>
+                      <View style={styles.boxColDivider} />
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>VAL</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.ftd_value_ach)}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* LMFTD ACH */}
+                  <View style={styles.brandMetricBox}>
+                    <Text style={styles.boxTitle}>LMFTD ACH</Text>
+                    <View style={styles.boxRow}>
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>QTY</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.lmftd_qty_ach)}</Text>
+                      </View>
+                      <View style={styles.boxColDivider} />
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>VAL</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.lmftd_value_ach)}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* MTD ACH */}
+                  <View style={styles.brandMetricBox}>
+                    <Text style={styles.boxTitle}>MTD ACH</Text>
+                    <View style={styles.boxRow}>
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>QTY</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.mtd_qty_ach)}</Text>
+                      </View>
+                      <View style={styles.boxColDivider} />
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>VAL</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.mtd_value_ach)}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* MTD % ACH */}
+                  <View style={[styles.brandMetricBox, styles.mtdPctBoxGrid]}>
+                    <Text style={[styles.boxTitle, styles.mtdPctTitleGrid]}>MTD % ACH</Text>
+                    <View style={styles.boxRow}>
+                      <View style={styles.boxCol}>
+                        <Text style={[styles.boxSubLabel, styles.mtdPctSubLabelGrid]}>QTY</Text>
+                        <Text style={[styles.boxSubValue, styles.mtdPctValue]}>{fmtNum(brand.mtd_qty_percentage_ach)}</Text>
+                      </View>
+                      <View style={[styles.boxColDivider, styles.mtdPctDividerGrid]} />
+                      <View style={styles.boxCol}>
+                        <Text style={[styles.boxSubLabel, styles.mtdPctSubLabelGrid]}>VAL</Text>
+                        <Text style={[styles.boxSubValue, styles.mtdPctValue]}>{fmtNum(brand.mtd_value_percentage_ach)}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* LMTD ACH */}
+                  <View style={styles.brandMetricBox}>
+                    <Text style={styles.boxTitle}>LMTD ACH</Text>
+                    <View style={styles.boxRow}>
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>QTY</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.lmtd_qty_ach)}</Text>
+                      </View>
+                      <View style={styles.boxColDivider} />
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>VAL</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.lmtd_value_ach)}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* BTD */}
+                  <View style={styles.brandMetricBox}>
+                    <Text style={styles.boxTitle}>BTD</Text>
+                    <View style={styles.boxRow}>
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>QTY</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.btd_qty)}</Text>
+                      </View>
+                      <View style={styles.boxColDivider} />
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>VAL</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.btd_value)}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* DDR */}
+                  <View style={styles.brandMetricBox}>
+                    <Text style={styles.boxTitle}>DDR</Text>
+                    <View style={styles.boxRow}>
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>QTY</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.ddr_qty)}</Text>
+                      </View>
+                      <View style={styles.boxColDivider} />
+                      <View style={styles.boxCol}>
+                        <Text style={styles.boxSubLabel}>VAL</Text>
+                        <Text style={styles.boxSubValue}>{fmtNum(brand.ddr_value)}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* GROWTH */}
+                  <View style={[styles.brandMetricBox, styles.metricBoxFullWidth, isBGrowthNeg ? styles.growthBoxGridNeg : styles.growthBoxGrid]}>
+                    <Text style={[styles.boxTitle, isBGrowthNeg ? styles.growthTitleGridNeg : styles.growthTitleGrid]}>GROWTH</Text>
+                    <View style={styles.boxRow}>
+                      <View style={styles.boxCol}>
+                        <Text style={[styles.boxSubLabel, isBGrowthNeg ? styles.growthSubLabelGridNeg : styles.growthSubLabelGrid]}>QTY</Text>
+                        <Text
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          style={[
+                            styles.boxSubValue,
+                            styles.growthSubValueGrid,
+                            isBQtyNeg ? styles.growthNeg : null,
+                          ]}
+                        >
+                          {fmtGrowthPct(bGQty)}
+                        </Text>
+                      </View>
+                      <View style={[styles.boxColDivider, isBGrowthNeg ? styles.growthDividerGridNeg : styles.growthDividerGrid]} />
+                      <View style={styles.boxCol}>
+                        <Text style={[styles.boxSubLabel, isBGrowthNeg ? styles.growthSubLabelGridNeg : styles.growthSubLabelGrid]}>VAL</Text>
+                        <Text
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          style={[
+                            styles.boxSubValue,
+                            styles.growthSubValueGrid,
+                            isBValNeg ? styles.growthNeg : null,
+                          ]}
+                        >
+                          {fmtGrowthPct(bGValue)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+          </ScrollView>
+        </View>
+      )}
     </View>
   );
 });
@@ -288,6 +547,9 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [selectedABMs, setSelectedABMs] = useState<string[]>([]);
   const [isAbmModalOpen, setIsAbmModalOpen] = useState(false);
   const [abmSearchText, setAbmSearchText] = useState('');
+
+  // Expand/collapse brands state
+  const [expandedIds, setExpandedIds] = useState<Set<string | number>>(new Set());
 
   const searchInputRef = useRef<TextInput>(null);
 
@@ -455,7 +717,10 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
         const branch = getBranchName(item).toLowerCase();
         const abm = getAbmName(item).toLowerCase();
         const zone = getZoneName(item).toLowerCase();
-        if (!branch.includes(q) && !abm.includes(q) && !zone.includes(q)) {
+        const matchesBrand = Array.isArray(item.brands) && item.brands.some((b: any) =>
+          String(b.brand_name || b.name || '').toLowerCase().includes(q)
+        );
+        if (!branch.includes(q) && !abm.includes(q) && !zone.includes(q) && !matchesBrand) {
           return false;
         }
       }
@@ -463,6 +728,44 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
       return true;
     });
   }, [data, searchQuery, selectedStates, selectedZones, selectedBranches, selectedABMs]);
+
+  const totalBranchesWithBrands = useMemo(() => {
+    return filteredData.filter((i) => Array.isArray(i.brands) && i.brands.length > 0).length;
+  }, [filteredData]);
+
+  const isAllExpanded = useMemo(() => {
+    if (totalBranchesWithBrands === 0) return false;
+    return filteredData.every((item, idx) => {
+      if (!Array.isArray(item.brands) || item.brands.length === 0) return true;
+      return expandedIds.has(item.id ?? idx);
+    });
+  }, [filteredData, expandedIds, totalBranchesWithBrands]);
+
+  const handleToggleExpandAll = useCallback(() => {
+    if (isAllExpanded) {
+      setExpandedIds(new Set());
+    } else {
+      const next = new Set<string | number>();
+      filteredData.forEach((item, idx) => {
+        if (Array.isArray(item.brands) && item.brands.length > 0) {
+          next.add(item.id ?? idx);
+        }
+      });
+      setExpandedIds(next);
+    }
+  }, [isAllExpanded, filteredData]);
+
+  const handleToggleCardExpand = useCallback((id: string | number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
 
   const isAllBranchesSelected = selectedBranches.length === 0;
   const isAllABMsSelected = selectedABMs.length === 0;
@@ -644,7 +947,7 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
             <TextInput
               ref={searchInputRef}
               style={styles.searchInput}
-              placeholder="Search Branch or ABM Name..."
+              placeholder="Search Branch, ABM or Brand..."
               placeholderTextColor="#94A3B8"
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -664,13 +967,45 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Dropdowns Row (State, Zone, Branches & ABMs) */}
+        {/* Dropdowns Row (Expand All, State, Zone, Branches & ABMs) */}
         <View style={styles.dropdownsRow}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.dropdownsScrollContent}
           >
+            {/* Expand All / Collapse All Button */}
+            {totalBranchesWithBrands > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.dropdownBtn,
+                  styles.expandAllBtn,
+                  isAllExpanded && styles.expandAllBtnActive,
+                ]}
+                activeOpacity={0.8}
+                onPress={handleToggleExpandAll}
+              >
+                <Text
+                  style={[
+                    styles.expandAllIcon,
+                    isAllExpanded && styles.expandAllIconActive,
+                  ]}
+                >
+                  {isAllExpanded ? '▲' : '▼'}
+                </Text>
+                <Text
+                  style={[
+                    styles.dropdownBtnText,
+                    styles.expandAllText,
+                    isAllExpanded && styles.dropdownBtnTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {isAllExpanded ? 'Collapse All' : `Expand All (${totalBranchesWithBrands})`}
+                </Text>
+              </TouchableOpacity>
+            )}
+
             {/* Unified State & Zone Filter Dropdown Button */}
             <TouchableOpacity
               style={[
@@ -791,7 +1126,24 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
         <FlatList
           data={filteredData}
           keyExtractor={(item, idx) => String(item.id ?? idx)}
-          renderItem={({ item, index }) => <TvaCard item={item} index={index} />}
+          renderItem={({ item, index }) => {
+            const cardKey = item.id ?? index;
+            const isBrandQueryMatch =
+              searchQuery.trim().length >= 2 &&
+              Array.isArray(item.brands) &&
+              item.brands.some((b: any) =>
+                String(b.brand_name || b.name || '').toLowerCase().includes(searchQuery.toLowerCase().trim())
+              );
+            return (
+              <TvaCard
+                item={item}
+                index={index}
+                isExpanded={expandedIds.has(cardKey) || isBrandQueryMatch}
+                onToggleExpand={() => handleToggleCardExpand(cardKey)}
+              />
+            );
+          }}
+          extraData={[expandedIds, searchQuery]}
           contentContainerStyle={[
             styles.listContent,
             filteredData.length === 0 && styles.listContentEmpty,
@@ -805,7 +1157,7 @@ const TargetAchivement: React.FC<{ navigation?: any }> = ({ navigation }) => {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.stateIcon}>🔍</Text>
-              <Text style={styles.stateText}>No matching branch or ABM found</Text>
+              <Text style={styles.stateText}>No matching branch, ABM or brand found</Text>
               <TouchableOpacity style={styles.retryBtn} onPress={() => load(true)}>
                 <Text style={styles.retryText}>Refresh</Text>
               </TouchableOpacity>
@@ -1665,6 +2017,34 @@ const styles = StyleSheet.create({
   filterBtnLeftIconActive: {
     tintColor: colors.white,
   },
+  expandAllBtn: {
+    minWidth: 110,
+    backgroundColor: '#FAF5FF',
+    borderColor: '#DDD6FE',
+  },
+  expandAllBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  expandAllIcon: {
+    fontSize: 9,
+    color: colors.primary,
+    marginRight: 4,
+    fontFamily: fontFamily.bold,
+  },
+  expandAllIconActive: {
+    color: colors.white,
+  },
+  expandAllText: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+  },
 
   /* Modal Tabs Segmented Switcher */
   modalTabsRow: {
@@ -1802,6 +2182,164 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     marginTop: 1,
   },
+  headerBrandBadge: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: 'center',
+  },
+  headerBrandBadgeInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  headerBrandBadgeCount: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: colors.white,
+  },
+  headerBrandChevron: {
+    fontSize: 9,
+    fontFamily: fontFamily.bold,
+    color: colors.white,
+  },
+
+  /* Brands Toggle Footer Bar */
+  brandsToggleBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FAF5FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  brandsToggleBarExpanded: {
+    backgroundColor: '#F3E8FF',
+    borderColor: '#C084FC',
+  },
+  brandsToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  brandCountPill: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandCountPillText: {
+    fontSize: 10,
+    fontFamily: fontFamily.bold,
+    color: colors.white,
+  },
+  brandsToggleTitle: {
+    fontSize: 11.5,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+  },
+  brandsToggleRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  brandsToggleActionText: {
+    fontSize: 11,
+    fontFamily: fontFamily.medium,
+    color: colors.primary,
+  },
+  brandsToggleChevron: {
+    fontSize: 9,
+    color: colors.primary,
+    fontFamily: fontFamily.bold,
+  },
+
+  /* Brands Container & Brand Card (Horizontal Scroll) */
+  brandsContainer: {
+    marginTop: 8,
+    marginHorizontal: -10,
+  },
+  brandsScrollContent: {
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    gap: 12,
+  },
+  brandCard: {
+    width: 295,
+    backgroundColor: '#FAF5FF',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E9D5FF',
+    padding: 10,
+    paddingBottom: 4,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  brandCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  brandTitleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  brandDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
+  brandTitleText: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+    flexShrink: 1,
+  },
+  shareBadge: {
+    backgroundColor: '#E9D5FF',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  shareBadgeText: {
+    fontSize: 9.5,
+    fontFamily: fontFamily.bold,
+    color: colors.primary,
+  },
+  brandGridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  brandMetricBox: {
+    width: '48%',
+    backgroundColor: colors.white,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 6,
+    paddingHorizontal: 7,
+    marginBottom: 6,
+  },
 
   divider: {
     height: 1,
@@ -1889,6 +2427,10 @@ const styles = StyleSheet.create({
   },
   mtdPctDividerGrid: {
     backgroundColor: '#FED7AA',
+  },
+
+  metricBoxFullWidth: {
+    width: '100%',
   },
 
   /* Growth grid box override */

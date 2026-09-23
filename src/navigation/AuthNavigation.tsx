@@ -16,6 +16,11 @@ import DeviceLimitReachedScreen from '../screens/authScreen/DeviceLimitReachedSc
 import { ApprovedDeviceItem } from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../styles/variables';
+import {
+  SupportScreen,
+  RaiseTicketScreen,
+  AllTicketsScreen,
+} from '../screens/homeScreen/SupportScreen';
 import AbmWiseReportScreen from '../screens/homeScreen/ReportsScreen.tsx/AbmWiseReportScreen';
 import StockVsCashReportScreen from '../screens/homeScreen/ReportsScreen.tsx/StockVsCashReportScreen';
 import PriceListReport from '../screens/homeScreen/ReportsScreen.tsx/PriceListReport';
@@ -53,6 +58,12 @@ export type RootStackParamList = {
   PriceListReportDetailScreen: { variationId: number | string; formatName: string };
   AlertMaster: undefined;
   Profile: undefined;
+  Support: undefined;
+  Supoort: undefined;
+  RaiseTicketScreen: undefined;
+  RaiseTicket: undefined;
+  AllTicketsScreen: undefined;
+  AllTickets: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -108,6 +119,12 @@ export const AuthNavigation = () => {
             <Stack.Screen name="PriceListReportDetailScreen" component={PriceListReportDetailScreen} />
             <Stack.Screen name="AlertMaster" component={AlertMasterScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Support" component={SupportScreen} />
+            <Stack.Screen name="Supoort" component={SupportScreen} />
+            <Stack.Screen name="RaiseTicketScreen" component={RaiseTicketScreen} />
+            <Stack.Screen name="RaiseTicket" component={RaiseTicketScreen} />
+            <Stack.Screen name="AllTicketsScreen" component={AllTicketsScreen} />
+            <Stack.Screen name="AllTickets" component={AllTicketsScreen} />
           </>
         ) : (
           <>
