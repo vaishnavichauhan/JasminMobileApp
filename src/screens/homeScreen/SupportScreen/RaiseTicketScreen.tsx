@@ -102,6 +102,18 @@ export const RaiseTicketScreen: React.FC = () => {
     }
   };
 
+  const handleNavigateToSupport = () => {
+    try {
+      navigation.navigate('Support');
+    } catch (e) {
+      if (navigation && navigation.canGoBack && navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        navigation.navigate('Home', { screen: 'Dashboard' });
+      }
+    }
+  };
+
   // Filter sub-ticket types according to selected parent ticket type
   const filteredSubTypes = selectedTicketType
     ? subTicketTypes.filter((st) => st.ticket_type_id === selectedTicketType.id)
@@ -301,23 +313,21 @@ export const RaiseTicketScreen: React.FC = () => {
       const response = await createTicketApi(formData);
 
       if (response?.success) {
-        const ticketNo = response?.data?.ticket_no || '';
         Alert.alert(
-          'Ticket Created',
-          response.message || `Ticket ${ticketNo} created successfully!`,
+          'Success',
+          'Successfully Ticket Created',
           [
             {
-              text: 'View All Tickets',
+              text: 'OK',
               onPress: () => {
                 handleClearForm();
-                handleNavigateToTicketsList();
+                handleNavigateToSupport();
               },
             },
-            {
-              text: 'OK',
-              onPress: () => handleClearForm(),
-            },
-          ]
+          ],
+          {
+            cancelable: false,
+          }
         );
       } else {
         Alert.alert(

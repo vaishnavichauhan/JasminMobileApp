@@ -259,14 +259,49 @@ export const AllTicketsScreen: React.FC<AllTicketsScreenProps> = () => {
   const fetchCounts = async () => {
     try {
       const statsRes = await getTicketStatsApi();
-      if (statsRes && statsRes.success && statsRes.data) {
+      if (
+        statsRes &&
+        statsRes.success &&
+        statsRes.data &&
+        (typeof statsRes.data.active_count === 'number' || typeof statsRes.data.history_count === 'number')
+      ) {
         setTicketCounts({
           active: Number(statsRes.data.active_count) || 0,
           history: Number(statsRes.data.history_count) || 0,
         });
+        return;
       }
     } catch (err) {
-      console.warn('[AllTickets] Error fetching ticket counts:', err);
+      console.warn('[AllTickets] Error fetching ticket counts from stats API:', err);
+    }
+
+    // Fallback: If stats API fails (e.g. 500 error or unsupported), fetch active and history counts directly
+    try {
+      const [activeRes, historyRes] = await Promise.all([
+        getTicketsListApi({ tab: 'active' }),
+        getTicketsListApi({ tab: 'history' }),
+      ]);
+
+      const activeList =
+        activeRes && activeRes.success && Array.isArray(activeRes.data)
+          ? activeRes.data
+          : Array.isArray(activeRes as any)
+          ? (activeRes as any)
+          : [];
+
+      const historyList =
+        historyRes && historyRes.success && Array.isArray(historyRes.data)
+          ? historyRes.data
+          : Array.isArray(historyRes as any)
+          ? (historyRes as any)
+          : [];
+
+      setTicketCounts({
+        active: activeList.length,
+        history: historyList.length,
+      });
+    } catch (fallbackErr) {
+      console.warn('[AllTickets] Error fetching ticket counts via fallback:', fallbackErr);
     }
   };
 
@@ -290,6 +325,14 @@ export const AllTicketsScreen: React.FC<AllTicketsScreenProps> = () => {
         rawList = response.data;
       } else if (Array.isArray(response as any)) {
         rawList = response as any;
+      }
+
+      // Automatically sync current tab count when not searching or filtering by ticket type
+      if (!searchQuery.trim() && (typeId === 'all' || !typeId)) {
+        setTicketCounts((prev) => ({
+          ...prev,
+          [activeTab]: rawList.length,
+        }));
       }
 
       if (rawList.length > 0) {

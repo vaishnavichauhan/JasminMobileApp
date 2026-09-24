@@ -370,6 +370,12 @@ export const getTicketStatsApi = async (): Promise<TicketStatsResponse> => {
   try {
     const url = API_ENDPOINTS.TICKETS.STATS;
     const response = await fetchWithAuth(url);
+    if (!response.ok) {
+      return {
+        success: false,
+        message: `Server returned status ${response.status}`,
+      };
+    }
     const json = await response.json();
     return json;
   } catch (error: any) {
