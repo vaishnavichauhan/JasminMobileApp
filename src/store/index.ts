@@ -6,3 +6,4 @@ export * from './useAbmWiseStore';
 export * from './useStockCashDepositStore';
 export * from './usePriceListStore';
 export * from './useFinanceBrandStore';
+export * from './useSpecialTvaStore';

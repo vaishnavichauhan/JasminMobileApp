@@ -7,8 +7,8 @@ const LOCAL_DEV_URL =
   Platform.OS === 'android'
     ? `http://10.0.2.2:${PORT}/v1/api`
     : `http://localhost:${PORT}/v1/api`;
- export const BASE_URL = 'https://interlink.jasminmobile.com/v1/api';
-// export const BASE_URL = LOCAL_DEV_URL;
+export const BASE_URL = 'https://interlink.jasminmobile.com/v1/api';
+//  export const BASE_URL = LOCAL_DEV_URL;
 
 export const getHostUrl = (): string => {
   return BASE_URL.replace(/\/api\/?$/, '');
@@ -48,6 +48,14 @@ export const API_ENDPOINTS = {
     TARGET_VS_ACHIEVEMENT_ALL: `${BASE_URL}/target-vs-achievement/all`,
     TARGET_VS_ACHIEVEMENT_ABM_WISE: `${BASE_URL}/target-vs-achievement/abm-wise-summary`,
     TARGET_VS_ACHIEVEMENT_STATES: `${BASE_URL}/target-vs-achievement/states`,
+    SPECIAL_TVA_ALL: `${BASE_URL}/special-tva/all`,
+  },
+
+  // Special TVA Endpoints
+  SPECIAL_TVA: {
+    ALL: `${BASE_URL}/special-tva/all`,
+    DETAILS: (id: string | number) => `${BASE_URL}/special-tva/details/${id}`,
+    REPORT: (id: string | number) => `${BASE_URL}/special-tva/report/${id}`,
   },
 
   // Offers Endpoints

@@ -28,6 +28,8 @@ import FinanceBrandReport from '../screens/homeScreen/ReportsScreen.tsx/FinanceB
 import PriceListDetailScreen from '../screens/homeScreen/PriceListScreen/PriceListDetailScreen';
 import PriceListReportDetailScreen from '../screens/homeScreen/ReportsScreen.tsx/PriceListReportDetailScreen';
 import Watermark from '../components/Watermark/Watermark';
+import SpecialTVAReports from '../screens/homeScreen/ReportsScreen.tsx/SpecialTVAReports';
+import SpecialTvaReportDetailScreen from '../screens/homeScreen/ReportsScreen.tsx/SpecialTvaReportDetailScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -54,6 +56,8 @@ export type RootStackParamList = {
   StockVsCashReportScreen:undefined;
   FinanceBrandReport: undefined;
   PriceListReport:undefined;
+  SpecialTVAReports:undefined;
+  SpecialTvaReportDetailScreen: { id: number | string; title?: string };
   PriceListDetailScreen: { variationId: number | string; formatName: string };
   PriceListReportDetailScreen: { variationId: number | string; formatName: string };
   AlertMaster: undefined;
@@ -117,6 +121,9 @@ export const AuthNavigation = () => {
             <Stack.Screen name="PriceListReport" component={PriceListReport} />
             <Stack.Screen name="PriceListDetailScreen" component={PriceListDetailScreen} />
             <Stack.Screen name="PriceListReportDetailScreen" component={PriceListReportDetailScreen} />
+            
+            <Stack.Screen name="SpecialTVAReports" component={SpecialTVAReports} />
+            <Stack.Screen name="SpecialTvaReportDetailScreen" component={SpecialTvaReportDetailScreen} />
             <Stack.Screen name="AlertMaster" component={AlertMasterScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="Support" component={SupportScreen} />

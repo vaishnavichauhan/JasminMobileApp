@@ -22,6 +22,7 @@ const reportData: ReportItem[] = [
   { id: 3, title: 'Stock vs Cash Deposit' },
   { id: 4, title: 'Finance & Brand Report' },
   { id: 5, title: 'PriceList Report' },
+  { id: 6, title: 'Special TVA Reports'},
 ];
 
 interface ReportsScreenProps {
@@ -48,6 +49,10 @@ const ReportsScreen: React.FC<ReportsScreenProps> = () => {
       case 5:
         navigation?.navigate('PriceListReport');
         break;
+        case 6:
+        navigation?.navigate('SpecialTVAReports');
+        break;
+        
       default:
         console.log('Report selected:', item.title);
         break;

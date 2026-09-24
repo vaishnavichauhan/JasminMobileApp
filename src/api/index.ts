@@ -15,3 +15,4 @@ export type { TvaItem, TvaBrandItem, AbmWiseTvaItem } from './targetVsAchievemen
 export * from './offersApi';
 export * from './alertsApi';
 export * from './ticketsApi';
+export * from './specialTvaApi';
