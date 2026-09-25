@@ -122,9 +122,9 @@ const BranchReportCard: React.FC<BranchCardProps> = React.memo(
               <Text style={styles.cardPartyName} numberOfLines={2}>
                 {item.party_name}
               </Text>
-              {!!item.branch_code && (
+              {/* {!!item.branch_code && (
                 <Text style={styles.cardBranchCode}>Code: {item.branch_code}</Text>
-              )}
+              )} */}
             </View>
           </View>
         </View>
