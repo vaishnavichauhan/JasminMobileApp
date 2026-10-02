@@ -240,10 +240,13 @@ export const TabNavigation: React.FC<TabNavigationProps> = () => {
   // This ensures the floating tab bar never gets overlapped by the Android navigation bar.
   const tabBottomOffset = isIos
     ? (bottomInset > 0 ? Math.max(bottomInset - 16, 8) : 12)
-    : (bottomInset > 0 ? bottomInset + 4 : 10);
+    : (bottomInset > 0 ? bottomInset + 4 : 14);
 
   const tabHeight = 62;
-  const menuBottomSpacing = tabHeight + tabBottomOffset + 14;
+  const menuBottomSpacing = Math.max(
+    tabHeight + tabBottomOffset + 14,
+    Platform.OS === 'android' ? 90 : 70
+  );
 
   const closeMenuWithAnimation = (callback?: () => void) => {
     setPlusMenuVisible(false);

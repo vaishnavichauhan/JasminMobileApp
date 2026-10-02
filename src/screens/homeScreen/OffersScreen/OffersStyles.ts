@@ -600,6 +600,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 64,
     maxHeight: '85%',
   },
   modalHeader: {

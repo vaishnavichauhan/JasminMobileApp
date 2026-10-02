@@ -16,7 +16,7 @@ export interface SpecialTvaItem {
 }
 
 export const fetchSpecialTvaAllApi = async (
-  token?: string | null
+  _token?: string | null
 ): Promise<SpecialTvaItem[]> => {
   const url =
     API_ENDPOINTS.SPECIAL_TVA?.ALL ||
@@ -71,6 +71,29 @@ export interface SpecialTvaMasterInfo {
   [key: string]: any;
 }
 
+export interface SpecialTvaAbmRecordItem {
+  id?: string | number;
+  s_no?: number | string;
+  abm_name: string;
+  branch_count: number;
+  state?: string;
+  zone?: string;
+  period_target?: number;
+  brand_targets?: Record<string, number>;
+  achievement_qty?: Record<string, number>;
+  achievement_pct?: Record<string, number>;
+  [key: string]: any;
+}
+
+export interface SpecialTvaUserContext {
+  is_admin?: boolean;
+  is_abm?: boolean;
+  can_view_abm_tab?: boolean;
+  user_name?: string;
+  abm_name?: string | null;
+  [key: string]: any;
+}
+
 export interface SpecialTvaReportData {
   master?: SpecialTvaMasterInfo;
   brand_headers?: string[];
@@ -82,17 +105,28 @@ export interface SpecialTvaReportData {
   records?: SpecialTvaRecordItem[];
   totals?: {
     target?: number;
+    period_target?: number;
     brand_targets?: Record<string, number>;
     achievement_qty?: Record<string, number>;
     achievement_pct?: Record<string, number>;
     [key: string]: any;
   };
+  abm_records?: SpecialTvaAbmRecordItem[];
+  abm_totals?: {
+    branch_count?: number;
+    period_target?: number;
+    brand_targets?: Record<string, number>;
+    achievement_qty?: Record<string, number>;
+    achievement_pct?: Record<string, number>;
+    [key: string]: any;
+  };
+  user_context?: SpecialTvaUserContext;
   [key: string]: any;
 }
 
 export const fetchSpecialTvaReportApi = async (
   id: string | number,
-  token?: string | null
+  _token?: string | null
 ): Promise<SpecialTvaReportData | null> => {
   const url =
     API_ENDPOINTS.SPECIAL_TVA?.REPORT?.(id) ||

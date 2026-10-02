@@ -12,15 +12,24 @@ import {
   TextInput,
   Modal,
   Platform,
+  Image,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../context/AuthContext';
 import { useSpecialTvaStore } from '../../../store';
-import { SpecialTvaRecordItem } from '../../../api/specialTvaApi';
+import {
+  SpecialTvaRecordItem,
+  SpecialTvaAbmRecordItem,
+} from '../../../api/specialTvaApi';
 import { colors, fontFamily, borderRadius } from '../../../styles/variables';
 import Header from '../../../components/Header/Header';
+import Images from '../../../assets/images';
 import AccessDenied from '../../../components/AccessDenied/AccessDenied';
-import { isAccessDeniedError } from '../../../utils/authUtils';
+import {
+  isAccessDeniedError,
+  canUserViewAbmWiseReport,
+} from '../../../utils/authUtils';
 
 // Helper for Indian number formatting
 const formatNumber = (num: any, decimals = 0): string => {
@@ -38,7 +47,20 @@ const formatDate = (val?: string): string => {
   const str = String(val).split('T')[0];
   const parts = str.split('-');
   if (parts.length === 3) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     const [y, m, d] = parts;
     const mName = months[parseInt(m, 10) - 1] || m;
     return `${parseInt(d, 10)} ${mName} ${y}`;
@@ -92,15 +114,15 @@ const BranchReportCard: React.FC<BranchCardProps> = React.memo(
 
     // Resolve Total Achieved Qty
     const totalAch =
-      item.achievement_qty?.['Total'] ??
+      item.achievement_qty?.Total ??
       Object.entries(item.achievement_qty || {}).reduce((acc, [k, v]) => {
         return k !== 'Total' ? acc + (Number(v) || 0) : acc;
       }, 0);
 
     // Resolve Total Achieved %
     const totalPct =
-      item.achievement_pct?.['Total'] !== undefined
-        ? Number(item.achievement_pct['Total'])
+      item.achievement_pct?.Total !== undefined
+        ? Number(item.achievement_pct.Total)
         : periodTarget > 0
         ? Number(((totalAch / periodTarget) * 100).toFixed(2))
         : 0;
@@ -122,9 +144,6 @@ const BranchReportCard: React.FC<BranchCardProps> = React.memo(
               <Text style={styles.cardPartyName} numberOfLines={2}>
                 {item.party_name}
               </Text>
-              {/* {!!item.branch_code && (
-                <Text style={styles.cardBranchCode}>Code: {item.branch_code}</Text>
-              )} */}
             </View>
           </View>
         </View>
@@ -206,9 +225,15 @@ const BranchReportCard: React.FC<BranchCardProps> = React.memo(
           <View style={styles.breakdownContainer}>
             <View style={styles.breakdownHeaderRow}>
               <Text style={[styles.breakdownHeaderCell, { flex: 2 }]}>Brand</Text>
-              <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>Target</Text>
-              <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>Ach Qty</Text>
-              <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>Ach %</Text>
+              <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>
+                Target
+              </Text>
+              <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>
+                Ach Qty
+              </Text>
+              <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>
+                Ach %
+              </Text>
             </View>
 
             {brandHeaders.map((bh) => {
@@ -227,32 +252,213 @@ const BranchReportCard: React.FC<BranchCardProps> = React.memo(
               return (
                 <View
                   key={`brand_${bh}`}
-                  style={[
-                    styles.breakdownRow,
-                    isTotal && styles.breakdownTotalRow,
-                  ]}
+                  style={[styles.breakdownRow, isTotal && styles.breakdownTotalRow]}
                 >
                   <Text
-                    style={[
-                      styles.breakdownBrandName,
-                      isTotal && styles.breakdownTotalText,
-                    ]}
+                    style={[styles.breakdownBrandName, isTotal && styles.breakdownTotalText]}
                   >
                     {bh}
                   </Text>
                   <Text
-                    style={[
-                      styles.breakdownTargetText,
-                      isTotal && styles.breakdownTotalText,
-                    ]}
+                    style={[styles.breakdownTargetText, isTotal && styles.breakdownTotalText]}
                   >
                     {formatNumber(bTgt)}
                   </Text>
                   <Text
-                    style={[
-                      styles.breakdownAchText,
-                      isTotal && styles.breakdownTotalText,
-                    ]}
+                    style={[styles.breakdownAchText, isTotal && styles.breakdownTotalText]}
+                  >
+                    {formatNumber(bAch)}
+                  </Text>
+                  <View style={{ flex: 1.5, alignItems: 'flex-end' }}>
+                    <View
+                      style={[
+                        styles.miniPctBadge,
+                        {
+                          backgroundColor: cellColors.bg,
+                          borderColor: cellColors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.miniPctText, { color: cellColors.text }]}>
+                        {bPct.toFixed(2)}%
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+    );
+  }
+);
+
+/* ── Individual ABM Report Card ── */
+interface AbmCardProps {
+  item: SpecialTvaAbmRecordItem;
+  index: number;
+  brandHeaders: string[];
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+}
+
+const AbmReportCard: React.FC<AbmCardProps> = React.memo(
+  ({ item, index, brandHeaders, isExpanded, onToggleExpand }) => {
+    const indexStr = String(index + 1).padStart(2, '0');
+    const periodTarget = Number(item.period_target) || 0;
+
+    // Resolve Total Achieved Qty
+    const totalAch =
+      item.achievement_qty?.Total ??
+      Object.entries(item.achievement_qty || {}).reduce((acc, [k, v]) => {
+        return k !== 'Total' ? acc + (Number(v) || 0) : acc;
+      }, 0);
+
+    // Resolve Total Achieved %
+    const totalPct =
+      item.achievement_pct?.Total !== undefined
+        ? Number(item.achievement_pct.Total)
+        : periodTarget > 0
+        ? Number(((totalAch / periodTarget) * 100).toFixed(2))
+        : 0;
+
+    const pctColors = getPctColorStyles(totalPct);
+
+    return (
+      <View style={styles.card}>
+        {/* Card Header */}
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderLeft}>
+            {/* Number Badge */}
+            <View style={[styles.cardIndexBadge, styles.abmIndexBadge]}>
+              <Text style={[styles.cardIndexText, styles.abmIndexText]}>{indexStr}</Text>
+            </View>
+
+            {/* ABM Name */}
+            <View style={styles.cardTitleWrap}>
+              <Text style={styles.abmPartyName} numberOfLines={2}>
+                {item.abm_name}
+              </Text>
+            </View>
+          </View>
+
+          {/* Branch Count Badge */}
+          <View style={styles.abmBranchBadge}>
+            <Text style={styles.abmBranchBadgeText}>
+              🏬 {item.branch_count} {item.branch_count === 1 ? 'Branch' : 'Branches'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Pills / Tags Row */}
+        <View style={styles.cardTagsRow}>
+          {!!item.state && item.state !== '—' && (
+            <View style={styles.tagPill}>
+              <Text style={styles.tagPillText}>📍 {item.state}</Text>
+            </View>
+          )}
+          {!!item.zone && item.zone !== '—' && (
+            <View style={styles.tagPill}>
+              <Text style={styles.tagPillText}>🌐 {item.zone}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* KPI Summary Strip */}
+        <View style={styles.kpiContainer}>
+          {/* Target */}
+          <View style={styles.kpiBox}>
+            <Text style={styles.kpiLabel}>TARGET</Text>
+            <Text style={styles.kpiValueTarget}>{formatNumber(periodTarget)}</Text>
+          </View>
+
+          <View style={styles.kpiDivider} />
+
+          {/* Achieved */}
+          <View style={styles.kpiBox}>
+            <Text style={styles.kpiLabel}>ACHIEVED</Text>
+            <Text style={styles.kpiValueAch}>{formatNumber(totalAch)}</Text>
+          </View>
+
+          <View style={styles.kpiDivider} />
+
+          {/* Achieved % */}
+          <View style={styles.kpiBox}>
+            <Text style={styles.kpiLabel}>ACH %</Text>
+            <View
+              style={[
+                styles.kpiPctBadge,
+                { backgroundColor: pctColors.bg, borderColor: pctColors.border },
+              ]}
+            >
+              <Text style={[styles.kpiPctText, { color: pctColors.text }]}>
+                {totalPct.toFixed(2)}%
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Toggle Brand Breakdown Button */}
+        {brandHeaders.length > 0 && (
+          <TouchableOpacity
+            style={styles.expandToggleBtn}
+            onPress={onToggleExpand}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.expandToggleText}>
+              {isExpanded ? 'Hide Brand Details' : 'View Brand Breakdown'}
+            </Text>
+            <Text style={styles.expandToggleChevron}>{isExpanded ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Expanded Brand Breakdown Table */}
+        {isExpanded && (
+          <View style={styles.breakdownContainer}>
+            <View style={styles.breakdownHeaderRow}>
+              <Text style={[styles.breakdownHeaderCell, { flex: 2 }]}>Brand</Text>
+              <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>
+                Target
+              </Text>
+              <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>
+                Ach Qty
+              </Text>
+              <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>
+                Ach %
+              </Text>
+            </View>
+
+            {brandHeaders.map((bh) => {
+              const isTotal = bh === 'Total';
+              const bTgt = item.brand_targets?.[bh] || 0;
+              const bAch = item.achievement_qty?.[bh] || 0;
+              const bPct =
+                item.achievement_pct?.[bh] !== undefined
+                  ? Number(item.achievement_pct[bh])
+                  : bTgt > 0
+                  ? Number(((bAch / bTgt) * 100).toFixed(2))
+                  : 0;
+
+              const cellColors = getPctColorStyles(bPct);
+
+              return (
+                <View
+                  key={`abm_brand_${bh}`}
+                  style={[styles.breakdownRow, isTotal && styles.breakdownTotalRow]}
+                >
+                  <Text
+                    style={[styles.breakdownBrandName, isTotal && styles.breakdownTotalText]}
+                  >
+                    {bh}
+                  </Text>
+                  <Text
+                    style={[styles.breakdownTargetText, isTotal && styles.breakdownTotalText]}
+                  >
+                    {formatNumber(bTgt)}
+                  </Text>
+                  <Text
+                    style={[styles.breakdownAchText, isTotal && styles.breakdownTotalText]}
                   >
                     {formatNumber(bAch)}
                   </Text>
@@ -283,7 +489,11 @@ const BranchReportCard: React.FC<BranchCardProps> = React.memo(
 
 /* ── Top Summary / Total Card ── */
 interface TotalCardProps {
+  title?: string;
+  subtitle?: string;
   filteredCount: number;
+  countLabel?: string;
+  secondaryCount?: string;
   totalTarget: number;
   totalAchQty: number;
   overallPct: number;
@@ -296,7 +506,11 @@ interface TotalCardProps {
 }
 
 const TotalCard: React.FC<TotalCardProps> = ({
+  title = 'Total Summary',
+  subtitle = 'All Calculated Results',
   filteredCount,
+  countLabel = 'Branches',
+  secondaryCount,
   totalTarget,
   totalAchQty,
   overallPct,
@@ -318,13 +532,22 @@ const TotalCard: React.FC<TotalCardProps> = ({
             <Text style={styles.totalIconText}>∑</Text>
           </View>
           <View>
-            <Text style={styles.totalTitle}>Total Summary</Text>
-            <Text style={styles.totalSubtitle}>All Calculated Results</Text>
+            <Text style={styles.totalTitle}>{title}</Text>
+            <Text style={styles.totalSubtitle}>{subtitle}</Text>
           </View>
         </View>
 
-        <View style={styles.totalCountBadge}>
-          <Text style={styles.totalCountText}>{filteredCount} Branches</Text>
+        <View style={styles.totalCountWrap}>
+          <View style={styles.totalCountBadge}>
+            <Text style={styles.totalCountText}>
+              {filteredCount} {countLabel}
+            </Text>
+          </View>
+          {secondaryCount && (
+            <View style={styles.totalSecondaryBadge}>
+              <Text style={styles.totalSecondaryText}>{secondaryCount}</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -381,9 +604,15 @@ const TotalCard: React.FC<TotalCardProps> = ({
         <View style={styles.totalBrandBreakdown}>
           <View style={styles.breakdownHeaderRow}>
             <Text style={[styles.breakdownHeaderCell, { flex: 2 }]}>Brand</Text>
-            <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>Target</Text>
-            <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>Achieved</Text>
-            <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>Ach %</Text>
+            <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>
+              Target
+            </Text>
+            <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>
+              Achieved
+            </Text>
+            <Text style={[styles.breakdownHeaderCell, { flex: 1.5, textAlign: 'right' }]}>
+              Ach %
+            </Text>
           </View>
 
           {brandHeaders.map((bh) => {
@@ -396,32 +625,20 @@ const TotalCard: React.FC<TotalCardProps> = ({
             return (
               <View
                 key={`total_brand_${bh}`}
-                style={[
-                  styles.breakdownRow,
-                  isTotal && styles.breakdownTotalRow,
-                ]}
+                style={[styles.breakdownRow, isTotal && styles.breakdownTotalRow]}
               >
                 <Text
-                  style={[
-                    styles.breakdownBrandName,
-                    isTotal && styles.breakdownTotalText,
-                  ]}
+                  style={[styles.breakdownBrandName, isTotal && styles.breakdownTotalText]}
                 >
                   {bh}
                 </Text>
                 <Text
-                  style={[
-                    styles.breakdownTargetText,
-                    isTotal && styles.breakdownTotalText,
-                  ]}
+                  style={[styles.breakdownTargetText, isTotal && styles.breakdownTotalText]}
                 >
                   {formatNumber(bTgt)}
                 </Text>
                 <Text
-                  style={[
-                    styles.breakdownAchText,
-                    isTotal && styles.breakdownTotalText,
-                  ]}
+                  style={[styles.breakdownAchText, isTotal && styles.breakdownTotalText]}
                 >
                   {formatNumber(bAch)}
                 </Text>
@@ -453,7 +670,14 @@ const TotalCard: React.FC<TotalCardProps> = ({
 const SpecialTvaReportDetailScreen: React.FC = () => {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
-  const { token } = useAuth();
+  const { user, token } = useAuth();
+  const insets = useSafeAreaInsets();
+
+  // Ensure safe padding on Android 3-button navigation bar (at least 64dp) and iOS Home indicator
+  const modalBottomPadding = Math.max(
+    (insets.bottom || 0) + 20,
+    Platform.OS === 'android' ? 64 : 28
+  );
 
   const reportId = route.params?.id;
   const initialTitle = route.params?.title || 'Special TVA Report';
@@ -466,6 +690,9 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
     loadReportDetails,
     clearReportDetails,
   } = useSpecialTvaStore();
+
+  // Active Tab: 'branch' | 'abm'
+  const [activeTab, setActiveTab] = useState<'branch' | 'abm'>('branch');
 
   // Search and Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -488,32 +715,66 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
   }, [reportId, token, loadReportDetails, clearReportDetails]);
 
   const master = reportData?.master;
-  const title = master?.title || initialTitle;
-  const brandHeaders: string[] = useMemo(
+  const rawBrandHeaders: string[] = useMemo(
     () => (Array.isArray(reportData?.brand_headers) ? reportData!.brand_headers : []),
-    [reportData?.brand_headers]
+    [reportData]
   );
   const rawRecords: SpecialTvaRecordItem[] = useMemo(
     () => (Array.isArray(reportData?.records) ? reportData!.records : []),
-    [reportData?.records]
+    [reportData]
+  );
+  const rawAbmRecords: SpecialTvaAbmRecordItem[] = useMemo(
+    () => (Array.isArray(reportData?.abm_records) ? reportData!.abm_records : []),
+    [reportData]
   );
 
-  // Unique filter options
+  // Check role permission to view ABM Wise Report
+  // Rule:
+  // - Admin: sees all ABMs
+  // - ABM: sees only their particular ABM report
+  // - Other userRole: does not see the ABM Wise Report option/tab
+  const canViewAbmTab = useMemo(() => {
+    return canUserViewAbmWiseReport(user, reportData?.user_context);
+  }, [user, reportData?.user_context]);
+
+  // Safety fallback: if user loses permission or role doesn't allow ABM, force branch view
+  useEffect(() => {
+    if (!canViewAbmTab && activeTab === 'abm') {
+      setActiveTab('branch');
+    }
+  }, [canViewAbmTab, activeTab]);
+
+  const isAbmTab = canViewAbmTab && activeTab === 'abm';
+
+  // Screen header title
+  const title = master?.title || initialTitle;
+
+  // Unique filter options gathered from both branch and ABM records
   const uniqueStates = useMemo(() => {
     const s = new Set<string>();
     rawRecords.forEach((r) => {
       if (r.state) s.add(r.state.trim());
     });
-    return Array.from(s).sort();
-  }, [rawRecords]);
+    rawAbmRecords.forEach((r) => {
+      if (r.state && r.state !== '—') {
+        r.state.split(',').forEach((st: string) => s.add(st.trim()));
+      }
+    });
+    return Array.from(s).filter(Boolean).sort();
+  }, [rawRecords, rawAbmRecords]);
 
   const uniqueZones = useMemo(() => {
     const z = new Set<string>();
     rawRecords.forEach((r) => {
       if (r.zone) z.add(r.zone.trim());
     });
-    return Array.from(z).sort();
-  }, [rawRecords]);
+    rawAbmRecords.forEach((r) => {
+      if (r.zone && r.zone !== '—') {
+        r.zone.split(',').forEach((zn: string) => z.add(zn.trim()));
+      }
+    });
+    return Array.from(z).filter(Boolean).sort();
+  }, [rawRecords, rawAbmRecords]);
 
   const uniqueTypes = useMemo(() => {
     const t = new Set<string>();
@@ -523,7 +784,7 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
     return Array.from(t).sort();
   }, [rawRecords]);
 
-  // Filtered records
+  // Filtered Branch Records
   const filteredRecords = useMemo(() => {
     let list = rawRecords;
 
@@ -553,7 +814,40 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
     return list;
   }, [rawRecords, searchQuery, selectedStates, selectedZones, selectedTypes]);
 
-  // Calculated totals for Total Card
+  // Filtered ABM Records
+  const filteredAbmRecords = useMemo(() => {
+    let list = rawAbmRecords;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (r) =>
+          (r.abm_name && r.abm_name.toLowerCase().includes(q)) ||
+          (r.state && r.state.toLowerCase().includes(q)) ||
+          (r.zone && r.zone.toLowerCase().includes(q))
+      );
+    }
+
+    if (selectedStates.length > 0) {
+      list = list.filter((r) => {
+        if (!r.state || r.state === '—') return false;
+        const rowStates = r.state.split(',').map((s) => s.trim());
+        return rowStates.some((s) => selectedStates.includes(s));
+      });
+    }
+
+    if (selectedZones.length > 0) {
+      list = list.filter((r) => {
+        if (!r.zone || r.zone === '—') return false;
+        const rowZones = r.zone.split(',').map((z) => z.trim());
+        return rowZones.some((z) => selectedZones.includes(z));
+      });
+    }
+
+    return list;
+  }, [rawAbmRecords, searchQuery, selectedStates, selectedZones]);
+
+  // Calculated totals for Branch Total Card
   const totalsData = useMemo(() => {
     let periodTarget = 0;
     let totalAchQty = 0;
@@ -561,7 +855,7 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
     const brandAchievements: Record<string, number> = {};
     const brandPercentages: Record<string, number> = {};
 
-    brandHeaders.forEach((bh) => {
+    rawBrandHeaders.forEach((bh) => {
       brandTargets[bh] = 0;
       brandAchievements[bh] = 0;
       brandPercentages[bh] = 0;
@@ -570,7 +864,7 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
     filteredRecords.forEach((r) => {
       periodTarget += Number(r.period_target) || 0;
 
-      brandHeaders.forEach((bh) => {
+      rawBrandHeaders.forEach((bh) => {
         brandTargets[bh] += Number(r.brand_targets?.[bh]) || 0;
         brandAchievements[bh] += Number(r.achievement_qty?.[bh]) || 0;
       });
@@ -578,14 +872,14 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
 
     // Total Achieved Qty
     totalAchQty =
-      brandAchievements['Total'] !== undefined
-        ? brandAchievements['Total']
+      brandAchievements.Total !== undefined
+        ? brandAchievements.Total
         : Object.entries(brandAchievements).reduce((acc, [k, v]) => {
             return k !== 'Total' ? acc + v : acc;
           }, 0);
 
     // Compute percentage per brand
-    brandHeaders.forEach((bh) => {
+    rawBrandHeaders.forEach((bh) => {
       const tgt = brandTargets[bh] || 0;
       const ach = brandAchievements[bh] || 0;
       brandPercentages[bh] = tgt > 0 ? Number(((ach / tgt) * 100).toFixed(2)) : 0;
@@ -602,10 +896,62 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
       brandAchievements,
       brandPercentages,
     };
-  }, [filteredRecords, brandHeaders]);
+  }, [filteredRecords, rawBrandHeaders]);
+
+  // Calculated totals for ABM Total Card
+  const abmTotalsData = useMemo(() => {
+    let periodTarget = 0;
+    let totalAchQty = 0;
+    let totalBranchCount = 0;
+    const brandTargets: Record<string, number> = {};
+    const brandAchievements: Record<string, number> = {};
+    const brandPercentages: Record<string, number> = {};
+
+    rawBrandHeaders.forEach((bh) => {
+      brandTargets[bh] = 0;
+      brandAchievements[bh] = 0;
+      brandPercentages[bh] = 0;
+    });
+
+    filteredAbmRecords.forEach((r) => {
+      periodTarget += Number(r.period_target) || 0;
+      totalBranchCount += Number(r.branch_count) || 0;
+
+      rawBrandHeaders.forEach((bh) => {
+        brandTargets[bh] += Number(r.brand_targets?.[bh]) || 0;
+        brandAchievements[bh] += Number(r.achievement_qty?.[bh]) || 0;
+      });
+    });
+
+    totalAchQty =
+      brandAchievements.Total !== undefined
+        ? brandAchievements.Total
+        : Object.entries(brandAchievements).reduce((acc, [k, v]) => {
+            return k !== 'Total' ? acc + v : acc;
+          }, 0);
+
+    rawBrandHeaders.forEach((bh) => {
+      const tgt = brandTargets[bh] || 0;
+      const ach = brandAchievements[bh] || 0;
+      brandPercentages[bh] = tgt > 0 ? Number(((ach / tgt) * 100).toFixed(2)) : 0;
+    });
+
+    const overallPct =
+      periodTarget > 0 ? Number(((totalAchQty / periodTarget) * 100).toFixed(2)) : 0;
+
+    return {
+      periodTarget,
+      totalAchQty,
+      totalBranchCount,
+      overallPct,
+      brandTargets,
+      brandAchievements,
+      brandPercentages,
+    };
+  }, [filteredAbmRecords, rawBrandHeaders]);
 
   const activeFiltersCount =
-    selectedStates.length + selectedZones.length + selectedTypes.length;
+    selectedStates.length + selectedZones.length + (!isAbmTab ? selectedTypes.length : 0);
 
   const handleClearFilters = () => {
     setSelectedStates([]);
@@ -620,27 +966,41 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
     }));
   };
 
-  const toggleExpandAll = () => {
-    const areAllExpanded =
-      filteredRecords.length > 0 &&
-      filteredRecords.every(
-        (r, idx) => expandedCardIds[String(r.branch_code || idx)]
+  // Expand / Collapse All for currently active tab
+  const areAllExpanded = useMemo(() => {
+    if (isAbmTab) {
+      return (
+        filteredAbmRecords.length > 0 &&
+        filteredAbmRecords.every(
+          (r, idx) => expandedCardIds[String(r.id || `abm-${idx}`)]
+        )
       );
+    }
+    return (
+      filteredRecords.length > 0 &&
+      filteredRecords.every((r, idx) => expandedCardIds[String(r.branch_code || idx)])
+    );
+  }, [isAbmTab, filteredAbmRecords, filteredRecords, expandedCardIds]);
 
+  const toggleExpandAll = () => {
     if (areAllExpanded) {
       setExpandedCardIds({});
     } else {
       const next: Record<string, boolean> = {};
-      filteredRecords.forEach((r, idx) => {
-        next[String(r.branch_code || idx)] = true;
-      });
+      if (isAbmTab) {
+        filteredAbmRecords.forEach((r, idx) => {
+          next[String(r.id || `abm-${idx}`)] = true;
+        });
+      } else {
+        filteredRecords.forEach((r, idx) => {
+          next[String(r.branch_code || idx)] = true;
+        });
+      }
       setExpandedCardIds(next);
     }
   };
 
-  const areAllExpanded =
-    filteredRecords.length > 0 &&
-    filteredRecords.every((r, idx) => expandedCardIds[String(r.branch_code || idx)]);
+  const currentData = isAbmTab ? filteredAbmRecords : filteredRecords;
 
   if (reportLoading && !reportRefreshing) {
     return (
@@ -726,20 +1086,90 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
         iconColor={colors.white}
       />
 
+      {/* Tab Switcher: Only displayed if user is Admin or ABM */}
+      {canViewAbmTab && (
+        <View style={styles.tabContainer}>
+          <View style={styles.tabButtonsRow}>
+            {/* Branch Wise Tab Button */}
+            <TouchableOpacity
+              style={[styles.tabButton, !isAbmTab && styles.tabButtonActive]}
+              onPress={() => setActiveTab('branch')}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[styles.tabButtonText, !isAbmTab && styles.tabButtonTextActive]}
+              >
+                Branch Wise
+              </Text>
+              <View
+                style={[
+                  styles.tabCountBadge,
+                  !isAbmTab && styles.tabCountBadgeActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.tabCountText,
+                    !isAbmTab && styles.tabCountTextActive,
+                  ]}
+                >
+                  {filteredRecords.length}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* ABM Wise Tab Button */}
+            <TouchableOpacity
+              style={[styles.tabButton, isAbmTab && styles.tabButtonActive]}
+              onPress={() => setActiveTab('abm')}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[styles.tabButtonText, isAbmTab && styles.tabButtonTextActive]}
+              >
+                ABM Wise
+              </Text>
+              <View
+                style={[
+                  styles.tabCountBadge,
+                  isAbmTab && styles.tabCountBadgeActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.tabCountText,
+                    isAbmTab && styles.tabCountTextActive,
+                  ]}
+                >
+                  {filteredAbmRecords.length}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Top Search & Filter Bar */}
       <View style={styles.topBar}>
         <View style={styles.searchContainer}>
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search party or branch..."
+            placeholder={
+              isAbmTab
+                ? 'Search ABM name, state or zone...'
+                : 'Search party or branch...'
+            }
             placeholderTextColor="#94A3B8"
             value={searchQuery}
             onChangeText={setSearchQuery}
             clearButtonMode="while-editing"
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <Text style={styles.clearSearchText}>✕</Text>
             </TouchableOpacity>
           )}
@@ -750,10 +1180,15 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
           onPress={() => setIsFilterModalOpen(true)}
           activeOpacity={0.7}
         >
-          <Text style={styles.filterBtnIcon}>⚙️</Text>
-          <Text style={[styles.filterBtnText, activeFiltersCount > 0 && styles.filterBtnTextActive]}>
-            Filters {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ''}
-          </Text>
+          <Image
+            source={Images.filter}
+            style={[
+              styles.filterIcon,
+              activeFiltersCount > 0 && styles.filterIconActive,
+            ]}
+            resizeMode="contain"
+          />
+          {activeFiltersCount > 0 && <View style={styles.filterBadgeDot} />}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -789,8 +1224,12 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
       {/* Main List Container */}
       <View style={styles.mainContainer}>
         <FlatList
-          data={filteredRecords}
-          keyExtractor={(item, idx) => String(item.branch_code || item.s_no || idx)}
+          data={currentData}
+          keyExtractor={(item: any, idx: number) =>
+            isAbmTab
+              ? String(item.id || item.abm_name || idx)
+              : String(item.branch_code || item.s_no || idx)
+          }
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           initialNumToRender={10}
@@ -801,24 +1240,54 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
             <View>
               {/* ── TOTAL CARD TOP ── */}
               <TotalCard
-                filteredCount={filteredRecords.length}
-                totalTarget={totalsData.periodTarget}
-                totalAchQty={totalsData.totalAchQty}
-                overallPct={totalsData.overallPct}
-                brandHeaders={brandHeaders}
-                brandTargets={totalsData.brandTargets}
-                brandAchievements={totalsData.brandAchievements}
-                brandPercentages={totalsData.brandPercentages}
+                title={isAbmTab ? 'Total Summary (ABM Wise)' : 'Total Summary'}
+                subtitle={isAbmTab ? 'All ABM Results' : 'All Branch Results'}
+                filteredCount={
+                  isAbmTab ? filteredAbmRecords.length : filteredRecords.length
+                }
+                countLabel={isAbmTab ? 'ABMs' : 'Branches'}
+                secondaryCount={
+                  isAbmTab
+                    ? `${abmTotalsData.totalBranchCount} Branches`
+                    : undefined
+                }
+                totalTarget={
+                  isAbmTab ? abmTotalsData.periodTarget : totalsData.periodTarget
+                }
+                totalAchQty={
+                  isAbmTab ? abmTotalsData.totalAchQty : totalsData.totalAchQty
+                }
+                overallPct={
+                  isAbmTab ? abmTotalsData.overallPct : totalsData.overallPct
+                }
+                brandHeaders={rawBrandHeaders}
+                brandTargets={
+                  isAbmTab
+                    ? abmTotalsData.brandTargets
+                    : totalsData.brandTargets
+                }
+                brandAchievements={
+                  isAbmTab
+                    ? abmTotalsData.brandAchievements
+                    : totalsData.brandAchievements
+                }
+                brandPercentages={
+                  isAbmTab
+                    ? abmTotalsData.brandPercentages
+                    : totalsData.brandPercentages
+                }
                 isExpanded={isTotalExpanded}
                 onToggle={() => setIsTotalExpanded((prev) => !prev)}
               />
 
-              {/* Subheader: Branches Count + Expand All button */}
+              {/* Subheader: Reports Count + Expand All button */}
               <View style={styles.listSubheader}>
                 <Text style={styles.listSubheaderTitle}>
-                  Branch Reports ({filteredRecords.length})
+                  {isAbmTab
+                    ? `ABM Reports (${filteredAbmRecords.length})`
+                    : `Branch Reports (${filteredRecords.length})`}
                 </Text>
-                {filteredRecords.length > 0 && brandHeaders.length > 0 && (
+                {currentData.length > 0 && rawBrandHeaders.length > 0 && (
                   <TouchableOpacity
                     style={styles.expandAllBtn}
                     onPress={toggleExpandAll}
@@ -833,12 +1302,27 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
             </View>
           }
           renderItem={({ item, index }) => {
-            const cardKey = String(item.branch_code || index);
+            if (isAbmTab) {
+              const abmItem = item as SpecialTvaAbmRecordItem;
+              const cardKey = String(abmItem.id || `abm-${index}`);
+              return (
+                <AbmReportCard
+                  item={abmItem}
+                  index={index}
+                  brandHeaders={rawBrandHeaders}
+                  isExpanded={Boolean(expandedCardIds[cardKey])}
+                  onToggleExpand={() => toggleCardExpand(cardKey)}
+                />
+              );
+            }
+
+            const branchItem = item as SpecialTvaRecordItem;
+            const cardKey = String(branchItem.branch_code || index);
             return (
               <BranchReportCard
-                item={item}
+                item={branchItem}
                 index={index}
-                brandHeaders={brandHeaders}
+                brandHeaders={rawBrandHeaders}
                 isExpanded={Boolean(expandedCardIds[cardKey])}
                 onToggleExpand={() => toggleCardExpand(cardKey)}
               />
@@ -847,7 +1331,9 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>📊</Text>
-              <Text style={styles.emptyTitle}>No matching branches found</Text>
+              <Text style={styles.emptyTitle}>
+                {isAbmTab ? 'No matching ABMs found' : 'No matching branches found'}
+              </Text>
               <Text style={styles.emptySubtext}>
                 Try adjusting your search query or clear filters to see more results.
               </Text>
@@ -880,10 +1366,17 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
         onRequestClose={() => setIsFilterModalOpen(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setIsFilterModalOpen(false)}
+          />
+          <View style={[styles.modalContent, { paddingBottom: modalBottomPadding }]}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filter Records</Text>
+              <Text style={styles.modalTitle}>
+                Filter {isAbmTab ? 'ABM Records' : 'Branch Records'}
+              </Text>
               <TouchableOpacity onPress={() => setIsFilterModalOpen(false)}>
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
@@ -893,7 +1386,9 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
               {/* Filter Section: States */}
               {uniqueStates.length > 0 && (
                 <View style={styles.filterSection}>
-                  <Text style={styles.filterSectionTitle}>States ({selectedStates.length})</Text>
+                  <Text style={styles.filterSectionTitle}>
+                    States ({selectedStates.length})
+                  </Text>
                   <View style={styles.chipsContainer}>
                     {uniqueStates.map((st) => {
                       const isSelected = selectedStates.includes(st);
@@ -910,7 +1405,12 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
                           }
                           activeOpacity={0.7}
                         >
-                          <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                          <Text
+                            style={[
+                              styles.chipText,
+                              isSelected && styles.chipTextActive,
+                            ]}
+                          >
                             {st}
                           </Text>
                         </TouchableOpacity>
@@ -923,7 +1423,9 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
               {/* Filter Section: Zones */}
               {uniqueZones.length > 0 && (
                 <View style={styles.filterSection}>
-                  <Text style={styles.filterSectionTitle}>Zones ({selectedZones.length})</Text>
+                  <Text style={styles.filterSectionTitle}>
+                    Zones ({selectedZones.length})
+                  </Text>
                   <View style={styles.chipsContainer}>
                     {uniqueZones.map((zn) => {
                       const isSelected = selectedZones.includes(zn);
@@ -940,7 +1442,12 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
                           }
                           activeOpacity={0.7}
                         >
-                          <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                          <Text
+                            style={[
+                              styles.chipText,
+                              isSelected && styles.chipTextActive,
+                            ]}
+                          >
                             {zn}
                           </Text>
                         </TouchableOpacity>
@@ -950,10 +1457,12 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
                 </View>
               )}
 
-              {/* Filter Section: Types */}
-              {uniqueTypes.length > 0 && (
+              {/* Filter Section: Types (Only applicable for Branch Wise view) */}
+              {!isAbmTab && uniqueTypes.length > 0 && (
                 <View style={styles.filterSection}>
-                  <Text style={styles.filterSectionTitle}>Store Types ({selectedTypes.length})</Text>
+                  <Text style={styles.filterSectionTitle}>
+                    Store Types ({selectedTypes.length})
+                  </Text>
                   <View style={styles.chipsContainer}>
                     {uniqueTypes.map((tp) => {
                       const isSelected = selectedTypes.includes(tp);
@@ -970,7 +1479,12 @@ const SpecialTvaReportDetailScreen: React.FC = () => {
                           }
                           activeOpacity={0.7}
                         >
-                          <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                          <Text
+                            style={[
+                              styles.chipText,
+                              isSelected && styles.chipTextActive,
+                            ]}
+                          >
                             {tp}
                           </Text>
                         </TouchableOpacity>
@@ -1021,6 +1535,69 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: fontFamily.bold,
   },
+
+  /* ── Tab Switcher Styles ── */
+  tabContainer: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  tabButtonsRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderRadius: 14,
+    padding: 3,
+    gap: 4,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: 11,
+    gap: 6,
+  },
+  tabButtonActive: {
+    backgroundColor: colors.white,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tabButtonText: {
+    fontSize: 13,
+    fontFamily: fontFamily.semiBold,
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  tabButtonTextActive: {
+    color: colors.primary,
+    fontFamily: fontFamily.bold,
+  },
+  tabCountBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  tabCountBadgeActive: {
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+  },
+  tabCountText: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: colors.white,
+  },
+  tabCountTextActive: {
+    color: colors.primary,
+  },
+
+  /* ── Top Bar (Search + Filter + Refresh) ── */
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1055,27 +1632,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   filterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.18)',
     borderRadius: 10,
-    paddingHorizontal: 10,
+    width: 38,
     height: 38,
-    gap: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterBtnActive: {
     backgroundColor: colors.white,
   },
-  filterBtnIcon: {
-    fontSize: 14,
+  filterIcon: {
+    width: 17,
+    height: 17,
+    tintColor: colors.white,
   },
-  filterBtnText: {
-    fontSize: 12,
-    fontFamily: fontFamily.semiBold,
-    color: colors.white,
+  filterIconActive: {
+    tintColor: colors.primary,
   },
-  filterBtnTextActive: {
-    color: colors.primary,
+  filterBadgeDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#F43F5E',
   },
   refreshBtn: {
     backgroundColor: 'rgba(255,255,255,0.18)',
@@ -1163,6 +1745,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
   },
   totalIconWrap: {
     width: 36,
@@ -1180,7 +1763,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   totalTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: fontFamily.bold,
     color: '#0F172A',
   },
@@ -1189,18 +1772,33 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     color: '#64748B',
   },
+  totalCountWrap: {
+    alignItems: 'flex-end',
+    gap: 3,
+  },
   totalCountBadge: {
     backgroundColor: '#FAF5FF',
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
     borderWidth: 1,
     borderColor: '#E9D5FF',
   },
   totalCountText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontFamily: fontFamily.bold,
     color: colors.primary,
+  },
+  totalSecondaryBadge: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  totalSecondaryText: {
+    fontSize: 10,
+    fontFamily: fontFamily.medium,
+    color: '#64748B',
   },
   totalKpiStrip: {
     flexDirection: 'row',
@@ -1332,6 +1930,13 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: '#64748B',
   },
+  abmIndexBadge: {
+    backgroundColor: '#FAF5FF',
+    borderColor: '#DDD6FE',
+  },
+  abmIndexText: {
+    color: colors.primary,
+  },
   cardTitleWrap: {
     flex: 1,
   },
@@ -1341,11 +1946,24 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     lineHeight: 19,
   },
-  cardBranchCode: {
+  abmPartyName: {
+    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    color: '#1E1B4B',
+    lineHeight: 20,
+  },
+  abmBranchBadge: {
+    backgroundColor: '#EEF2FF',
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  abmBranchBadgeText: {
     fontSize: 11,
-    fontFamily: fontFamily.medium,
-    color: '#94A3B8',
-    marginTop: 2,
+    fontFamily: fontFamily.bold,
+    color: '#4338CA',
   },
   cardTagsRow: {
     flexDirection: 'row',
@@ -1587,12 +2205,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFill,
+  },
   modalContent: {
     backgroundColor: colors.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '80%',
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: '85%',
   },
   modalHeader: {
     flexDirection: 'row',

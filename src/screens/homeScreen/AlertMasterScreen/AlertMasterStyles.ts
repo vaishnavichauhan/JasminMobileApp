@@ -119,6 +119,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: Platform.OS === 'android' ? 64 : 24,
   },
   modalCard: {
     width: '100%',

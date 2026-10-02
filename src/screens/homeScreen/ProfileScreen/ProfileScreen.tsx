@@ -315,7 +315,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           </TouchableOpacity>
            {/* App Info Footer */}
           <View style={styles.appInfoContainer}>
-            <Text style={styles.appInfoText}>Jasmin Mobile App • v1.24.01</Text>
+            <Text style={styles.appInfoText}>Jasmin Mobile App • v1.02.10</Text>
           </View>
         </ScrollView>
       </View>

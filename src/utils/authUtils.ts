@@ -2,6 +2,20 @@
  * Auth & Role Helper Utilities
  */
 
+export const getUserRole = (user: any): string => {
+  if (!user) return '';
+  return String(
+    user.role ||
+    user.user_role ||
+    user.role_name ||
+    user.type ||
+    user.roleName ||
+    user.user_type ||
+    user.type_name ||
+    ''
+  ).trim();
+};
+
 /**
  * Checks if the current user has Admin privileges
  * Admin Rule: user.role === 'admin' | 'super admin', or isAdmin === true, or is_admin === true
@@ -16,16 +30,7 @@ export const isUserAdmin = (user: any): boolean => {
   ) {
     return true;
   }
-  const roleStr = String(
-    user.role ||
-    user.user_role ||
-    user.role_name ||
-    user.type ||
-    user.roleName ||
-    ''
-  )
-    .toLowerCase()
-    .trim();
+  const roleStr = getUserRole(user).toLowerCase();
 
   return (
     roleStr === 'admin' ||
@@ -34,6 +39,37 @@ export const isUserAdmin = (user: any): boolean => {
     roleStr === 'administrator' ||
     roleStr === '1'
   );
+};
+
+/**
+ * Checks if the current user has ABM privileges
+ * ABM Rule: user.role === 'abm', or user_role === 'abm', or isAbm === true
+ */
+export const isUserAbm = (user: any): boolean => {
+  if (!user) return false;
+  if (user.isAbm === true || user.is_abm === true) {
+    return true;
+  }
+  const roleStr = getUserRole(user).toLowerCase();
+  return roleStr === 'abm';
+};
+
+/**
+ * Checks if user is permitted to view ABM Wise Report in Special TVA
+ * Permission Rule:
+ * - Admin or ABM user role can view
+ * - Other user roles cannot view
+ */
+export const canUserViewAbmWiseReport = (user: any, userContext?: any): boolean => {
+  if (userContext) {
+    if (userContext.can_view_abm_tab !== undefined) {
+      return Boolean(userContext.can_view_abm_tab);
+    }
+    if (userContext.is_admin || userContext.is_abm) {
+      return true;
+    }
+  }
+  return isUserAdmin(user) || isUserAbm(user);
 };
 
 /**

@@ -594,7 +594,8 @@ center: {
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 30,
+    paddingTop: 30,
+    paddingBottom: Platform.OS === 'android' ? 64 : 30,
   },
   modalCard: {
     width: '100%',

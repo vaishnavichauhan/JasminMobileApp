@@ -16,6 +16,7 @@ import {
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { styles } from './RaiseTicketScreenStyles';
 import Header from '../../../components/Header/Header';
 import { colors } from '../../../styles/variables';
@@ -36,6 +37,12 @@ export interface ImageAttachment {
 
 export const RaiseTicketScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+
+  const modalBottomPadding = Math.max(
+    (insets.bottom || 0) + 20,
+    Platform.OS === 'android' ? 64 : 32
+  );
 
   // API Data States
   const [loadingOptions, setLoadingOptions] = useState<boolean>(true);
@@ -636,7 +643,10 @@ export const RaiseTicketScreen: React.FC = () => {
           activeOpacity={1}
           onPress={() => setTicketTypeModalVisible(false)}
         >
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+          <View
+            style={[styles.modalContent, { paddingBottom: modalBottomPadding }]}
+            onStartShouldSetResponder={() => true}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Ticket Type</Text>
               <TouchableOpacity onPress={() => setTicketTypeModalVisible(false)}>
@@ -686,7 +696,10 @@ export const RaiseTicketScreen: React.FC = () => {
           activeOpacity={1}
           onPress={() => setSubTypeModalVisible(false)}
         >
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+          <View
+            style={[styles.modalContent, { paddingBottom: modalBottomPadding }]}
+            onStartShouldSetResponder={() => true}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Sub Ticket Type</Text>
               <TouchableOpacity onPress={() => setSubTypeModalVisible(false)}>
@@ -743,7 +756,10 @@ export const RaiseTicketScreen: React.FC = () => {
           activeOpacity={1}
           onPress={() => setUploadModalVisible(false)}
         >
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+          <View
+            style={[styles.modalContent, { paddingBottom: modalBottomPadding }]}
+            onStartShouldSetResponder={() => true}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Image</Text>
               <TouchableOpacity onPress={() => setUploadModalVisible(false)}>
