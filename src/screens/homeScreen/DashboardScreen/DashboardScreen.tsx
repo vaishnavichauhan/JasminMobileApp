@@ -30,7 +30,6 @@ import {
 } from '../../../api/dashboardApi';
 import {
   useDashboardStore,
-  DashboardTab,
   getTodayDateString,
 } from '../../../store';
 import { fetchAlertsApi } from '../../../api/alertsApi';

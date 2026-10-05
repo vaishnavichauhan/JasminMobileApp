@@ -1,19 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Image,
   StatusBar,
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { styles } from './ProfileScreenStyles';
 import Header from '../../../components/Header/Header';
-import Images from '../../../assets/images';
 import { colors } from '../../../styles/variables';
 import { useAuth } from '../../../context/AuthContext';
+import {
+  checkAppUpdateApi,
+  triggerApkDownload,
+  AppUpdateResponse,
+  CURRENT_APP_VERSION,
+} from '../../../api/appUpdateApi';
 
 interface ProfileScreenProps {
   navigation?: any;
@@ -51,8 +56,63 @@ const parseStatesList = (rawState: any): string[] => {
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const [loggingOut, setLoggingOut] = useState(false);
-  const [copiedId, setCopiedId] = useState(false);
+  const [_copiedId, setCopiedId] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<AppUpdateResponse | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
   const { user, logout } = useAuth();
+  const currentAppVersion = CURRENT_APP_VERSION;
+
+  const handleCheckUpdate = useCallback(async (isManual = false) => {
+    try {
+      setCheckingUpdate(true);
+      const res = await checkAppUpdateApi(currentAppVersion);
+      console.log('[ProfileScreen] Check update response:', res);
+      setUpdateInfo(res);
+
+      if (res.updateRequired) {
+        await logout();
+        Alert.alert(
+          'Update Required',
+          `Update is compulsory. A new version (${res.latestVersion || 'latest'}) of Jasmin Mobile App is available!\n\nPlease update the application to continue.`,
+          [
+            {
+              text: 'Close',
+              style: 'cancel',
+            },
+            {
+              text: 'Update APK',
+              onPress: () =>
+                triggerApkDownload(
+                  res.downloadUrl,
+                  res.apkAvailable,
+                  res.latestVersion
+                ),
+            },
+          ],
+          { cancelable: true }
+        );
+        return;
+      }
+
+      if (isManual) {
+        Alert.alert(
+          'App Up to Date',
+          `You are already using the latest version of Jasmin Mobile App (v${currentAppVersion}).`
+        );
+      }
+    } catch (e: any) {
+      console.warn('[ProfileScreen] Check update error:', e);
+      if (isManual) {
+        Alert.alert('Update Check Failed', e?.message || 'Unable to check for updates.');
+      }
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }, [currentAppVersion, logout]);
+
+  useEffect(() => {
+    handleCheckUpdate(false);
+  }, [handleCheckUpdate]);
 
   // User values
   const username = user?.username || '-';
@@ -74,6 +134,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   };
 
   const handleCopyUserId = () => {
+    if (userId && userId !== '-') {
+      Clipboard.setString(userId);
+    }
     setCopiedId(true);
     setTimeout(() => {
       setCopiedId(false);
@@ -259,22 +322,21 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
             <View style={styles.cardBody}>
               {/* User ID */}
-              {/* <TouchableOpacity
+              <TouchableOpacity
                 style={styles.itemRow}
                 activeOpacity={0.7}
                 onPress={handleCopyUserId}
-              > */}
-              <View style={styles.itemRow}>
-              <View style={styles.itemLabelWrap}>
+              >
+                <View style={styles.itemLabelWrap}>
                   <Text style={styles.itemLabel}>User ID</Text>
                 </View>
-             
+
+                <View style={styles.idWrap}>
                   <View style={styles.rolePill}>
-                  <Text style={styles.rolePillText}>{userID}</Text>
+                    <Text style={styles.rolePillText}>{userID}</Text>
+                  </View>
                 </View>
-              </View>
-               
-              {/* </TouchableOpacity> */}
+              </TouchableOpacity>
 
               <View style={styles.divider} />
 
@@ -297,6 +359,107 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
          
 
+          {/* Card 3: App Version & Updates */}
+          <View style={[styles.card, updateInfo?.updateRequired && styles.cardHighlighted]}>
+            <View style={styles.cardHeader}>
+              <View style={styles.headerTitleRow}>
+                <View
+                  style={[
+                    styles.updateHeaderIconBox,
+                    !updateInfo?.updateRequired && styles.updateHeaderIconBoxNeutral,
+                  ]}
+                >
+                  <Text style={styles.cardHeaderIcon}>
+                    {updateInfo?.updateRequired ? '🚀' : '📱'}
+                  </Text>
+                </View>
+                <View style={styles.headerTextWrap}>
+                  <Text style={styles.cardHeaderText}>App Version & Updates</Text>
+                  <Text style={styles.cardSubText}>
+                    {updateInfo?.updateRequired
+                      ? 'New version ready to download'
+                      : 'Jasmin Mobile ERP'}
+                  </Text>
+                </View>
+              </View>
+
+              {updateInfo?.updateRequired ? (
+                <TouchableOpacity
+                  style={styles.headerUpdateBtn}
+                  activeOpacity={0.8}
+                  onPress={() =>
+                    triggerApkDownload(
+                      updateInfo.downloadUrl,
+                      updateInfo.apkAvailable,
+                      updateInfo.latestVersion
+                    )
+                  }
+                >
+                  <Text style={styles.headerUpdateBtnIcon}>⬇️</Text>
+                  <Text style={styles.headerUpdateBtnText}>Update</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.upToDateBadge}>
+                  <Text style={styles.upToDateBadgeText}>Up to Date ✓</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.cardBody}>
+              {updateInfo?.updateRequired ? (
+                <>
+                  {/* Version Comparison Card */}
+                  <View style={styles.versionCompareRow}>
+                    <View style={styles.versionCardItem}>
+                      <Text style={styles.versionCardLabel}>INSTALLED</Text>
+                      <Text style={styles.versionCardNumber}>v{currentAppVersion}</Text>
+                    </View>
+
+                    <View style={styles.versionArrowCircle}>
+                      <Text style={styles.versionArrowText}>➔</Text>
+                    </View>
+
+                    <View style={[styles.versionCardItem, styles.versionCardItemLatest]}>
+                      <Text style={styles.versionCardLabelLatest}>LATEST</Text>
+                      <Text style={styles.versionCardNumberLatest}>
+                        v{updateInfo.latestVersion || 'New'}
+                      </Text>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <>
+                  {/* Current Version */}
+                 
+
+                  <View style={styles.divider} />
+
+                  {/* Check Status */}
+                  <View style={styles.itemRow}>
+                    <View style={styles.itemLabelWrap}>
+                      <Text style={styles.itemLabel}>Status</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.checkUpdateBtn}
+                      onPress={() => handleCheckUpdate(true)}
+                      disabled={checkingUpdate}
+                      activeOpacity={0.7}
+                    >
+                      {checkingUpdate ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : (
+                        <View style={styles.checkUpdateContent}>
+                          <Text style={styles.checkUpdateBtnIcon}>🔄</Text>
+                          <Text style={styles.checkUpdateBtnText}>Check for Updates</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+
           {/* Full-width Danger Logout Button */}
           <TouchableOpacity
             style={styles.logoutButton}
@@ -315,7 +478,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           </TouchableOpacity>
            {/* App Info Footer */}
           <View style={styles.appInfoContainer}>
-            <Text style={styles.appInfoText}>Jasmin Mobile App • v1.02.10</Text>
+            <Text style={styles.appInfoText}>
+              Jasmin Mobile App Version • {currentAppVersion}
+            </Text>
           </View>
         </ScrollView>
       </View>

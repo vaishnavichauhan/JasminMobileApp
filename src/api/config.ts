@@ -9,7 +9,6 @@ const LOCAL_DEV_URL =
     : `http://localhost:${PORT}/v1/api`;
 export const BASE_URL = 'https://interlink.jasminmobile.com/v1/api';
 //  export const BASE_URL = LOCAL_DEV_URL;
-
 export const getHostUrl = (): string => {
   return BASE_URL.replace(/\/api\/?$/, '');
 };
@@ -80,6 +79,13 @@ export const API_ENDPOINTS = {
     REMARK: (id: string | number) => `${BASE_URL}/tickets/remark/${id}`,
     COMPLETE: (id: string | number) => `${BASE_URL}/tickets/complete/${id}`,
     STATS: `${BASE_URL}/tickets/stats`,
+  },
+
+  // App Update Endpoints
+  APP: {
+    CHECK_UPDATE: (version: string) =>
+      `${BASE_URL}/app/check-update?version=${encodeURIComponent(version)}`,
+    DOWNLOAD: `${BASE_URL}/app/download`,
   },
 };
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, ActivityIndicator, Alert, AppState } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from '../screens/authScreen/LoginScreen/LoginScreen';
 import SplashScreen from '../screens/authScreen/SplashScreen/SplashScreen';
@@ -15,6 +15,8 @@ import DeviceRegistrationScreen from '../screens/authScreen/DeviceRegistrationSc
 import DeviceLimitReachedScreen from '../screens/authScreen/DeviceLimitReachedScreen/DeviceLimitReachedScreen';
 import { ApprovedDeviceItem } from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
+import { useAppUpdateStore } from '../store';
+import { triggerApkDownload } from '../api/appUpdateApi';
 import { colors } from '../styles/variables';
 import {
   SupportScreen,
@@ -73,8 +75,65 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const AuthNavigation = () => {
-  const { isLoggedIn, isLoading } = useAuth();
+  const { isLoggedIn, isLoading, logout } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
+  const { checkForUpdates } = useAppUpdateStore();
+  const isUpdateAlertOpenRef = useRef(false);
+
+  // If update is required: force auto-logout and show compulsory update alert
+  useEffect(() => {
+    if (!isLoggedIn || !splashDone) return;
+
+    const enforceCompulsoryUpdate = async () => {
+      try {
+        const res = await checkForUpdates();
+        if (res?.updateRequired && !isUpdateAlertOpenRef.current) {
+          isUpdateAlertOpenRef.current = true;
+          await logout();
+          Alert.alert(
+            'Update Required',
+            `Update is compulsory. A new version (${res.latestVersion || 'latest'}) of Jasmin Mobile App is available!\n\nPlease update the application to continue.`,
+            [
+              {
+                text: 'Close',
+                style: 'cancel',
+                onPress: () => {
+                  isUpdateAlertOpenRef.current = false;
+                },
+              },
+              {
+                text: 'Update Now',
+                onPress: () => {
+                  isUpdateAlertOpenRef.current = false;
+                  triggerApkDownload(
+                    res.downloadUrl,
+                    res.apkAvailable,
+                    res.latestVersion
+                  );
+                },
+              },
+            ],
+            { cancelable: true }
+          );
+        }
+      } catch (err) {
+        console.warn('[AuthNavigation] Compulsory update check error:', err);
+      }
+    };
+
+    enforceCompulsoryUpdate();
+
+    // Re-check when app returns to foreground
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        enforceCompulsoryUpdate();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isLoggedIn, splashDone, checkForUpdates, logout]);
 
   // Show spinner while AsyncStorage is loading session data
   if (isLoading) {

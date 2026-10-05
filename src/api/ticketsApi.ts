@@ -16,87 +16,123 @@ export interface SubTicketTypeItem {
   remark?: string;
 }
 
+export interface BranchItem {
+  id: number;
+  name: string;
+  code?: string;
+  city?: string;
+  state_id?: number;
+  state_name?: string;
+}
+
 export interface TicketFormOptionsResponse {
   ticket_types: TicketTypeItem[];
   sub_ticket_types: SubTicketTypeItem[];
+  branches: BranchItem[];
 }
 
 /**
- * Fetches sub ticket types and ticket types for dropdown selection.
- * Primary endpoint requested: GET /v1/api/sub-ticket-types/all
- * Also enriches / falls back with form-options or ticket-types if available.
+ * Fetches ticket form options: branches, ticket types, and sub ticket types.
+ * Primary endpoint: GET /v1/api/tickets/form-options (matches web frontend)
+ * Fallback endpoints: /sub-ticket-types/all and /ticket-types/all
  */
 export const getSubTicketTypesApi = async (): Promise<TicketFormOptionsResponse> => {
   let subTypes: SubTicketTypeItem[] = [];
   let types: TicketTypeItem[] = [];
+  let branches: BranchItem[] = [];
 
+  // 1. Primary: GET /v1/api/tickets/form-options
   try {
-    // 1. Primary: GET /v1/api/sub-ticket-types/all
-    const response = await fetchWithAuth(API_ENDPOINTS.TICKETS.SUB_TICKET_TYPES_ALL);
-    if (response.ok) {
-      const json = await response.json();
+    const formOptionsRes = await fetchWithAuth(API_ENDPOINTS.TICKETS.FORM_OPTIONS);
+    if (formOptionsRes.ok) {
+      const json = await formOptionsRes.json();
       const rawData = json?.data || json;
-      if (Array.isArray(rawData)) {
-        subTypes = rawData.map((item: any) => ({
-          id: Number(item.id),
-          ticket_type_id: Number(item.ticket_type_id),
-          name: String(item.name || ''),
-          ticket_type_name: item.ticket_type_name || item.ticket_type?.name || '',
-          assigned_to: Array.isArray(item.assigned_to) ? item.assigned_to : [],
-          assigned_names: item.assigned_names || item.assigned_to_name || '',
-          remark: item.remark !== undefined && item.remark !== null ? String(item.remark) : (item.remarks ? String(item.remarks) : ''),
-        }));
+      if (rawData) {
+        if (Array.isArray(rawData.branches)) {
+          branches = rawData.branches.map((b: any) => ({
+            id: Number(b.id),
+            name: String(b.name || ''),
+            code: b.code ? String(b.code) : '',
+            city: b.city ? String(b.city) : '',
+            state_id: b.state_id ? Number(b.state_id) : undefined,
+            state_name: b.state_name ? String(b.state_name) : '',
+          }));
+        }
 
-        // Derive unique ticket types from sub-ticket types if provided with names
-        const typeMap = new Map<number, string>();
-        subTypes.forEach((st) => {
-          if (st.ticket_type_id && !typeMap.has(st.ticket_type_id)) {
-            typeMap.set(st.ticket_type_id, st.ticket_type_name || `Ticket Type ${st.ticket_type_id}`);
-          }
-        });
+        if (Array.isArray(rawData.ticket_types)) {
+          types = rawData.ticket_types.map((t: any) => ({
+            id: Number(t.id),
+            name: String(t.name || ''),
+          }));
+        }
 
-        types = Array.from(typeMap.entries()).map(([id, name]) => ({
-          id,
-          name,
-        }));
+        if (Array.isArray(rawData.sub_ticket_types)) {
+          subTypes = rawData.sub_ticket_types.map((st: any) => ({
+            id: Number(st.id),
+            ticket_type_id: Number(st.ticket_type_id),
+            name: String(st.name || ''),
+            ticket_type_name: st.ticket_type_name || '',
+            assigned_to: Array.isArray(st.assigned_to) ? st.assigned_to : [],
+            assigned_names: st.assigned_names || '',
+            remark:
+              st.remark !== undefined && st.remark !== null
+                ? String(st.remark)
+                : st.remarks
+                ? String(st.remarks)
+                : '',
+          }));
+        }
       }
     }
   } catch (err) {
-    console.warn('[TicketsApi] Failed to fetch sub-ticket-types/all:', err);
+    console.warn('[TicketsApi] Failed to fetch form-options:', err);
   }
 
-  // 2. If ticket types are missing or empty, fetch from /tickets/form-options or /ticket-types/all
-  if (types.length === 0 || subTypes.length === 0) {
+  // 2. Fallback: If sub_ticket_types is empty, fetch from /sub-ticket-types/all
+  if (subTypes.length === 0) {
     try {
-      const formOptionsRes = await fetchWithAuth(API_ENDPOINTS.TICKETS.FORM_OPTIONS);
-      if (formOptionsRes.ok) {
-        const json = await formOptionsRes.json();
-        if (json?.data) {
-          if (types.length === 0 && Array.isArray(json.data.ticket_types)) {
-            types = json.data.ticket_types.map((t: any) => ({
-              id: Number(t.id),
-              name: String(t.name || ''),
-            }));
-          }
-          if (subTypes.length === 0 && Array.isArray(json.data.sub_ticket_types)) {
-            subTypes = json.data.sub_ticket_types.map((st: any) => ({
-              id: Number(st.id),
-              ticket_type_id: Number(st.ticket_type_id),
-              name: String(st.name || ''),
-              ticket_type_name: st.ticket_type_name || '',
-              assigned_to: st.assigned_to || [],
-              assigned_names: st.assigned_names || '',
-              remark: st.remark !== undefined && st.remark !== null ? String(st.remark) : (st.remarks ? String(st.remarks) : ''),
+      const response = await fetchWithAuth(API_ENDPOINTS.TICKETS.SUB_TICKET_TYPES_ALL);
+      if (response.ok) {
+        const json = await response.json();
+        const rawData = json?.data || json;
+        if (Array.isArray(rawData)) {
+          subTypes = rawData.map((item: any) => ({
+            id: Number(item.id),
+            ticket_type_id: Number(item.ticket_type_id),
+            name: String(item.name || ''),
+            ticket_type_name: item.ticket_type_name || item.ticket_type?.name || '',
+            assigned_to: Array.isArray(item.assigned_to) ? item.assigned_to : [],
+            assigned_names: item.assigned_names || item.assigned_to_name || '',
+            remark:
+              item.remark !== undefined && item.remark !== null
+                ? String(item.remark)
+                : item.remarks
+                ? String(item.remarks)
+                : '',
+          }));
+
+          // Derive unique ticket types from sub-ticket types if types is still empty
+          if (types.length === 0) {
+            const typeMap = new Map<number, string>();
+            subTypes.forEach((st) => {
+              if (st.ticket_type_id && !typeMap.has(st.ticket_type_id)) {
+                typeMap.set(st.ticket_type_id, st.ticket_type_name || `Ticket Type ${st.ticket_type_id}`);
+              }
+            });
+
+            types = Array.from(typeMap.entries()).map(([id, name]) => ({
+              id,
+              name,
             }));
           }
         }
       }
     } catch (err) {
-      console.warn('[TicketsApi] Failed to fetch form-options fallback:', err);
+      console.warn('[TicketsApi] Failed to fetch sub-ticket-types/all:', err);
     }
   }
 
-  // 3. If ticket types are still empty, try GET /ticket-types/all
+  // 3. Fallback: If ticket types is still empty, fetch from /ticket-types/all
   if (types.length === 0) {
     try {
       const typesRes = await fetchWithAuth(API_ENDPOINTS.TICKETS.TICKET_TYPES_ALL);
@@ -127,6 +163,7 @@ export const getSubTicketTypesApi = async (): Promise<TicketFormOptionsResponse>
   return {
     ticket_types: types,
     sub_ticket_types: subTypes,
+    branches,
   };
 };
 
@@ -175,6 +212,10 @@ export interface TicketItem {
   ticket_type_name: string;
   sub_ticket_type_id: number;
   sub_ticket_type_name: string;
+  branch_id?: number | null;
+  branch_name?: string | null;
+  branch_code?: string | null;
+  branch_city?: string | null;
   title: string;
   description: string;
   status: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | string;
@@ -218,12 +259,14 @@ export const getTicketsListApi = async (params?: {
   tab?: 'active' | 'history';
   search?: string;
   ticket_type_id?: number | string;
+  branch_id?: number | string;
 }): Promise<TicketListResponse> => {
   try {
     const query = new URLSearchParams();
     if (params?.tab) query.append('tab', params.tab);
     if (params?.search) query.append('search', params.search);
     if (params?.ticket_type_id) query.append('ticket_type_id', String(params.ticket_type_id));
+    if (params?.branch_id) query.append('branch_id', String(params.branch_id));
 
     const url = `${API_ENDPOINTS.TICKETS.LIST}?${query.toString()}`;
     const response = await fetchWithAuth(url);

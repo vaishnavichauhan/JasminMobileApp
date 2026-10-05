@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import {
   createTicketApi,
   TicketTypeItem,
   SubTicketTypeItem,
+  BranchItem,
 } from '../../../api/ticketsApi';
 
 export interface ImageAttachment {
@@ -46,10 +47,12 @@ export const RaiseTicketScreen: React.FC = () => {
 
   // API Data States
   const [loadingOptions, setLoadingOptions] = useState<boolean>(true);
+  const [branches, setBranches] = useState<BranchItem[]>([]);
   const [ticketTypes, setTicketTypes] = useState<TicketTypeItem[]>([]);
   const [subTicketTypes, setSubTicketTypes] = useState<SubTicketTypeItem[]>([]);
 
   // Form Field States
+  const [selectedBranch, setSelectedBranch] = useState<BranchItem | null>(null);
   const [selectedTicketType, setSelectedTicketType] = useState<TicketTypeItem | null>(null);
   const [selectedSubType, setSelectedSubType] = useState<SubTicketTypeItem | null>(null);
   const [title, setTitle] = useState<string>('');
@@ -59,6 +62,7 @@ export const RaiseTicketScreen: React.FC = () => {
 
   // Validation Error States (inline error messages under each input)
   const [errors, setErrors] = useState<{
+    branch?: string;
     ticketType?: string;
     subType?: string;
     title?: string;
@@ -66,6 +70,8 @@ export const RaiseTicketScreen: React.FC = () => {
   }>({});
 
   // UI Modal States
+  const [branchModalVisible, setBranchModalVisible] = useState<boolean>(false);
+  const [branchSearchText, setBranchSearchText] = useState<string>('');
   const [ticketTypeModalVisible, setTicketTypeModalVisible] = useState<boolean>(false);
   const [subTypeModalVisible, setSubTypeModalVisible] = useState<boolean>(false);
   const [uploadModalVisible, setUploadModalVisible] = useState<boolean>(false);
@@ -80,6 +86,12 @@ export const RaiseTicketScreen: React.FC = () => {
     setLoadingOptions(true);
     try {
       const data = await getSubTicketTypesApi();
+      const userBranches = data.branches || [];
+      setBranches(userBranches);
+      // Auto-select if only 1 branch is assigned
+      if (userBranches.length === 1) {
+        setSelectedBranch(userBranches[0]);
+      }
       setTicketTypes(data.ticket_types || []);
       setSubTicketTypes(data.sub_ticket_types || []);
     } catch (err) {
@@ -119,6 +131,26 @@ export const RaiseTicketScreen: React.FC = () => {
         navigation.navigate('Home', { screen: 'Dashboard' });
       }
     }
+  };
+
+  // Filter branches inside modal by search query
+  const filteredBranches = useMemo(() => {
+    if (!branchSearchText.trim()) return branches;
+    const q = branchSearchText.toLowerCase().trim();
+    return branches.filter((b) => {
+      const nameMatch = b.name && b.name.toLowerCase().includes(q);
+      const codeMatch = b.code && b.code.toLowerCase().includes(q);
+      const cityMatch = b.city && b.city.toLowerCase().includes(q);
+      const stateMatch = b.state_name && b.state_name.toLowerCase().includes(q);
+      return nameMatch || codeMatch || cityMatch || stateMatch;
+    });
+  }, [branches, branchSearchText]);
+
+  const handleSelectBranch = (item: BranchItem) => {
+    setSelectedBranch(item);
+    setErrors((prev) => ({ ...prev, branch: undefined }));
+    setBranchModalVisible(false);
+    setBranchSearchText('');
   };
 
   // Filter sub-ticket types according to selected parent ticket type
@@ -256,6 +288,11 @@ export const RaiseTicketScreen: React.FC = () => {
   };
 
   const handleClearForm = () => {
+    if (branches.length === 1) {
+      setSelectedBranch(branches[0]);
+    } else {
+      setSelectedBranch(null);
+    }
     setSelectedTicketType(null);
     setSelectedSubType(null);
     setTitle('');
@@ -263,16 +300,22 @@ export const RaiseTicketScreen: React.FC = () => {
     setRemarks('');
     setImages([]);
     setErrors({});
+    setBranchSearchText('');
   };
 
   const handleSubmit = async () => {
     // Validate required fields and show inline error message below each field
     const newErrors: {
+      branch?: string;
       ticketType?: string;
       subType?: string;
       title?: string;
       description?: string;
     } = {};
+
+    if (branches.length > 0 && !selectedBranch) {
+      newErrors.branch = 'Please select a Branch';
+    }
 
     if (!selectedTicketType) {
       newErrors.ticketType = 'Please select a Ticket Type';
@@ -290,7 +333,12 @@ export const RaiseTicketScreen: React.FC = () => {
       newErrors.description = 'The Describe the Issue field is required';
     }
 
-    if (Object.keys(newErrors).length > 0 || !selectedTicketType || !selectedSubType) {
+    if (
+      Object.keys(newErrors).length > 0 ||
+      (branches.length > 0 && !selectedBranch) ||
+      !selectedTicketType ||
+      !selectedSubType
+    ) {
       setErrors(newErrors);
       return;
     }
@@ -299,6 +347,9 @@ export const RaiseTicketScreen: React.FC = () => {
     setSubmitting(true);
     try {
       const formData = new FormData();
+      if (selectedBranch) {
+        formData.append('branch_id', String(selectedBranch.id));
+      }
       formData.append('ticket_type_id', String(selectedTicketType.id));
       formData.append('sub_ticket_type_id', String(selectedSubType.id));
       formData.append('title', title.trim());
@@ -371,7 +422,61 @@ export const RaiseTicketScreen: React.FC = () => {
           keyboardShouldPersistTaps="handled"
         >
 
-          {/* 1. TICKET TYPE * */}
+          {/* 1. BRANCH * */}
+          <View style={styles.fieldGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.fieldLabel}>
+                Branch {branches.length > 0 ? <Text style={styles.requiredStar}>*</Text> : null}
+              </Text>
+              {branches.length === 1 ? (
+                <View style={styles.autoSelectBadge}>
+                  <Text style={styles.autoSelectBadgeText}>Auto-selected</Text>
+                </View>
+              ) : branches.length > 1 ? (
+                <Text style={styles.availableCountBadge}>
+                  {branches.length} available
+                </Text>
+              ) : !loadingOptions ? (
+                <View style={styles.noBranchBadge}>
+                  <Text style={styles.noBranchBadgeText}>No Branch Assigned</Text>
+                </View>
+              ) : null}
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.selectInput,
+                (branches.length === 0 || loadingOptions) && styles.selectInputDisabled,
+                errors.branch && styles.inputErrorBorder,
+              ]}
+              activeOpacity={branches.length > 0 ? 0.7 : 1}
+              disabled={branches.length === 0 || loadingOptions}
+              onPress={() => {
+                setBranchSearchText('');
+                setBranchModalVisible(true);
+              }}
+            >
+              {loadingOptions ? (
+                <Text style={styles.selectPlaceholderText}>Loading branches...</Text>
+              ) : branches.length === 0 ? (
+                <Text style={styles.selectPlaceholderText}>No branches assigned to your account</Text>
+              ) : selectedBranch ? (
+                <Text style={styles.selectInputText} numberOfLines={1} ellipsizeMode="tail">
+                  {selectedBranch.name}
+                  {selectedBranch.code ? ` (${selectedBranch.code})` : ''}
+                  {selectedBranch.city ? ` — ${selectedBranch.city}` : ''}
+                </Text>
+              ) : (
+                <Text style={styles.selectPlaceholderText}>-- Select Branch --</Text>
+              )}
+              <Text style={styles.selectArrow}>▼</Text>
+            </TouchableOpacity>
+            {errors.branch ? (
+              <Text style={styles.errorText}>{errors.branch}</Text>
+            ) : null}
+          </View>
+
+          {/* 2. TICKET TYPE * */}
           <View style={styles.fieldGroup}>
             <View style={styles.labelRow}>
               <Text style={styles.fieldLabel}>
@@ -401,7 +506,7 @@ export const RaiseTicketScreen: React.FC = () => {
             ) : null}
           </View>
 
-          {/* 2. SUB TICKET TYPE * */}
+          {/* 3. SUB TICKET TYPE * */}
           <View style={styles.fieldGroup}>
             <View style={styles.labelRow}>
               <Text style={styles.fieldLabel}>
@@ -475,7 +580,7 @@ export const RaiseTicketScreen: React.FC = () => {
             ) : null}
           </View>
 
-          {/* 3. TITLE * */}
+          {/* 4. TITLE * */}
           <View style={styles.fieldGroup}>
             <View style={styles.labelRow}>
               <Text style={styles.fieldLabel}>
@@ -502,7 +607,7 @@ export const RaiseTicketScreen: React.FC = () => {
             ) : null}
           </View>
 
-          {/* 4. DESCRIBE THE ISSUE * */}
+          {/* 5. DESCRIBE THE ISSUE * */}
           <View style={styles.fieldGroup}>
             <View style={styles.labelRow}>
               <Text style={styles.fieldLabel}>
@@ -532,7 +637,7 @@ export const RaiseTicketScreen: React.FC = () => {
             ) : null}
           </View>
 
-          {/* 5. ATTACH IMAGES (MULTIPLE, MAX 5) */}
+          {/* 6. ATTACH IMAGES (MULTIPLE, MAX 5) */}
           <View style={styles.fieldGroup}>
             <View style={styles.labelRow}>
               <Text style={styles.fieldLabel}>Attach Images</Text>
@@ -585,7 +690,7 @@ export const RaiseTicketScreen: React.FC = () => {
             )}
           </View>
 
-          {/* 6. REMARKS (OPTIONAL) */}
+          {/* 7. REMARKS (OPTIONAL) */}
           <View style={styles.fieldGroup}>
             <View style={styles.labelRow}>
               <Text style={styles.fieldLabel}>Remarks</Text>
@@ -630,6 +735,126 @@ export const RaiseTicketScreen: React.FC = () => {
           </View>
         </ScrollView>
       </View>
+
+      {/* Branch Picker Modal */}
+      <Modal
+        visible={branchModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setBranchModalVisible(false);
+          setBranchSearchText('');
+        }}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            setBranchModalVisible(false);
+            setBranchSearchText('');
+          }}
+        >
+          <View
+            style={[styles.modalContent, { maxHeight: '82%', paddingBottom: modalBottomPadding }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Select Branch</Text>
+                {branches.length > 0 && (
+                  <Text style={styles.modalSubtitle}>
+                    {branches.length} branches available
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setBranchModalVisible(false);
+                  setBranchSearchText('');
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* In-Modal Search Bar */}
+            <View style={styles.modalSearchBox}>
+              <Text style={styles.modalSearchIconText}>🔍</Text>
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder="Search branch name, code, or city..."
+                placeholderTextColor="#94A3B8"
+                value={branchSearchText}
+                onChangeText={setBranchSearchText}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {branchSearchText.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setBranchSearchText('')}
+                  style={styles.modalSearchClearBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.modalSearchClearText}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <FlatList
+              data={filteredBranches}
+              keyExtractor={(item) => String(item.id)}
+              contentContainerStyle={styles.modalList}
+              keyboardShouldPersistTaps="handled"
+              initialNumToRender={15}
+              maxToRenderPerBatch={15}
+              windowSize={7}
+              renderItem={({ item }) => {
+                const isSelected = selectedBranch?.id === item.id;
+                return (
+                  <TouchableOpacity
+                    style={[styles.modalItem, isSelected && styles.modalItemSelected]}
+                    onPress={() => handleSelectBranch(item)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.modalItemText,
+                          isSelected && styles.modalItemTextSelected,
+                        ]}
+                      >
+                        {item.name}
+                      </Text>
+                      {(item.code || item.city || item.state_name) ? (
+                        <Text style={styles.modalItemSub}>
+                          {[
+                            item.code ? `Code: ${item.code}` : '',
+                            item.city || '',
+                            item.state_name || '',
+                          ].filter(Boolean).join(' • ')}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {isSelected && (
+                      <Text style={styles.modalItemCheckmark}>✓</Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={styles.modalEmptyWrap}>
+                  <Text style={styles.emptyModalText}>
+                    {branchSearchText.trim()
+                      ? `No branch found matching "${branchSearchText}"`
+                      : 'No branches available.'}
+                  </Text>
+                </View>
+              }
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Ticket Type Picker Modal */}
       <Modal

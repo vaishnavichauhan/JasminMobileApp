@@ -16,3 +16,4 @@ export * from './offersApi';
 export * from './alertsApi';
 export * from './ticketsApi';
 export * from './specialTvaApi';
+export * from './appUpdateApi';

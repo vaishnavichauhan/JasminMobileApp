@@ -97,6 +97,37 @@ export const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: '#64748B',
   },
+  autoSelectBadge: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  autoSelectBadgeText: {
+    fontSize: 10.5,
+    fontFamily: fontFamily.bold,
+    color: '#047857',
+  },
+  availableCountBadge: {
+    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    color: '#64748B',
+  },
+  noBranchBadge: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  noBranchBadgeText: {
+    fontSize: 10.5,
+    fontFamily: fontFamily.bold,
+    color: '#B45309',
+  },
 
   /* ── Inputs & Selectors ── */
   selectInput: {
@@ -385,10 +416,46 @@ export const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: '#0F172A',
   },
+  modalSubtitle: {
+    fontSize: 11.5,
+    fontFamily: fontFamily.regular,
+    color: '#64748B',
+    marginTop: 2,
+  },
   modalCloseText: {
     fontSize: 18,
     color: '#64748B',
     padding: 4,
+  },
+  modalSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 6,
+    paddingHorizontal: 12,
+    height: 42,
+  },
+  modalSearchIconText: {
+    fontSize: 14,
+    marginRight: 8,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontSize: 13.5,
+    fontFamily: fontFamily.regular,
+    color: '#0F172A',
+    paddingVertical: 0,
+  },
+  modalSearchClearBtn: {
+    padding: 4,
+    marginLeft: 6,
+  },
+  modalSearchClearText: {
+    fontSize: 13,
+    color: '#64748B',
   },
   modalList: {
     paddingHorizontal: 16,
@@ -419,9 +486,20 @@ export const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
+  modalItemCheckmark: {
+    fontSize: 16,
+    fontFamily: fontFamily.bold,
+    color: '#7C3AED',
+    marginLeft: 8,
+  },
+  modalEmptyWrap: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emptyModalText: {
     textAlign: 'center',
-    padding: 24,
+    padding: 16,
     color: '#94A3B8',
     fontSize: 13,
   },

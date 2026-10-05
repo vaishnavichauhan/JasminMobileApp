@@ -601,6 +601,16 @@ export const AllTicketsScreen: React.FC<AllTicketsScreenProps> = () => {
           </View>
         </View>
 
+        {/* Branch: Next Line */}
+        <View style={styles.branchNextLineRow}>
+          <Text style={styles.branchNextLineLabel}>Branch : </Text>
+          <Text style={styles.branchNextLineValue} numberOfLines={2}>
+            {item.branch_name
+              ? `${item.branch_name}${item.branch_code ? ` (${item.branch_code})` : ''}${item.branch_city ? ` — ${item.branch_city}` : ''}`
+              : '-'}
+          </Text>
+        </View>
+
         {/* Category: Ticket Type > Sub Ticket Type */}
         <View style={styles.categoryRow}>
           <Text style={styles.categoryText}>
@@ -1087,6 +1097,9 @@ export const AllTicketsScreen: React.FC<AllTicketsScreenProps> = () => {
 
             <Text style={styles.completeTicketSubtitle}>
               Ticket: <Text style={styles.completeTicketBold}>{ticketToComplete?.ticket_no || `#TK-${ticketToComplete?.id}`}</Text>
+            </Text>
+            <Text style={styles.completeTicketBranch}>
+              Branch: <Text style={styles.completeTicketBranchBold}>{ticketToComplete?.branch_name ? `${ticketToComplete.branch_name}${ticketToComplete.branch_code ? ` (${ticketToComplete.branch_code})` : ''}` : '-'}</Text>
             </Text>
             <Text style={styles.completeTicketTitleText} numberOfLines={2}>
               {ticketToComplete?.title}
@@ -1690,6 +1703,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 6,
   },
+  branchNextLineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    marginBottom: 6,
+    flexWrap: 'wrap',
+  },
+  branchNextLineLabel: {
+    fontSize: 12.5,
+    fontFamily: fontFamily.bold,
+    color: '#475569',
+  },
+  branchNextLineValue: {
+    fontSize: 12.5,
+    fontFamily: fontFamily.bold,
+    color: '#0F172A',
+    flexShrink: 1,
+  },
   ticketNoBadge: {
     backgroundColor: '#EDE9FE',
     paddingHorizontal: 8,
@@ -1746,6 +1777,16 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     color: '#0F172A',
     flex: 1,
+  },
+  branchMetaValue: {
+    fontSize: 12,
+    color: '#0F172A',
+    fontFamily: fontFamily.regular,
+    flex: 1,
+  },
+  branchNameBold: {
+    fontFamily: fontFamily.bold,
+    color: '#0F172A',
   },
   peopleMetaDate: {
     fontSize: 12,
@@ -2052,6 +2093,16 @@ const styles = StyleSheet.create({
   completeTicketBold: {
     fontFamily: fontFamily.bold,
     color: '#7C3AED',
+  },
+  completeTicketBranch: {
+    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  completeTicketBranchBold: {
+    fontFamily: fontFamily.bold,
+    color: '#334155',
   },
   completeTicketTitleText: {
     fontSize: 14,

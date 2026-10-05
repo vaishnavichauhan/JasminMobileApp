@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
   ScrollView,
   Animated,
+  Alert,
 } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
@@ -19,6 +20,9 @@ import ReportsScreen from '../screens/homeScreen/ReportsScreen.tsx/ReportsScreen
 import PriceListScreen from '../screens/homeScreen/PriceListScreen/PriceListScreen';
 import OffersScreen from '../screens/homeScreen/OffersScreen/OffersScreen';
 import Images from '../assets/images';
+import { useAuth } from '../context/AuthContext';
+import { useAppUpdateStore } from '../store';
+import { triggerApkDownload } from '../api/appUpdateApi';
 import {
   colors,
   fontSize,
@@ -55,6 +59,8 @@ interface QuickGridItemProps {
   tintColor: string;
   bgColor: string;
   onPress: (nav: any) => void;
+  showBadge?: boolean;
+  badgeText?: string;
 }
 
 const QuickGridItem: React.FC<QuickGridItemProps> = ({
@@ -63,6 +69,8 @@ const QuickGridItem: React.FC<QuickGridItemProps> = ({
   tintColor,
   bgColor,
   onPress,
+  showBadge,
+  badgeText,
 }) => {
   const navigation = useNavigation<any>();
 
@@ -78,22 +86,32 @@ const QuickGridItem: React.FC<QuickGridItemProps> = ({
           style={[tabStyles.gridIcon, { tintColor: tintColor }]}
           resizeMode="contain"
         />
+        {showBadge && <View style={tabStyles.badgeGreenDot} />}
       </View>
-      <Text style={tabStyles.gridTitle} numberOfLines={1}>
-        {title}
-      </Text>
+      <View style={tabStyles.gridTextWrap}>
+        <Text style={tabStyles.gridTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        {showBadge && (
+          <View style={tabStyles.greenPillBadge}>
+            <View style={tabStyles.greenPillDot} />
+            <Text style={tabStyles.greenPillText}>{badgeText || 'Update'}</Text>
+          </View>
+        )}
+      </View>
     </TouchableOpacity>
   );
 };
 
 // 3-Bar Toggle Menu Icon component
-const ToggleMenuIcon: React.FC<{ focused: boolean }> = ({ focused }) => {
+const ToggleMenuIcon: React.FC<{ focused: boolean; showBadge?: boolean }> = ({ focused, showBadge }) => {
   const barColor = focused ? colors.white : '#94A3B8';
   return (
     <View style={focused ? tabStyles.activeToggleBox : tabStyles.inactiveToggleContainer}>
       <View style={[tabStyles.toggleBar, { width: 17, backgroundColor: barColor }]} />
       <View style={[tabStyles.toggleBar, { width: 12, backgroundColor: barColor, marginVertical: 3 }]} />
       <View style={[tabStyles.toggleBar, { width: 17, backgroundColor: barColor }]} />
+      {showBadge && <View style={tabStyles.menuBadgeDot} />}
     </View>
   );
 };
@@ -103,12 +121,14 @@ interface AnimatedTabIconProps {
   focused: boolean;
   icon?: any;
   isToggleMenu?: boolean;
+  showBadge?: boolean;
 }
 
 const AnimatedTabIcon: React.FC<AnimatedTabIconProps> = ({
   focused,
   icon,
   isToggleMenu,
+  showBadge,
 }) => {
   const scaleAnim = useRef(new Animated.Value(focused ? 1 : 0.88)).current;
   const translateYAnim = useRef(
@@ -169,7 +189,7 @@ const AnimatedTabIcon: React.FC<AnimatedTabIconProps> = ({
           ]}
         >
           {isToggleMenu ? (
-            <ToggleMenuIcon focused={true} />
+            <ToggleMenuIcon focused={true} showBadge={showBadge} />
           ) : (
             <Image
               source={icon}
@@ -181,7 +201,7 @@ const AnimatedTabIcon: React.FC<AnimatedTabIconProps> = ({
       ) : (
         <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
           {isToggleMenu ? (
-            <ToggleMenuIcon focused={false} />
+            <ToggleMenuIcon focused={false} showBadge={showBadge} />
           ) : (
             <Image
               source={icon}
@@ -199,6 +219,37 @@ export const TabNavigation: React.FC<TabNavigationProps> = () => {
   const insets = useSafeAreaInsets();
   const bottomInset = insets.bottom;
   const [plusMenuVisible, setPlusMenuVisible] = useState(false);
+  const { hasUpdateAvailable, checkForUpdates } = useAppUpdateStore();
+  const { logout } = useAuth();
+
+  useEffect(() => {
+    checkForUpdates().then((res) => {
+      if (res?.updateRequired) {
+        logout().then(() => {
+          Alert.alert(
+            'Update Required',
+            `Update is compulsory. A new version (${res.latestVersion || 'latest'}) is required. Please update the application to continue.`,
+            [
+              {
+                text: 'Close',
+                style: 'cancel',
+              },
+              {
+                text: 'Update Now',
+                onPress: () =>
+                  triggerApkDownload(
+                    res.downloadUrl,
+                    res.apkAvailable,
+                    res.latestVersion
+                  ),
+              },
+            ],
+            { cancelable: true }
+          );
+        });
+      }
+    });
+  }, [checkForUpdates, logout]);
 
   // 3D Spring and Scale Animation values for Quick Menu Modal
   const scaleAnim = useRef(new Animated.Value(0.4)).current;
@@ -445,6 +496,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = () => {
                 <AnimatedTabIcon
                   focused={isMenuActive}
                   isToggleMenu={true}
+                  showBadge={hasUpdateAvailable}
                 />
               );
             },
@@ -561,9 +613,11 @@ export const TabNavigation: React.FC<TabNavigationProps> = () => {
                     icon={Images.user}
                     tintColor="#9333EA"
                     bgColor="#F5F3FF"
+                    showBadge={hasUpdateAvailable}
+                    badgeText="Update"
                     onPress={(nav) => handleMenuSelect(nav, 'Profile')}
                   />
-                  {/* 7. Support */}
+                  {/* 8. Support */}
                   <QuickGridItem
                     title="Support"
                     icon={Images.support}
@@ -736,11 +790,62 @@ const tabStyles = StyleSheet.create({
     height: 15,
   },
   gridTitle: {
-    flex: 1,
     fontSize: 11.5,
     color: '#1E293B',
     fontFamily: fontFamily.bold,
   },
+  gridTextWrap: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  menuBadgeDot: {
+    position: 'absolute',
+    top: -3,
+    right: -4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    borderWidth: 1.5,
+    borderColor: colors.white,
+  },
+  badgeGreenDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#10B981',
+    borderWidth: 1.5,
+    borderColor: colors.white,
+  },
+  greenPillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    borderRadius: 5,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    gap: 2.5,
+  },
+  greenPillDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#16A34A',
+  },
+  greenPillText: {
+    fontSize: 8.5,
+    fontFamily: fontFamily.bold,
+    color: '#15803D',
+    lineHeight: 11,
+  },
 });
 
 export default TabNavigation;
+
