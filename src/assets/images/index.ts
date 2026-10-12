@@ -22,7 +22,9 @@ export const Images = {
   product :require('./product.png'),
   dashboardIcon:require('./dashboardIcon.png'),
   brand:require('./brand.png'),
-  support:require('./support.png')
+  support:require('./support.png'),
+  gift:require('./gift.png'),
+  pdfDW:require('./pdfDW.png')
 };
 
 export default Images;

@@ -8,7 +8,7 @@ const LOCAL_DEV_URL =
     ? `http://10.0.2.2:${PORT}/v1/api`
     : `http://localhost:${PORT}/v1/api`;
 export const BASE_URL = 'https://interlink.jasminmobile.com/v1/api';
-//  export const BASE_URL = LOCAL_DEV_URL;
+ //export const BASE_URL = LOCAL_DEV_URL;
 export const getHostUrl = (): string => {
   return BASE_URL.replace(/\/api\/?$/, '');
 };
@@ -48,6 +48,10 @@ export const API_ENDPOINTS = {
     TARGET_VS_ACHIEVEMENT_ABM_WISE: `${BASE_URL}/target-vs-achievement/abm-wise-summary`,
     TARGET_VS_ACHIEVEMENT_STATES: `${BASE_URL}/target-vs-achievement/states`,
     SPECIAL_TVA_ALL: `${BASE_URL}/special-tva/all`,
+    SCRATCH_WIN_RECONCILIATION: `${BASE_URL}/contest-winnings/reconciliation`,
+    CONTEST_WINNINGS_SYNC: `${BASE_URL}/contest-winnings/sync`,
+    CONTEST_WINNINGS_LAST_SYNC: `${BASE_URL}/contest-winnings/last-sync`,
+    BRANCHES_ALL: `${BASE_URL}/branches/all`,
   },
 
   // Special TVA Endpoints

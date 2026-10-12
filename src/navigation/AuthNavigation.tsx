@@ -32,6 +32,7 @@ import PriceListReportDetailScreen from '../screens/homeScreen/ReportsScreen.tsx
 import Watermark from '../components/Watermark/Watermark';
 import SpecialTVAReports from '../screens/homeScreen/ReportsScreen.tsx/SpecialTVAReports';
 import SpecialTvaReportDetailScreen from '../screens/homeScreen/ReportsScreen.tsx/SpecialTvaReportDetailScreen';
+import ScratchReportScreen from '../screens/homeScreen/ReportsScreen.tsx/ScratchReportScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -62,6 +63,7 @@ export type RootStackParamList = {
   SpecialTvaReportDetailScreen: { id: number | string; title?: string };
   PriceListDetailScreen: { variationId: number | string; formatName: string };
   PriceListReportDetailScreen: { variationId: number | string; formatName: string };
+  ScratchReportScreen:undefined;
   AlertMaster: undefined;
   Profile: undefined;
   Support: undefined;
@@ -183,6 +185,7 @@ export const AuthNavigation = () => {
             
             <Stack.Screen name="SpecialTVAReports" component={SpecialTVAReports} />
             <Stack.Screen name="SpecialTvaReportDetailScreen" component={SpecialTvaReportDetailScreen} />
+           <Stack.Screen name="ScratchReportScreen" component={ScratchReportScreen} />
             <Stack.Screen name="AlertMaster" component={AlertMasterScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="Support" component={SupportScreen} />

@@ -17,3 +17,4 @@ export * from './alertsApi';
 export * from './ticketsApi';
 export * from './specialTvaApi';
 export * from './appUpdateApi';
+export * from './scratchReconciliationApi';

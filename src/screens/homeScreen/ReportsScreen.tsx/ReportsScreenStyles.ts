@@ -27,7 +27,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 18,
-    overflow: 'hidden',
   },
   sectionLabel: {
     fontSize: 12,
@@ -40,7 +39,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: marginHorizontal.normal,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 30,
+    paddingBottom: Platform.OS === 'ios' ? 140 : 120,
+    flexGrow: 1,
   },
 
   /* ── Report Row Card ── */

@@ -23,6 +23,7 @@ const reportData: ReportItem[] = [
   { id: 4, title: 'Finance & Brand Report' },
   { id: 5, title: 'PriceList Report' },
   { id: 6, title: 'Special TVA Reports'},
+  { id: 7, title: 'Scratch & Win Reconciliation Report'},
 ];
 
 interface ReportsScreenProps {
@@ -51,6 +52,9 @@ const ReportsScreen: React.FC<ReportsScreenProps> = () => {
         break;
         case 6:
         navigation?.navigate('SpecialTVAReports');
+        break;
+        case 7:
+        navigation?.navigate('ScratchReportScreen');
         break;
         
       default:
@@ -111,11 +115,16 @@ const ReportsScreen: React.FC<ReportsScreenProps> = () => {
         <Text style={styles.sectionLabel}>Available Reports</Text>
 
         <FlatList
+          style={{ flex: 1 }}
           data={reportData}
           renderItem={renderReportRow}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          alwaysBounceVertical={true}
+          bounces={true}
+          nestedScrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
         />
       </View>
     </View>
