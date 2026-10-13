@@ -4,7 +4,7 @@ import { BASE_URL } from './config';
 /**
  * Hardcoded Current App Version (as instructed: do not touch gradle files)
  */
-export const CURRENT_APP_VERSION = '01.05.10';
+export const CURRENT_APP_VERSION = '01.13.10';
 
 export const getAppVersion = (): string => {
   return CURRENT_APP_VERSION;

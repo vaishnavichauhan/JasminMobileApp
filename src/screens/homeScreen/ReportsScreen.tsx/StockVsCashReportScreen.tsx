@@ -115,6 +115,42 @@ const StockVsCashCard = React.memo<{ item: StockCashDepositItem; index: number }
     item.availableLimitWithCashDeposit ??
     item.available_limit ??
     null;
+  const availableLimitN = availableLimit !== null ? Number(availableLimit) : null;
+
+  const rawSupportPercent =
+    item.support_percent ??
+    item.supportPercent ??
+    item.support_percentage ??
+    null;
+
+  let supportPercentN: number | null = null;
+  if (rawSupportPercent !== null && rawSupportPercent !== undefined && rawSupportPercent !== '') {
+    const parsed = Number(rawSupportPercent);
+    if (!isNaN(parsed)) {
+      supportPercentN = parsed;
+    }
+  }
+
+  // Fallback calculation matching backend formula:
+  // ((stock_deposit - current_stock - pending_cash_deposit) / stock_deposit) * 100
+  if (supportPercentN === null) {
+    const stockDepN = Number(item.stock_deposit ?? item.stockDeposit ?? 0);
+    const currStockN = Number(item.current_stock ?? item.currentStock ?? 0);
+    const pendingCashN =
+      pendingCashDep !== null && pendingCashDep !== undefined && pendingCashDep !== ''
+        ? Number(pendingCashDep)
+        : (Number(openingCashPending ?? 0) - Number(cashDep ?? 0));
+
+    if (stockDepN > 0) {
+      supportPercentN = ((stockDepN - currStockN - pendingCashN) / stockDepN) * 100;
+    } else {
+      supportPercentN = 0;
+    }
+  }
+
+  const supportPercentStr =
+    supportPercentN !== null ? `${supportPercentN.toFixed(2)}%` : '—';
+  const isSupportPos = (supportPercentN ?? 0) >= 0;
 
   const stName = getStateName(item);
   const ctName = getCityName(item);
@@ -247,24 +283,59 @@ const StockVsCashCard = React.memo<{ item: StockCashDepositItem; index: number }
         </View>
       </View>
 
-      {/* Footer Bar: Credit/Debit & Available Limit */}
+      {/* Footer Bar: Credit/Debit, Available Limit & Support % */}
       <View style={styles.footerBar}>
         <View style={styles.footerCol}>
-          <Text style={styles.footerLabel}>Credit / Debit</Text>
+          <Text style={styles.footerLabel} numberOfLines={1} adjustsFontSizeToFit>
+            Credit / Debit
+          </Text>
           <Text
             style={[
               styles.footerVal,
               !isNaN(creditDebitN) && creditDebitN < 0 ? styles.textNeg : null,
             ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
           >
             {fmtCurr(creditDebit)}
           </Text>
         </View>
+
         <View style={styles.footerDivider} />
-        <View style={styles.footerCol}>
-          <Text style={styles.footerLabel}>Available Limit w/ Cash Deposit</Text>
-          <Text style={[styles.footerVal, styles.limitHighlight]}>
+
+        <View style={styles.footerColMid}>
+          <Text style={styles.footerLabel} numberOfLines={1} adjustsFontSizeToFit>
+            Available Limit
+          </Text>
+          <Text
+            style={[
+              styles.footerVal,
+              availableLimitN !== null && availableLimitN < 0
+                ? styles.textNeg
+                : styles.limitHighlight,
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
             {fmtCurr(availableLimit)}
+          </Text>
+        </View>
+
+        <View style={styles.footerDivider} />
+
+        <View style={styles.footerCol}>
+          <Text style={styles.footerLabel} numberOfLines={1} adjustsFontSizeToFit>
+            Support %
+          </Text>
+          <Text
+            style={[
+              styles.footerVal,
+              isSupportPos ? styles.supportHighlight : styles.textNeg,
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {supportPercentStr}
           </Text>
         </View>
       </View>
@@ -1632,36 +1703,50 @@ const styles = StyleSheet.create({
   footerBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#F1F5F9',
     borderRadius: 12,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
   },
   footerCol: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerColMid: {
+    flex: 1.35,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
   },
   footerDivider: {
     width: 1,
     height: 26,
     backgroundColor: '#CBD5E1',
-    marginHorizontal: 10,
+    marginHorizontal: 4,
   },
   footerLabel: {
     fontSize: 9,
     fontFamily: fontFamily.regular,
     color: '#475569',
-    marginBottom: 2,
+    textAlign: 'center',
+    marginBottom: 3,
   },
   footerVal: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontFamily: fontFamily.bold,
     color: '#0F172A',
+    textAlign: 'center',
   },
   textNeg: {
     color: '#DC2626',
   },
   limitHighlight: {
-    color: '#16A34A'
+    color: '#16A34A',
+  },
+  supportHighlight: {
+    color: '#7C3AED',
   },
 
   /* States */

@@ -653,37 +653,53 @@ export const ScratchReportScreen: React.FC = () => {
         style={styles.headerStyle}
         titleStyle={styles.headerTitleStyle}
         iconColor={colors.white}
-        rightComponent={
+      />
+
+      {/* ── Main Container ── */}
+      <View style={styles.mainContainer}>
+        {/* ── Screen Top Bar (Sync status banner + Top-Right PDF download icon) ── */}
+        <View style={[styles.screenTopBar, !lastSync?.created_at && styles.screenTopBarPlain]}>
+          {lastSync?.created_at ? (
+            <View style={styles.syncBannerRow}>
+              <Image source={Images.gift} style={styles.syncBannerIcon} resizeMode="contain" />
+              <Text style={styles.syncBannerText} numberOfLines={1}>
+                Winnings Synced:{' '}
+                <Text style={styles.syncBannerBold}>{formatDateTime(lastSync.created_at)}</Text>
+              </Text>
+            </View>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+
           <TouchableOpacity
             style={[
-              styles.headerPdfBtn,
-              (isDownloadingPdf || filteredRecords.length === 0) && styles.headerPdfBtnDisabled,
+              styles.screenTopPdfBtn,
+              (isDownloadingPdf || filteredRecords.length === 0) && styles.screenTopPdfBtnDisabled,
             ]}
             activeOpacity={0.75}
             disabled={isDownloadingPdf || filteredRecords.length === 0}
             onPress={handleExportPdf}
           >
             {isDownloadingPdf ? (
-              <ActivityIndicator size="small" color={colors.white} />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <Text style={styles.headerPdfBtnText}>📥 PDF</Text>
+              <View style={styles.pdfBtnContent}>
+                <Image
+                  source={Images.pdfDW}
+                  style={styles.pdfDWImg}
+                  resizeMode="contain"
+                />
+                <View style={styles.downArrowWrap}>
+                  <Image
+                    source={Images.down}
+                    style={styles.downArrowIcon}
+                    resizeMode="contain"
+                  />
+                </View>
+              </View>
             )}
           </TouchableOpacity>
-        }
-      />
-
-      {/* ── Main Container ── */}
-      <View style={styles.mainContainer}>
-        {/* Winnings Synced Banner */}
-        {lastSync?.created_at && (
-          <View style={styles.syncBannerRow}>
-            <Image source={Images.gift} style={styles.syncBannerIcon} resizeMode="contain" />
-            <Text style={styles.syncBannerText}>
-              Winnings Synced:{' '}
-              <Text style={styles.syncBannerBold}>{formatDateTime(lastSync.created_at)}</Text>
-            </Text>
-          </View>
-        )}
+        </View>
 
 
         {/* ── Status Tab Navigation ── */}
@@ -997,22 +1013,7 @@ export const ScratchReportScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Download PDF Button */}
-          <TouchableOpacity
-            style={[
-              styles.filterPdfBtn,
-              (isDownloadingPdf || filteredRecords.length === 0) && styles.filterPdfBtnDisabled,
-            ]}
-            activeOpacity={0.8}
-            disabled={isDownloadingPdf || filteredRecords.length === 0}
-            onPress={handleExportPdf}
-          >
-            {isDownloadingPdf ? (
-              <ActivityIndicator size="small" color="#BE123C" />
-            ) : (
-              <Text style={styles.filterPdfBtnText}>📄 PDF</Text>
-            )}
-          </TouchableOpacity>
+
 
           {/* Reset Filters Button */}
           {hasActiveFilters && (
@@ -1443,15 +1444,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
+  screenTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: '#EFF6FF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#DBEAFE',
+  },
+  screenTopBarPlain: {
+    backgroundColor: '#F8FAFC',
+    borderBottomWidth: 0,
+    paddingVertical: 8,
+  },
   syncBannerRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#EFF6FF',
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#DBEAFE',
+    marginRight: 10,
   },
   syncBannerIcon: {
     width: 15,
@@ -2473,45 +2486,48 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
 
-  /* Header & Filter PDF Buttons */
-  headerPdfBtn: {
-    backgroundColor: '#E11D48',
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+  /* Screen Top-Right PDF Button */
+  screenTopPdfBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 3.5,
     borderRadius: 8,
-    marginRight: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 56,
-    minHeight: 28,
-  },
-  headerPdfBtnDisabled: {
-    opacity: 0.5,
-  },
-  headerPdfBtnText: {
-    color: colors.white,
-    fontFamily: fontFamily.bold,
-    fontSize: 11.5,
-  },
-  filterPdfBtn: {
-    backgroundColor: '#FFF1F2',
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: '#FDA4AF',
-    borderRadius: 8,
-    paddingHorizontal: 9,
-    paddingVertical: 5.5,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  screenTopPdfBtnDisabled: {
+    opacity: 0.45,
+  },
+  pdfBtnContent: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pdfDWImg: {
+    width: 24,
+    height: 24,
+  },
+  downArrowWrap: {
+    width: 15,
+    height: 15,
+    borderRadius: 7.5,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  filterPdfBtnDisabled: {
-    opacity: 0.4,
-  },
-  filterPdfBtnText: {
-    fontSize: 11,
-    fontFamily: fontFamily.bold,
-    color: '#BE123C',
+  downArrowIcon: {
+    width: 7,
+    height: 7,
+    tintColor: '#1E40AF',
   },
 
   /* ── PDF Downloaded Alert Modal ── */

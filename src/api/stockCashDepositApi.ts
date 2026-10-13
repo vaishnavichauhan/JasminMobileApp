@@ -33,6 +33,9 @@ export interface StockCashDepositItem {
   support_twenty?: number | string;
   support?: number | string;
 
+  support_percent?: number | string;
+  supportPercent?: number | string;
+
   paid_support?: number | string;
   paidSupport?: number | string;
 
